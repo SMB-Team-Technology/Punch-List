@@ -8,14 +8,48 @@
  * picker offers exactly this list.
  */
 
-import { UPLOAD_FORMATS, type UploadFormat } from '@marklayer/types';
+import {
+  isAudioType,
+  isVideoType,
+  MAX_VIDEO_BYTES,
+  MAX_VOICE_BYTES,
+  UPLOAD_FORMATS,
+  type UploadFormat,
+} from '@marklayer/types';
 
 const matches = (bytes: Uint8Array, { offset, bytes: magic }: UploadFormat['magic'][number]): boolean =>
   magic.every((byte, i) => bytes[offset + i] === byte);
 
-/** The content type these bytes actually are, or `undefined` if not one we take. */
-export function sniffUploadType(bytes: Uint8Array): string | undefined {
-  return UPLOAD_FORMATS.find((format) => format.magic.every((m) => matches(bytes, m)))?.contentType;
+const sniffAmong = (formats: UploadFormat[], bytes: Uint8Array): string | undefined =>
+  formats.find((format) => format.magic.every((m) => matches(bytes, m)))?.contentType;
+
+// Video shares its magic with audio, so a plain upload never sniffs as video.
+const NON_VIDEO_FORMATS = UPLOAD_FORMATS.filter((format) => !isVideoType(format.contentType));
+const VIDEO_FORMATS = UPLOAD_FORMATS.filter((format) => isVideoType(format.contentType));
+
+/** `POST /f`'s verdict on a body: the type to store it as, or the status to refuse it with. */
+export type UploadVerdict = { contentType: string } | { status: 413 | 415; message: string };
+
+/** `kind=video` is the caller's word that a WebM/MP4 is a camera or screen clip rather than a voice note. */
+export function classifyUpload({ bytes, kind }: { bytes: Uint8Array; kind?: string }): UploadVerdict {
+  if (kind === 'video') {
+    const contentType = sniffAmong(VIDEO_FORMATS, bytes);
+    if (!contentType) return { status: 415, message: 'Not a video recording' };
+    if (bytes.byteLength > MAX_VIDEO_BYTES) return { status: 413, message: 'Video note too large' };
+    return { contentType };
+  }
+  const contentType = sniffAmong(NON_VIDEO_FORMATS, bytes);
+  if (!contentType) return { status: 415, message: 'Unsupported file type' };
+  // A recording is at most MAX_VOICE_SECONDS long, and every one is fed to a paid model.
+  if (isAudioType(contentType) && bytes.byteLength > MAX_VOICE_BYTES) {
+    return { status: 413, message: 'Voice note too large' };
+  }
+  return { contentType };
+}
+
+/** Only audio reaches the paid transcription model; video notes carry no transcript. */
+export function isTranscribable(contentType: string | undefined): boolean {
+  return isUploadType(contentType) && isAudioType(contentType);
 }
 
 /**

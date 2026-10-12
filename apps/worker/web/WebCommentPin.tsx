@@ -1,10 +1,9 @@
 import { AgentFixBanner } from '@ext/components/AgentFixBanner';
-import { AttachmentGallery } from '@ext/components/AttachmentPicker';
+import { CommentMedia } from '@ext/components/CommentMedia';
 import { TriageSection, useTriageHold } from '@ext/components/CommentTriage';
 import { MentionText } from '@ext/components/MentionText';
 import { PriorityPin } from '@ext/components/PriorityPicker';
 import { ReplyComposer, ThreadHeader, ThreadReplies, threadCard } from '@ext/components/ThreadCard';
-import { VoicePlayer } from '@ext/components/VoiceNote';
 import { AgentMark } from '@ext/lib/agents';
 import { flashRing } from '@ext/lib/checkFix';
 import { geist } from '@ext/lib/geist';
@@ -15,6 +14,7 @@ import {
   focusedAnnotationId,
   getCommentStatus,
   getReplies,
+  localUser,
   openContextMenu,
   STATUS_LABELS,
   STATUS_STYLES,
@@ -175,6 +175,7 @@ export function WebCommentPin({ op, scale: s, scrollY, frameDoc }: Props) {
                 author={isAgentAuthored(op) && op.author ? agentLabel(op.author) : op.author}
                 ts={op.ts}
                 priority={op.priority}
+                onDelete={op.authorId === localUser.id ? () => deleteOp(op.id) : undefined}
               />
 
               {(op.assignedAgent || dismissed) && (
@@ -209,8 +210,7 @@ export function WebCommentPin({ op, scale: s, scrollY, frameDoc }: Props) {
                 <p class="m-0 text-(--ds-gray-1000) text-ui leading-body break-words whitespace-pre-wrap">
                   <MentionText text={op.text} mentions={op.mentions} />
                 </p>
-                {op.attachments && <AttachmentGallery ids={op.attachments} resolveUrl={fileUrl} />}
-                {op.voice && <VoicePlayer id={op.voice} resolveUrl={fileUrl} />}
+                <CommentMedia op={op} resolveUrl={fileUrl} />
               </div>
 
               <ThreadReplies replies={replies} resolveUrl={fileUrl} />

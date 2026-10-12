@@ -1,14 +1,13 @@
 import { cn, MAX_VOICE_SECONDS } from '@marklayer/types';
-import { useSignal } from '@preact/signals';
-import { Loader2, Mic, Square, X } from 'lucide-preact';
-import { useEffect, useRef } from 'preact/hooks';
+import { Loader2, Mic } from 'lucide-preact';
 import { geist } from '../lib/geist';
+import { type OpenedStream, type RecorderSlot, useRecorder } from '../lib/recorder';
 import { toast } from '../lib/state';
+import { MediaDraft, RecorderStop } from './MediaNote';
+import { Tooltip } from './Tooltip';
 
 /** Opus in WebM where the browser has it, MP4 for Safari; the first one MediaRecorder admits to. */
 const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/mp4'];
-
-const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
 interface VoiceNoteOptions {
   /** Same injected upload as the attachments' — the two apps reach `/f` through different origins. */
@@ -19,90 +18,38 @@ interface VoiceNoteOptions {
   onText: (text: string) => void;
   /** The user's picked microphone, where the app lets them pick one. */
   constraint?: () => MediaTrackConstraints;
+  slot?: RecorderSlot;
 }
 
-/** One composer's recording: idle, recording, then uploading and transcribing, ending in an upload id. */
-export function useVoiceNote({ upload, transcribe, onText, constraint }: VoiceNoteOptions) {
-  const status = useSignal<'idle' | 'recording' | 'working'>('idle');
-  const id = useSignal<string | null>(null);
-  const elapsed = useSignal(0);
-  const recorder = useRef<MediaRecorder | null>(null);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const discard = useRef(false);
+/** One composer's voice note: a recording that ends in an upload id and a transcript in the text box. */
+export function useVoiceNote({ upload, transcribe, onText, constraint, slot }: VoiceNoteOptions) {
+  const recorder = useRecorder({
+    kind: 'voice',
+    slot,
+    mimeTypes: MIME_CANDIDATES,
+    maxSeconds: MAX_VOICE_SECONDS,
+    upload,
+    onUploaded: async (id) => {
+      const text = await transcribe(id);
+      if (text) onText(text);
+      else toast('No transcript. The audio is still attached');
+    },
+  });
 
-  const clearTimer = () => {
-    if (timer.current) clearInterval(timer.current);
-    timer.current = null;
-  };
-
-  const finish = async (blob: Blob) => {
-    status.value = 'working';
-    const uploaded = await upload(blob);
-    if (!uploaded) {
-      toast('Could not save the recording');
-      status.value = 'idle';
-      return;
-    }
-    id.value = uploaded;
-    const text = await transcribe(uploaded);
-    if (text) onText(text);
-    else toast('No transcript. The audio is still attached');
-    status.value = 'idle';
-  };
-
-  const start = async () => {
-    const mimeType = MIME_CANDIDATES.find((type) => MediaRecorder.isTypeSupported(type));
-    let stream: MediaStream;
+  const openMic = async (): Promise<OpenedStream | null> => {
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: constraint?.() ?? true });
+      return { stream: await navigator.mediaDevices.getUserMedia({ audio: constraint?.() ?? true }) };
     } catch {
       toast('Microphone unavailable');
-      return;
+      return null;
     }
-    const chunks: Blob[] = [];
-    const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    rec.ondataavailable = (e) => chunks.push(e.data);
-    rec.onstop = () => {
-      for (const track of stream.getTracks()) track.stop();
-      clearTimer();
-      recorder.current = null;
-      if (discard.current) return;
-      void finish(new Blob(chunks, { type: rec.mimeType }));
-    };
-    discard.current = false;
-    recorder.current = rec;
-    rec.start();
-    const startedAt = Date.now();
-    elapsed.value = 0;
-    status.value = 'recording';
-    timer.current = setInterval(() => {
-      elapsed.value = Math.floor((Date.now() - startedAt) / 1000);
-      if (elapsed.value >= MAX_VOICE_SECONDS) rec.stop();
-    }, 250);
-  };
-
-  // Closing the composer mid-recording must release the mic, not leave the tab's indicator lit.
-  useEffect(
-    () => () => {
-      discard.current = true;
-      recorder.current?.stop();
-      clearTimer();
-    },
-    [],
-  );
-
-  const toggle = () => {
-    if (status.value === 'recording') recorder.current?.stop();
-    else if (status.value === 'idle') void start();
   };
 
   return {
-    status,
-    id,
-    elapsed,
-    toggle,
-    clear: () => {
-      id.value = null;
+    ...recorder,
+    toggle: () => {
+      if (recorder.status.value === 'recording') recorder.stop();
+      else void recorder.start(openMic);
     },
   };
 }
@@ -110,34 +57,30 @@ export function useVoiceNote({ upload, transcribe, onText, constraint }: VoiceNo
 export type VoiceNote = ReturnType<typeof useVoiceNote>;
 
 /** Bare mic control for a composer's action row; becomes stop-and-clock while recording. */
-export function VoiceButton({ voice }: { voice: VoiceNote }) {
-  const recording = voice.status.value === 'recording';
-  const working = voice.status.value === 'working';
-  const label = recording ? 'Stop recording' : 'Record a voice note';
+export function VoiceButton({ voice, label }: { voice: VoiceNote; label?: boolean }) {
+  const status = voice.status.value;
+  if (status === 'recording') return <RecorderStop recorder={voice} />;
+  const pending = status === 'starting' || status === 'working';
   return (
     <button
       type="button"
-      disabled={working || voice.id.value !== null}
+      disabled={voice.blocked.value || pending || voice.id.value !== null}
       onClick={voice.toggle}
-      title={label}
-      aria-label={label}
+      aria-label={label ? undefined : 'Record a voice note'}
       class={cn(
         geist.ctlXs,
-        recording ? geist.ctlOn : geist.ctlIdle,
-        recording && 'w-auto gap-1 px-1.5 text-meta tabular-nums',
+        geist.ctlIdle,
+        label && geist.ctlLabel,
         'disabled:opacity-40 disabled:pointer-events-none',
       )}
     >
-      {recording ? (
-        <>
-          <Square size={10} fill="currentColor" aria-hidden="true" />
-          {clock(voice.elapsed.value)}
-        </>
-      ) : working ? (
+      {pending ? (
         <Loader2 size={14} class="animate-spin" aria-hidden="true" />
       ) : (
         <Mic size={14} strokeWidth={1.75} aria-hidden="true" />
       )}
+      {label && 'Voice'}
+      <Tooltip text="Record a voice note" />
     </button>
   );
 }
@@ -157,24 +100,12 @@ export function VoicePlayer({ id, resolveUrl }: { id: string; resolveUrl: (id: s
   );
 }
 
-/** The recorded note as it sits in the composer, with a way to throw it away and record again. */
 export function VoiceDraft({ voice, resolveUrl }: { voice: VoiceNote; resolveUrl: (id: string) => string }) {
   const id = voice.id.value;
   if (!id) return null;
   return (
-    <div class="flex items-center gap-1.5">
-      <div class="min-w-0 flex-1">
-        <VoicePlayer id={id} resolveUrl={resolveUrl} />
-      </div>
-      <button
-        type="button"
-        onClick={voice.clear}
-        title="Remove voice note"
-        aria-label="Remove voice note"
-        class={cn(geist.ctlXs, geist.ctlIdle, 'mt-1.5 shrink-0')}
-      >
-        <X size={12} strokeWidth={2} aria-hidden="true" />
-      </button>
-    </div>
+    <MediaDraft label="Remove voice note" onClear={voice.clear}>
+      <VoicePlayer id={id} resolveUrl={resolveUrl} />
+    </MediaDraft>
   );
 }

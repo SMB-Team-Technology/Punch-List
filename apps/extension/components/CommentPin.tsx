@@ -20,12 +20,11 @@ import {
 } from '../lib/state';
 import type { CommentOp } from '../lib/types';
 import { AgentFixBanner } from './AgentFixBanner';
-import { AttachmentGallery } from './AttachmentPicker';
+import { CommentMedia } from './CommentMedia';
 import { TriageSection, useTriageHold } from './CommentTriage';
 import { MentionText } from './MentionText';
 import { PriorityPin } from './PriorityPicker';
 import { ReplyComposer, ThreadHeader, ThreadReplies } from './ThreadCard';
-import { VoicePlayer } from './VoiceNote';
 
 /**
  * Strip the leading `tag:` segment from an inspector field value when it's
@@ -206,8 +205,7 @@ export function CommentPin({ op }: { op: CommentOp }) {
                   <MentionText text={op.text} mentions={op.mentions} />
                 </p>
               )}
-              {op.attachments && <AttachmentGallery ids={op.attachments} resolveUrl={fileUrl} />}
-              {op.voice && <VoicePlayer id={op.voice} resolveUrl={fileUrl} />}
+              <CommentMedia op={op} resolveUrl={fileUrl} />
             </div>
 
             <ThreadReplies replies={replies} resolveUrl={fileUrl} />

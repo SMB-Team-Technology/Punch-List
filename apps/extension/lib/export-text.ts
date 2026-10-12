@@ -6,6 +6,8 @@ interface ExportMeta {
   generatedAt?: number;
   /** Optional list of (url, ops) tuples to render multi-page projects */
   pages?: { url: string | null; ops: DrawOp[] }[];
+  /** Absolute URL of an upload, for linking video notes; omitted, they are left out. */
+  fileUrl?: (id: string) => string;
 }
 
 function pluralize(n: number, word: string): string {
@@ -52,11 +54,17 @@ function partition(ops: DrawOp[]) {
   return { roots, replies, selections, texts };
 }
 
-function renderSection(
-  ops: DrawOp[],
-  headingLevel: number,
-  out: string[],
-): { comments: number; selections: number; texts: number } {
+function renderSection({
+  ops,
+  headingLevel,
+  out,
+  fileUrl,
+}: {
+  ops: DrawOp[];
+  headingLevel: number;
+  out: string[];
+  fileUrl?: (id: string) => string;
+}): { comments: number; selections: number; texts: number } {
   const h = '#'.repeat(headingLevel);
   const sub = '#'.repeat(headingLevel + 1);
   const { roots, replies, selections, texts } = partition(ops);
@@ -76,6 +84,7 @@ function renderSection(
         if (metaParts.length) out.push(`_${metaParts.join(' · ')}_`);
       }
       out.push('', c.text);
+      if (c.video && fileUrl) out.push('', `[Video note](${fileUrl(c.video)})`);
       const reps = replies.get(c.id) ?? [];
       for (const r of reps) {
         out.push('', `> **${r.author || 'Anonymous'}:** ${quote(r.text)}`);
@@ -139,7 +148,7 @@ export function buildMarkdownExport(ops: DrawOp[], meta: ExportMeta = {}): strin
       }
       out.push(`## Page ${i + 1} — ${label}`, '');
       if (page.url) out.push(`<${page.url}>`, '');
-      renderSection(page.ops, 3, out);
+      renderSection({ ops: page.ops, headingLevel: 3, out, fileUrl: meta.fileUrl });
     });
     return `${out
       .join('\n')
@@ -148,7 +157,7 @@ export function buildMarkdownExport(ops: DrawOp[], meta: ExportMeta = {}): strin
   }
 
   const rendered: string[] = [];
-  const counts = renderSection(ops, 2, rendered);
+  const counts = renderSection({ ops, headingLevel: 2, out: rendered, fileUrl: meta.fileUrl });
   const totals: string[] = [];
   if (counts.comments) totals.push(pluralize(counts.comments, 'comment'));
   if (counts.selections) totals.push(pluralize(counts.selections, 'selection'));

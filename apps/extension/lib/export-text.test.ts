@@ -43,6 +43,14 @@ describe('buildMarkdownExport', () => {
     expect(md).toContain('Nav feels cramped');
   });
 
+  test('links a video note when it can resolve one, and stays silent when it cannot', () => {
+    const ops = [comment({ video: 'abc123def456ghi789jkl' })];
+    const fileUrl = (id: string) => `https://marklayer.app/f/${id}`;
+    expect(build(ops, { fileUrl })).toContain('[Video note](https://marklayer.app/f/abc123def456ghi789jkl)');
+    expect(build(ops)).not.toContain('Video note');
+    expect(build([comment()], { fileUrl })).not.toContain('Video note');
+  });
+
   test('names an unattributed comment rather than leaving the author blank', () => {
     expect(build([comment()])).toContain('### #1 — Anonymous');
   });

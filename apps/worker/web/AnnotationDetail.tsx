@@ -1,16 +1,16 @@
 import { AgentFixBanner } from '@ext/components/AgentFixBanner';
 import { AttachmentGallery, AttachmentThumbs, ComposerActions, useAttachments } from '@ext/components/AttachmentPicker';
 import { Avatar } from '@ext/components/Avatar';
+import { CommentMedia } from '@ext/components/CommentMedia';
 import { TriageSection } from '@ext/components/CommentTriage';
 import { MentionText } from '@ext/components/MentionText';
 import { MentionTextarea, useMentions } from '@ext/components/MentionTextarea';
-import { PRIORITY_LEVELS, PRIORITY_META } from '@ext/components/PriorityPicker';
 import { SuggestionDiff } from '@ext/components/SelectionEdit';
-import { VoicePlayer } from '@ext/components/VoiceNote';
 import { composerCls, textareaBareCls } from '@ext/lib/buttons';
 import { replyRequest } from '@ext/lib/checkFix';
 import { geist } from '@ext/lib/geist';
 import { glass } from '@ext/lib/glass';
+import { PRIORITY_LEVELS, PRIORITY_META } from '@ext/lib/priority';
 import {
   color,
   copyText,
@@ -311,8 +311,7 @@ function DetailBody({ item }: { item: AnnotationItem }) {
         >
           <MentionText text={item.op.text} mentions={item.op.mentions} />
         </p>
-        {item.op.attachments && <AttachmentGallery ids={item.op.attachments} resolveUrl={fileUrl} />}
-        {item.op.voice && <VoicePlayer id={item.op.voice} resolveUrl={fileUrl} />}
+        <CommentMedia op={item.op} resolveUrl={fileUrl} />
       </>
     );
   }

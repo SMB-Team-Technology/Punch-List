@@ -2,17 +2,18 @@ import { type CaptureViewport, type CommentPriority, cn, type TargetElement } fr
 import { useSignal } from '@preact/signals';
 import { nanoid } from 'nanoid';
 import { useEffect, useRef } from 'preact/hooks';
-import { submitBtn, textareaCls } from '../lib/buttons';
+import { submitBtn, textareaBareCls } from '../lib/buttons';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { useEdgeClamp } from '../lib/popover';
+import type { RecorderKind } from '../lib/recorder';
 import { color, commentCounter, getCommentMeta, lineWidth, signedBy } from '../lib/state';
 import type { CommentOp } from '../lib/types';
-import { AttachmentRow, useAttachments } from './AttachmentPicker';
+import { AttachButton, AttachmentThumbs, useAttachments } from './AttachmentPicker';
 import { ModalSheet } from './BottomSheet';
-import { CancelButton } from './CancelButton';
 import { MentionTextarea, useMentions } from './MentionTextarea';
 import { PriorityPicker } from './PriorityPicker';
+import { useVideoNote, VideoButton, VideoDraft, VideoLive } from './VideoNote';
 import { useVoiceNote, VoiceButton, VoiceDraft } from './VoiceNote';
 
 interface DraftProps {
@@ -22,47 +23,60 @@ interface DraftProps {
   capture: () => { target?: TargetElement; captureViewport: CaptureViewport };
   push: (op: CommentOp) => void;
   onClose: () => void;
-  /** Omitted where screenshot attachments shouldn't be offered — the marketing
-   *  page's live demo, which stays text-only rather than opening an anonymous
-   *  upload endpoint to public traffic. */
-  attachments?: {
+  /** Omitted where uploads shouldn't be offered — the marketing page's live demo, which
+   *  stays text-only rather than opening an anonymous upload endpoint to public traffic. */
+  media?: {
     upload: (file: File | Blob) => Promise<string | null>;
     resolveUrl: (id: string) => string;
-  };
-  /** Offers a mic button that records a voice note into the comment. Needs `attachments`,
-   *  since the audio rides the same upload; omitted wherever those are. */
-  voice?: {
-    transcribe: (id: string) => Promise<string | null>;
-    constraint?: () => MediaTrackConstraints;
+    /** A mic button; the audio rides `upload`. */
+    voice?: {
+      transcribe: (id: string) => Promise<string | null>;
+      constraint?: () => MediaTrackConstraints;
+    };
+    /** A camera/screen recorder. The extension omits it: a content script records
+     *  under the host site's permissions and dies on navigation. */
+    video?: {
+      upload: (file: File | Blob) => Promise<string | null>;
+    };
   };
 }
+
+const noUpload = async (): Promise<null> => null;
 
 type Draft = ReturnType<typeof useCommentDraft>;
 
 /** The comment being written, independent of the surface it is written on. */
-function useCommentDraft({ at, capture, push, onClose, attachments, voice: voiceConfig }: DraftProps) {
+function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  /** Mirrors the uncontrolled field so Post can disable itself while there is nothing to post. */
+  const typed = useSignal(false);
   const num = commentCounter.value + 1;
   const priority = useSignal<CommentPriority | undefined>(undefined);
   const { mentionProps, mentions } = useMentions();
-  const picker = useAttachments(attachments?.upload ?? (async () => null));
+  const picker = useAttachments(media?.upload ?? noUpload);
+  const slot = useSignal<RecorderKind | null>(null);
   const voice = useVoiceNote({
-    upload: attachments?.upload ?? (async () => null),
-    transcribe: voiceConfig?.transcribe ?? (async () => null),
-    constraint: voiceConfig?.constraint,
+    slot,
+    upload: media?.upload ?? noUpload,
+    transcribe: media?.voice?.transcribe ?? noUpload,
+    constraint: media?.voice?.constraint,
     // The transcript is a draft: it lands in the box to be edited, after anything already typed.
     onText: (text) => {
       const ta = taRef.current;
       if (!ta || !text) return;
       ta.value = ta.value.trim() ? `${ta.value.trim()} ${text}` : text;
+      typed.value = true;
       ta.focus();
     },
   });
+  const video = useVideoNote({ slot, upload: media?.video?.upload ?? noUpload });
+  const recording = slot.value !== null;
+  const postable = typed.value || picker.ids.length > 0 || voice.id.value !== null || video.id.value !== null;
 
   const commit = (save: boolean) => {
     const txt = taRef.current?.value.trim();
-    if (save && (txt || voice.id.value)) {
-      if (picker.uploading || voice.status.value !== 'idle') return;
+    if (save && (txt || picker.ids.length || voice.id.value || video.id.value)) {
+      if (picker.uploading || recording) return;
       push({
         id: nanoid(),
         tool: 'comment' as const,
@@ -79,6 +93,7 @@ function useCommentDraft({ at, capture, push, onClose, attachments, voice: voice
         mentions: mentions(),
         attachments: picker.ids.length ? picker.ids : undefined,
         voice: voice.id.value ?? undefined,
+        video: video.id.value ?? undefined,
         meta: getCommentMeta(),
         ...capture(),
       });
@@ -86,71 +101,76 @@ function useCommentDraft({ at, capture, push, onClose, attachments, voice: voice
     onClose();
   };
 
-  return { taRef, num, priority, mentionProps, picker, attachments, voice, voiceConfig, commit };
+  return { taRef, typed, num, priority, mentionProps, picker, media, voice, video, recording, postable, commit };
 }
 
-/** Header, field and actions: the same composer on either surface. `submit` is
- *  the button's label, which carries the Enter hint only where there is a keyboard. */
-function ComposerBody({ draft, submit }: { draft: Draft; submit: string }) {
-  const { taRef, num, priority, mentionProps, picker, attachments, voice, voiceConfig, commit } = draft;
+/** The field and one toolbar; the pin's number leads the text like an avatar, so no header is needed.
+ *  `hint` shows the Enter key on Post where there is a keyboard. */
+function ComposerBody({ draft, hint }: { draft: Draft; hint: boolean }) {
+  const { taRef, typed, num, priority, mentionProps, picker, media, voice, video, recording, postable, commit } = draft;
   return (
     <>
-      <div class="flex items-center gap-2.5 px-4 pt-3.5 pb-2">
+      <div class="flex items-start gap-2.5 px-3 pt-3">
         <div
-          class="w-6 h-6 rounded-full text-white text-meta font-medium grid place-items-center shrink-0
-                 shadow-[inset_0_1px_0_oklch(1_0_0/0.15)]"
+          class="mt-px size-5 rounded-full text-white text-mini font-semibold tabular-nums grid place-items-center shrink-0"
           style={{ background: color.value }}
+          aria-hidden="true"
         >
           {num}
         </div>
-        <span class="text-ui text-(--ds-gray-1000) font-semibold tracking-ui flex-1">New comment</span>
+        <div class="min-w-0 flex-1">
+          <MentionTextarea
+            name="comment"
+            aria-label={`Comment ${num}`}
+            taRef={taRef}
+            {...mentionProps}
+            placeholder="Leave a comment…"
+            rows={1}
+            onInput={(e) => {
+              typed.value = e.currentTarget.value.trim() !== '';
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                commit(true);
+              }
+            }}
+            class={cn(textareaBareCls, 'block w-full min-h-[22px] max-h-60 p-0 resize-none', glass.font)}
+            style={{ fieldSizing: 'content' }}
+            onPaste={media ? (e) => picker.onPaste(e) : undefined}
+          />
+          {media && <AttachmentThumbs attachments={picker} resolveUrl={media.resolveUrl} class="mt-2" />}
+          {media?.voice && <VoiceDraft voice={voice} resolveUrl={media.resolveUrl} />}
+          {media?.video && (
+            <>
+              <VideoLive video={video} />
+              <VideoDraft video={video} resolveUrl={media.resolveUrl} />
+            </>
+          )}
+        </div>
       </div>
 
-      <div class={cn(geist.divider, 'mx-3.5')} />
-
-      <div class="p-3.5">
-        <MentionTextarea
-          name="comment"
-          taRef={taRef}
-          {...mentionProps}
-          placeholder="Leave a comment…"
-          rows={1}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              commit(true);
-            } else if (e.key === 'Escape') {
-              e.preventDefault();
-              commit(false);
-            }
-          }}
-          class={cn(textareaCls, 'w-full min-h-10 max-h-100', glass.font)}
-          style={{ fieldSizing: 'content', boxSizing: 'border-box' }}
-          onPaste={attachments ? (e) => picker.onPaste(e) : undefined}
-        />
-        {attachments && <AttachmentRow attachments={picker} resolveUrl={attachments.resolveUrl} />}
-        {attachments && voiceConfig && (
-          <>
-            <VoiceDraft voice={voice} resolveUrl={attachments.resolveUrl} />
-            <div class="mt-1.5 flex items-center">
-              <VoiceButton voice={voice} />
-            </div>
-          </>
-        )}
-        <PriorityPicker value={priority.value} onChange={(p) => (priority.value = p)} class="mt-1.5 -ml-1.5" />
-      </div>
-
-      <div class={cn(geist.divider, 'mx-3.5')} />
-
-      <div class="flex items-center justify-between px-4 py-2.5">
-        <CancelButton onClick={() => commit(false)} />
+      <div class="flex flex-wrap items-center gap-0.5 gap-y-1 px-2 pt-2 pb-2">
+        {media && <AttachButton attachments={picker} label />}
+        {media?.voice && <VoiceButton voice={voice} label />}
+        {media?.video && <VideoButton video={video} label />}
+        <PriorityPicker bare value={priority.value} onChange={(p) => (priority.value = p)} />
         <button
           type="button"
           onClick={() => commit(true)}
-          disabled={picker.uploading || voice.status.value !== 'idle'}
-          class={cn(submitBtn, 'disabled:pointer-events-none disabled:opacity-50')}
+          disabled={!postable || picker.uploading || recording}
+          class={cn(
+            submitBtn,
+            'ml-auto h-7 px-2.5',
+            'disabled:pointer-events-none disabled:bg-(--ds-gray-alpha-200) disabled:text-(--ds-gray-700)',
+          )}
         >
-          {submit}
+          Post
+          {hint && (
+            <span class="text-ui leading-none opacity-60" aria-hidden="true">
+              ↵
+            </span>
+          )}
         </button>
       </div>
     </>
@@ -173,7 +193,7 @@ export function CommentPopover({
     draft.taRef.current?.focus();
   }, []);
 
-  const left = Math.min(anchorAt.x + 16, innerWidth - 300);
+  const left = Math.min(anchorAt.x + 16, innerWidth - 364);
   const { ref: panelRef, top } = useEdgeClamp({ top: anchorAt.y + 16 });
 
   return (
@@ -183,13 +203,22 @@ export function CommentPopover({
         'animate-[fadeInDown_180ms_cubic-bezier(0.16,1,0.3,1)]',
         geist.surface,
         glass.font,
-        'overflow-hidden w-[290px]',
+        'overflow-hidden w-[360px]',
       )}
       ref={panelRef}
       style={{ left: Math.max(4, left), top }}
+      role="dialog"
+      aria-label="New comment"
       onClick={(e) => e.stopPropagation()}
+      // Escape cancels from anywhere in the panel, not just the field: after a click on
+      // the toolbar, focus sits on a button. The mention list stops its own Escape.
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
+        e.preventDefault();
+        draft.commit(false);
+      }}
     >
-      <ComposerBody draft={draft} submit="Post ↵" />
+      <ComposerBody draft={draft} hint />
     </div>
   );
 }
@@ -205,7 +234,7 @@ export function CommentSheet(props: DraftProps) {
       label="New comment"
       initialFocus={draft.taRef}
     >
-      <ComposerBody draft={draft} submit="Post" />
+      <ComposerBody draft={draft} hint={false} />
     </ModalSheet>
   );
 }

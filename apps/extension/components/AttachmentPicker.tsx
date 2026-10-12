@@ -3,6 +3,7 @@ import { ImagePlus, Loader2, X } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
 import { geist } from '../lib/geist';
 import { compressImage } from '../lib/image';
+import { Tooltip } from './Tooltip';
 
 /**
  * Upload queue for one composer's attachments. `upload` is injected rather than
@@ -121,7 +122,7 @@ export function AttachmentThumbs({
 }
 
 /** Bare add-image icon button. Meant to sit inline in a composer's action row, next to Cancel/Reply. */
-export function AttachButton({ attachments }: { attachments: Attachments }) {
+export function AttachButton({ attachments, label }: { attachments: Attachments; label?: boolean }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -130,10 +131,17 @@ export function AttachButton({ attachments }: { attachments: Attachments }) {
         type="button"
         disabled={attachments.full}
         onClick={() => inputRef.current?.click()}
-        title="Attach a screenshot"
-        class={cn(geist.ctlXs, geist.ctlIdle, 'disabled:opacity-40 disabled:pointer-events-none')}
+        aria-label={label ? undefined : 'Attach a screenshot'}
+        class={cn(
+          geist.ctlXs,
+          geist.ctlIdle,
+          label && geist.ctlLabel,
+          'disabled:opacity-40 disabled:pointer-events-none',
+        )}
       >
         <ImagePlus size={14} strokeWidth={1.75} aria-hidden="true" />
+        {label && 'Image'}
+        <Tooltip text="Attach a screenshot" />
       </button>
       <input
         ref={inputRef}
@@ -194,22 +202,6 @@ export function ComposerActions({
           Reply
         </button>
       </div>
-    </div>
-  );
-}
-
-/** The add-image button plus the thumbnail row it fills, as one unit — for composers that keep it on its own line (`CommentPopover`). */
-export function AttachmentRow({
-  attachments,
-  resolveUrl,
-}: {
-  attachments: Attachments;
-  resolveUrl: (id: string) => string;
-}) {
-  return (
-    <div class={STRIP}>
-      <Thumbs attachments={attachments} resolveUrl={resolveUrl} />
-      <AttachButton attachments={attachments} />
     </div>
   );
 }

@@ -37,6 +37,7 @@ export {
   saveProject,
   transcribeFile,
   uploadFile,
+  uploadVideo,
   withScheme,
 } from './projects';
 

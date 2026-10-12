@@ -69,6 +69,12 @@
       "name": "EMAIL_LIMITER",
       "namespace_id": "4272",
       "simple": { "limit": 5, "period": 60 }
+    },
+    {
+      // Anonymous POST /f per client IP: screenshots, voice and video notes.
+      "name": "UPLOAD_LIMITER",
+      "namespace_id": "4273",
+      "simple": { "limit": 30, "period": 60 }
     }
   ],
   "d1_databases": [

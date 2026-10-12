@@ -1,10 +1,9 @@
 import {
   DEMO_ROOM,
-  isAudioType,
   isNewShareId,
   isUploadId,
   MAX_UPLOAD_BYTES,
-  MAX_VOICE_BYTES,
+  MAX_VIDEO_BYTES,
   RETENTION_DAYS,
   uploadPath,
 } from '@marklayer/types';
@@ -14,6 +13,7 @@ import ROBOTS_TXT from '@site/content/agent/robots.txt?raw';
 import SKILL_MD from '@site/content/agent/SKILL.md?raw';
 import { API_CATALOG, MCP_SERVER_CARD, SKILL_PATH, skillIndex } from '@site/lib/agent';
 import type { Context } from 'hono';
+import { cors } from 'hono/cors';
 import { Hono } from 'hono/tiny';
 import { nanoid } from 'nanoid';
 import type { AnnotationRoom } from './annotation-room';
@@ -26,7 +26,7 @@ import { generateOgImage, generatePageOgImage } from './og';
 import { collectTally, EMPTY_TALLY_LABEL, plural, tallyParts } from './og-tally';
 import { proxy } from './proxy';
 import { annotationStore, nowInSeconds, projectStore, uploadStore } from './store';
-import { type ByteSpan, extensionFor, isUploadType, resolveRange, sniffUploadType } from './uploads';
+import { type ByteSpan, classifyUpload, extensionFor, isTranscribable, isUploadType, resolveRange } from './uploads';
 
 export { AnnotationRoom } from './annotation-room';
 
@@ -41,6 +41,8 @@ export type Env = {
     AI: Ai;
     /** Caps transcription per client IP. Absent in dev and tests, which then run unlimited. */
     TRANSCRIBE_LIMITER?: RateLimit;
+    /** Caps anonymous uploads to `POST /f` per client IP. */
+    UPLOAD_LIMITER?: RateLimit;
     /** Caps sign-in and invite mail per client IP. */
     EMAIL_LIMITER?: RateLimit;
     TURN_KEY_ID?: string;
@@ -322,9 +324,15 @@ app.get('/ws/:id', async (c) => {
   return room.fetch(new Request(url.toString(), c.req.raw));
 });
 
+// Wildcard and credential-less, like `/api`: the id is the token, and an embedded widget uploads cross-origin.
+// `/f/:id` leaves out `/transcribe`, which feeds a paid model.
+app.use('/f', cors());
+app.use('/f/:id', cors());
+
 // Anonymous file upload, so a share can annotate a local PDF or image and not
 // just a public URL. The id itself is the access token, same as an annotation's.
 app.post('/f', async (c) => {
+  if (await overRateLimit({ limiter: c.env.UPLOAD_LIMITER, req: c.req })) return c.text('Too many requests', 429);
   const reader = c.req.raw.body?.getReader();
   if (!reader) return c.text('Empty body', 400);
 
@@ -332,13 +340,15 @@ app.post('/f', async (c) => {
   // is only a claim from the client, so the cap has to hold against the bytes
   // actually received, and stop pulling once it's blown rather than buffering
   // an oversized body just to reject it after the fact.
+  const kind = c.req.query('kind');
+  const cap = kind === 'video' ? MAX_VIDEO_BYTES : MAX_UPLOAD_BYTES;
   const chunks: Uint8Array[] = [];
   let size = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
     size += value.byteLength;
-    if (size > MAX_UPLOAD_BYTES) {
+    if (size > cap) {
       await reader.cancel();
       return c.text('File too large', 413);
     }
@@ -354,10 +364,9 @@ app.post('/f', async (c) => {
 
   // Sniff the real bytes, never the client's declared Content-Type: this type is
   // what `/f/{id}` will later hand a browser on our own origin.
-  const contentType = sniffUploadType(body);
-  if (!contentType) return c.text('Unsupported file type', 415);
-  // A recording is at most MAX_VOICE_SECONDS long, and every one is fed to a paid model.
-  if (isAudioType(contentType) && size > MAX_VOICE_BYTES) return c.text('Voice note too large', 413);
+  const verdict = classifyUpload({ bytes: body, kind });
+  if ('status' in verdict) return c.text(verdict.message, verdict.status);
+  const { contentType } = verdict;
 
   const id = nanoid();
   // Row first: the cleanup cron sweeps R2 by what it finds in D1, so an object
@@ -434,7 +443,7 @@ app.post('/f/:id/transcribe', async (c) => {
   const object = await c.env.FILE_BUCKET.get(id);
   if (!object) return c.notFound();
   const stored = object.httpMetadata?.contentType;
-  if (!isUploadType(stored) || !isAudioType(stored)) return c.text('Not an audio upload', 415);
+  if (!isTranscribable(stored)) return c.text('Not an audio upload', 415);
 
   try {
     const { text } = await c.env.AI.run('@cf/openai/whisper-large-v3-turbo', {

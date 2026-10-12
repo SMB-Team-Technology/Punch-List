@@ -63,8 +63,17 @@ export async function saveProject(id: string, pageIds: string[]): Promise<boolea
 }
 
 /** Uploads a screenshot (or other supported file) for a comment attachment. Returns its upload id, or null on failure. */
-export async function uploadFile(file: File | Blob): Promise<string | null> {
-  const res = await postBody('/f', file, file.type || 'application/octet-stream');
+export function uploadFile(file: File | Blob): Promise<string | null> {
+  return uploadTo({ path: '/f', file });
+}
+
+/** Uploads a recorded camera or screen clip; `kind=video` keeps the server from storing it as audio. */
+export function uploadVideo(file: File | Blob): Promise<string | null> {
+  return uploadTo({ path: '/f?kind=video', file });
+}
+
+async function uploadTo({ path, file }: { path: string; file: File | Blob }): Promise<string | null> {
+  const res = await postBody(path, file, file.type || 'application/octet-stream');
   if (!res?.ok) {
     capture('attachment_upload_failed', { reason: res ? `http_${res.status}` : 'network' });
     return null;

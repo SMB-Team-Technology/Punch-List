@@ -44,6 +44,7 @@ import {
   textInput,
   transcribeFile,
   uploadFile,
+  uploadVideo,
 } from './signals';
 import { DockedInfoPanel, InfoPanel } from './ViewerInfoPanel';
 import { useViewerFrame } from './viewerFrame';
@@ -410,8 +411,12 @@ function PendingComment({ frameRef }: { frameRef: { current: HTMLIFrameElement |
     onClose: () => {
       commentPopover.value = null;
     },
-    attachments: { upload: uploadFile, resolveUrl: fileUrl },
-    voice: { transcribe: transcribeFile, constraint: audioConstraint },
+    media: {
+      upload: uploadFile,
+      resolveUrl: fileUrl,
+      voice: { transcribe: transcribeFile, constraint: audioConstraint },
+      video: { upload: uploadVideo },
+    },
   };
   if (compactChrome.value) return <CommentSheet {...draft} />;
   return (
