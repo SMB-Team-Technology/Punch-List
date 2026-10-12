@@ -31,6 +31,7 @@ import {
   toolbarMinimized,
 } from '../lib/state';
 import { useCopyToClipboard } from '../lib/useCopy';
+import { version } from '../package.json';
 
 const PANEL_WIDTH = 296;
 const PANEL_GAP = 12;
@@ -373,7 +374,7 @@ function PanelHeader() {
   return (
     <div class="flex items-center justify-between px-4 h-11">
       <span class="text-ui font-semibold tracking-ui text-(--ds-gray-1000)">MarkLayer</span>
-      <span class={cn(geist.meta, 'text-meta tabular-nums')}>v0.3</span>
+      <span class={cn(geist.meta, 'text-meta tabular-nums')}>v{version}</span>
     </div>
   );
 }

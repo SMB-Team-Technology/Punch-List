@@ -227,8 +227,8 @@ export function ShareDialog() {
             >
               <MonitorOff size={12} class="shrink-0 mt-px" aria-hidden="true" />
               <span>
-                Public viewer isn't available on local pages — the marklayer.app proxy can't reach localhost. Agent
-                connections work fine; copy the command below.
+                The public viewer can't reach localhost, so there is no link for local pages. Agents still connect with
+                the command below.
               </span>
             </div>
           )}
@@ -240,7 +240,7 @@ export function ShareDialog() {
               Connect an AI agent
             </div>
             <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
-              Let an agent read this page and resolve your annotations. Run once in any project:
+              Your agent reads this page and resolves these annotations live. Run once in your project:
             </p>
             <div class="flex items-center gap-1.5">
               <code
@@ -262,9 +262,11 @@ export function ShareDialog() {
                 <CopyButton value={endpoint} label="Copy MCP config entry" />
               </div>
               <p class="mt-1.5 text-meta text-(--ds-gray-900) leading-snug m-0">
-                Add as an HTTP MCP server named "marklayer". Nothing to install — the link is the server.
+                Add as an HTTP MCP server named "marklayer". Nothing to install: the link is the server.
               </p>
-              <div class="mt-1.5 flex items-center gap-1.5">
+            </PanelSection>
+            <PanelSection label="Local server (npx)">
+              <div class="flex items-center gap-1.5">
                 <code
                   class="flex-1 px-2.5 py-1.5 rounded-md bg-(--ds-gray-alpha-100) border border-(--ds-gray-alpha-400)
                          text-meta text-(--ds-gray-1000) font-mono truncate"
@@ -274,7 +276,7 @@ export function ShareDialog() {
                 <CopyButton value={npxCommand} label="Copy npx command" />
               </div>
               <p class="mt-1.5 text-meta text-(--ds-gray-900) leading-snug m-0">
-                The npx command is for a client that cannot reach a remote MCP server yet.
+                For a client that cannot reach a remote MCP server yet.
               </p>
             </PanelSection>
           </div>

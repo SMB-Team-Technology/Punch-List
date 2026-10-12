@@ -8,6 +8,7 @@ import { detectFrameworkComponent, type FrameworkComponent } from '../lib/fiber-
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { BrandIcon, type BrandIconName, Icon } from '../lib/icons';
+import { PRIORITY_META } from '../lib/priority';
 import { getSelector, isExtensionElement, type SelectedInfo, shortClassLabel, snapshotElement } from '../lib/selector';
 import {
   activeTool,
@@ -29,7 +30,7 @@ import {
 } from '../lib/state';
 import type { InspectOp } from '../lib/types';
 import { MentionTextarea, useMentions } from './MentionTextarea';
-import { PRIORITY_META, PriorityPicker } from './PriorityPicker';
+import { PriorityPicker } from './PriorityPicker';
 
 export interface HoverState {
   el: Element;
@@ -277,6 +278,11 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
     posStyle.top = top;
     posStyle.translate = `0 min(0px, calc(${innerHeight - margin - top}px - 100%))`;
   }
+  const handle = state.id ? `#${state.id}` : state.classes ? `.${state.classes.split(/\s+/)[0]}` : '';
+  const label = (showFrameworkBadges.value && state.component?.chain[0]) || state.text;
+  const subline = [`${Math.round(state.rect.width)}×${Math.round(state.rect.height)}`, label]
+    .filter(Boolean)
+    .join(' · ');
   const offset = dragOffset.value;
   if (offset) {
     posStyle.transform = `translate(${offset.x}px, ${offset.y}px)`;
@@ -284,6 +290,8 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
 
   return (
     <div
+      role="dialog"
+      aria-label="Element inspector"
       class={cn(
         'fixed z-2147483647 pointer-events-auto w-[320px] flex flex-col overflow-hidden',
         'animate-[fadeIn_180ms_cubic-bezier(0.16,1,0.3,1)]',
@@ -295,18 +303,24 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
     >
       <div class="shrink-0">
         <div
-          class="flex items-center justify-between px-4 pt-3 pb-1.5 cursor-move select-none touch-none"
+          class="flex items-start justify-between gap-2 px-4 pt-3 pb-2 cursor-move select-none touch-none"
           onPointerDown={onDragPointerDown}
           onPointerMove={onDragPointerMove}
           onPointerUp={onDragPointerUp}
           onPointerCancel={onDragPointerUp}
         >
-          <span class="text-ui font-semibold tracking-ui text-(--ds-gray-1000)">Element inspector</span>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-1.5 font-mono text-ui text-(--ds-gray-1000)">
+              <span class="font-semibold shrink-0">&lt;{state.tag}&gt;</span>
+              {handle && <span class="truncate text-(--ds-gray-900)">{handle}</span>}
+            </div>
+            <div class="mt-0.5 truncate text-meta text-(--ds-gray-900)">{subline}</div>
+          </div>
           <button
             type="button"
             aria-label="Close inspector"
             onClick={onClose}
-            class={cn(geist.ctlSm, geist.ctlIdle, '-mr-1')}
+            class={cn(geist.ctlSm, geist.ctlIdle, '-mr-1 -mt-0.5 shrink-0')}
           >
             <Icon name="close" size={16} strokeWidth={1.5} />
           </button>
@@ -322,6 +336,7 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault();
                 if (e.shiftKey) addToStack();
+                else if (canSend) sendToAgent();
                 else copyForAI();
               } else if (e.key === 'Escape') {
                 e.preventDefault();
@@ -335,91 +350,106 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
           <PriorityPicker value={priority.value} onChange={(p) => (priority.value = p)} class="mt-1.5 -ml-1.5" />
         </div>
 
-        <div class="flex flex-col gap-2 px-4 pb-2.5">
-          <div class="flex items-stretch gap-2">
+        <div class="flex items-center gap-2 px-4 pb-3">
+          <button
+            type="button"
+            onClick={addToStack}
+            title="Collect several elements, then copy them as one prompt"
+            class={cn(geist.bareBtn, geist.bareBtnQuiet, 'font-medium mr-auto')}
+          >
+            Add to stack
+          </button>
+          <button
+            type="button"
+            onClick={copyForAI}
+            title="Copy prompt to clipboard"
+            class={canSend ? secondaryBtn : submitBtn}
+          >
+            Copy
+          </button>
+          {canSend && (
             <button
               type="button"
-              onClick={addToStack}
-              title="Collect multiple element changes, then copy them as one prompt"
-              class={cn(secondaryBtn, 'flex-1')}
+              onClick={sendToAgent}
+              title="Push to the connected room: an MCP-watching agent will pick it up"
+              class={submitBtn}
             >
-              Add to stack
+              Send
             </button>
-            <button
-              type="button"
-              onClick={copyForAI}
-              title="Copy prompt to clipboard"
-              class={cn(canSend ? secondaryBtn : submitBtn, 'flex-1')}
-            >
-              Copy
-            </button>
-            {canSend && (
-              <button
-                type="button"
-                onClick={sendToAgent}
-                title="Push to the connected room — an MCP-watching agent will pick it up"
-                class={cn(submitBtn, 'flex-1')}
-              >
-                Send
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </div>
 
-      <div class={cn(geist.divider, 'mx-3.5 shrink-0')} />
-
       <div class="overflow-y-auto min-h-0">
-        <div class="px-4 pt-2.5 pb-3">
-          <div class="flex items-center justify-between mb-1.5">
-            <span class={geist.sectionLabel}>Selector</span>
-            <button
-              type="button"
-              onClick={copySelector}
-              aria-label="Copy selector"
-              class={cn(geist.bareBtn, geist.bareBtnQuiet, 'font-medium')}
-            >
-              Copy
-            </button>
-          </div>
-          <code
-            class="block text-meta text-(--ds-gray-1000) bg-(--ds-gray-alpha-100) border border-(--ds-gray-alpha-400)
-                   rounded-md px-3 py-2 wrap-break-word font-mono leading-body select-all"
-          >
-            {state.selector}
-          </code>
-        </div>
-
         <div class={cn(geist.divider, 'mx-3.5')} />
+        <div class="px-4 py-3">
+          <button
+            type="button"
+            onClick={copySelector}
+            title="Copy selector"
+            aria-label={`Copy selector ${state.selector}`}
+            class="group flex w-full items-start gap-2 px-3 py-2 text-left cursor-pointer rounded-md
+                   bg-(--ds-gray-alpha-100) border border-(--ds-gray-alpha-400) transition-colors
+                   hover:border-(--ds-gray-700)"
+          >
+            <code class="min-w-0 flex-1 break-all font-mono text-meta leading-body text-(--ds-gray-1000) line-clamp-2">
+              {state.selector}
+            </code>
+            <span class="mt-0.5 shrink-0 text-(--ds-gray-900) group-hover:text-(--ds-gray-1000) transition-colors">
+              <Icon name="copy" size={14} />
+            </span>
+          </button>
+        </div>
+        <div class={cn(geist.divider, 'mx-3.5')} />
+        <DetailsSection state={state} />
+      </div>
+    </div>
+  );
+}
 
-        <div class="px-4 pt-3 pb-3">
-          <dl class="grid grid-cols-[58px_1fr] gap-x-3 gap-y-1.5 items-baseline text-meta">
-            <dt class={metaLabel}>Tag</dt>
-            <dd class="text-(--ds-gray-1000) font-mono">&lt;{state.tag}&gt;</dd>
-
-            <dt class={metaLabel}>Size</dt>
-            <dd class="text-(--ds-gray-1000) font-mono tabular-nums">
-              {Math.round(state.rect.width)}×{Math.round(state.rect.height)}
-            </dd>
-
+function DetailsSection({ state }: { state: SelectedInfo }) {
+  const open = useSignal(false);
+  const { styles } = state;
+  const component = showFrameworkBadges.value && state.component?.chain.length ? state.component : null;
+  return (
+    <div class="px-4 py-2.5">
+      <button
+        type="button"
+        onClick={() => {
+          open.value = !open.value;
+        }}
+        aria-expanded={open.value}
+        class="group flex items-center justify-between w-full bg-transparent border-none cursor-pointer p-0 text-left"
+      >
+        <span class={cn(geist.sectionLabel, 'group-hover:text-(--ds-gray-1000) transition-colors')}>Details</span>
+        <span class="text-(--ds-gray-900) group-hover:text-(--ds-gray-1000) transition-colors">
+          <Icon name={open.value ? 'chevUp' : 'chevDown'} size={12} />
+        </span>
+      </button>
+      <div
+        class="grid transition-[grid-template-rows] duration-300 ease-ml-spring"
+        style={{ gridTemplateRows: open.value ? '1fr' : '0fr' }}
+      >
+        <div class="overflow-hidden min-h-0">
+          <dl class="mt-2.5 grid grid-cols-[58px_1fr] gap-x-3 gap-y-1.5 items-baseline text-meta">
             <dt class={metaLabel}>Viewport</dt>
             <dd class="text-(--ds-gray-1000) font-mono tabular-nums">
               {state.viewport.width}×{state.viewport.height}
               {state.viewport.dpr !== 1 && <span class="text-(--ds-gray-900)"> @ {state.viewport.dpr}x</span>}
             </dd>
 
-            {showFrameworkBadges.value && state.component?.chain.length ? (
+            {component && (
               <>
                 <dt
                   class={cn(metaLabel, 'inline-flex items-center gap-1')}
-                  style={{ color: frameworkColor(state.component.framework) }}
+                  style={{ color: frameworkColor(component.framework) }}
                 >
-                  <BrandIcon name={FRAMEWORK_BRAND[state.component.framework]} size={11} />
-                  {state.component.framework}
+                  <BrandIcon name={FRAMEWORK_BRAND[component.framework]} size={11} />
+                  {component.framework}
                 </dt>
-                <dd class="text-(--ds-gray-1000) font-mono wrap-break-word">{state.component.chain.join(' ← ')}</dd>
+                <dd class="text-(--ds-gray-1000) font-mono wrap-break-word">{component.chain.join(' ← ')}</dd>
               </>
-            ) : null}
+            )}
 
             {state.cssStack === 'Tailwind' && (
               <>
@@ -441,87 +471,29 @@ export function SelectedPanel({ state, onClose }: { state: SelectedInfo; onClose
               </>
             )}
 
-            {state.id && (
-              <>
-                <dt class={metaLabel}>ID</dt>
-                <dd class="text-(--ds-gray-1000) font-mono wrap-break-word">{state.id}</dd>
-              </>
-            )}
-
             {state.classes && (
               <>
                 <dt class={metaLabel}>Classes</dt>
-                <dd class="text-(--ds-gray-1000) font-mono text-meta leading-body wrap-break-word line-clamp-3">
+                <dd class="text-(--ds-gray-1000) font-mono leading-body wrap-break-word line-clamp-3">
                   {state.classes}
                 </dd>
               </>
             )}
           </dl>
 
-          {state.text && (
-            <blockquote
-              class="mt-3 px-3 py-2 rounded-lg text-meta leading-snug line-clamp-3
-                     bg-(--ml-syntax-bg) text-(--ml-syntax-quote)
-                     border-l-2 border-(--ds-gray-alpha-400)"
+          {Object.keys(styles).length > 0 && (
+            <div
+              class="mt-3 px-2.5 py-2 rounded-lg bg-(--ml-syntax-bg)
+                     grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-meta font-mono leading-normal"
             >
-              {state.text}
-            </blockquote>
+              {Object.entries(styles).map(([k, v]) => (
+                <div key={k} class="contents">
+                  <span class="text-(--ml-syntax-property) font-semibold">{k}</span>
+                  <span class="text-(--ml-syntax-value) truncate">{v}</span>
+                </div>
+              ))}
+            </div>
           )}
-        </div>
-
-        {Object.keys(state.styles).length > 0 && (
-          <>
-            <div class={cn(geist.divider, 'mx-3.5')} />
-            <StylesSection styles={state.styles} />
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function StylesSection({ styles }: { styles: Record<string, string> }) {
-  const open = useSignal(false);
-  const count = Object.keys(styles).length;
-  return (
-    <div class="px-4 py-2.5">
-      <button
-        type="button"
-        onClick={() => {
-          open.value = !open.value;
-        }}
-        aria-expanded={open.value}
-        class="group flex items-center justify-between w-full bg-transparent border-none cursor-pointer p-0 text-left"
-      >
-        <span
-          class={cn(
-            geist.sectionLabel,
-            'inline-flex items-center gap-1.5 group-hover:text-(--ds-gray-1000) transition-colors',
-          )}
-        >
-          Styles
-          <span class="text-(--ds-gray-900) font-medium tabular-nums">{count}</span>
-        </span>
-        <span class="text-(--ds-gray-900) group-hover:text-(--ds-gray-1000) transition-colors">
-          <Icon name={open.value ? 'chevUp' : 'chevDown'} size={12} />
-        </span>
-      </button>
-      <div
-        class="grid transition-[grid-template-rows] duration-300 ease-ml-spring"
-        style={{ gridTemplateRows: open.value ? '1fr' : '0fr' }}
-      >
-        <div class="overflow-hidden min-h-0">
-          <div
-            class="mt-2 px-2.5 py-2 rounded-lg bg-(--ml-syntax-bg)
-                   grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-meta font-mono leading-normal"
-          >
-            {Object.entries(styles).map(([k, v]) => (
-              <div key={k} class="contents">
-                <span class="text-(--ml-syntax-property) font-semibold">{k}</span>
-                <span class="text-(--ml-syntax-value) truncate">{v}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>
