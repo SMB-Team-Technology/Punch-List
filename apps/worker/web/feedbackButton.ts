@@ -28,3 +28,20 @@ export function feedbackButtonMarkdown({ url }: { url: string }): string {
   const safe = url.replace(/[()\s]/g, (ch) => (ch === '(' || ch === ')' ? PAREN[ch] : encodeURIComponent(ch)));
   return `[Leave feedback](${safe}) · via [MarkLayer](${new URL(url).origin})`;
 }
+
+/**
+ * The embeddable widget: comment mode on the owner's live page rather than a link
+ * out to the viewer. The id lands in an attribute, so it is escaped like the href above.
+ */
+export function feedbackWidgetScript({
+  origin,
+  kind,
+  id,
+}: {
+  origin: string;
+  kind: 'project' | 'page';
+  id: string;
+}): string {
+  const attr = kind === 'project' ? 'data-project' : 'data-room';
+  return `<script src="${escapeHtml(`${origin}/widget.js`)}" ${attr}="${escapeHtml(id)}" async></script>`;
+}

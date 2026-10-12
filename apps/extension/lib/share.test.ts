@@ -328,9 +328,10 @@ describe('saveAnnotations and loadAnnotations', () => {
     );
   });
 
-  test('loads the ops for a room', async () => {
+  // GET /api/:id answers `{ ops, url, width }`; only the array spelling used to load, so joining failed in production.
+  test('loads the ops out of the API response object', async () => {
     await withFetch(
-      async () => new Response(JSON.stringify([op]), { status: 200 }),
+      async () => Response.json({ ops: [op], url: 'https://example.com/', width: 1280 }),
       async () => {
         expect(await loadAnnotations('room-1')).toEqual([op]);
       },

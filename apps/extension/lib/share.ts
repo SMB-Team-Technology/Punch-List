@@ -1,5 +1,6 @@
 import {
   isShareId,
+  parseOps,
   postBody,
   postJson,
   transcribeResponseSchema,
@@ -8,10 +9,9 @@ import {
 } from '@marklayer/types';
 import { nanoid } from 'nanoid';
 import { track } from './analytics';
+import { APP_ORIGIN } from './origin';
 import { connectionStatus } from './state';
 import type { DrawOp } from './types';
-
-export const APP_ORIGIN = 'https://marklayer.app';
 
 const API_BASE = `${APP_ORIGIN}/api/`;
 
@@ -88,7 +88,7 @@ export function parseRoomRef(input: string): string | null {
  * with nothing joining them, so "did anyone act on what I sent" had no answer.
  * The label rides the link and the viewer stamps it on every event it reports.
  */
-export const SHARE_REFS = ['web', 'ext', 'dash', 'button'] as const;
+export const SHARE_REFS = ['web', 'ext', 'dash', 'button', 'widget'] as const;
 export type ShareRef = (typeof SHARE_REFS)[number];
 
 /**
@@ -232,7 +232,11 @@ export async function loadAnnotations(id: string): Promise<DrawOp[] | null> {
   try {
     const res = await fetch(`${API_BASE}${id}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const body: unknown = await res.json();
+    if (typeof body !== 'object' || body === null || !('ops' in body) || !Array.isArray(body.ops)) {
+      throw new Error('Unexpected response shape');
+    }
+    return parseOps(body.ops);
   } catch (e) {
     console.error('Error loading annotations:', e);
     return null;

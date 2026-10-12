@@ -12,7 +12,7 @@
     "zip:firefox": "wxt zip -b firefox",
     "zip:all": "bun run zip && bun run zip:firefox",
     "check": "tsc --noEmit",
-    "test": "bun test lib",
+    "test": "bun test lib widget",
     "postinstall": "wxt prepare"
   },
   "devDependencies": {

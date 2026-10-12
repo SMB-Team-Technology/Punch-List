@@ -1,10 +1,13 @@
-import { quietLinkBtn, secondaryBtn } from '@ext/lib/buttons';
-import { APP_ORIGIN, shareUrl } from '@ext/lib/share';
+import { secondaryBtn } from '@ext/lib/buttons';
+import { APP_ORIGIN } from '@ext/lib/origin';
+import { shareUrl } from '@ext/lib/share';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn } from '@marklayer/types';
+import { Code } from 'lucide-preact';
 import { useState } from 'preact/hooks';
+import { ActionRow } from './ActionRow';
 import { capture } from './analytics';
-import { feedbackButtonHtml, feedbackButtonMarkdown } from './feedbackButton';
+import { feedbackButtonHtml, feedbackButtonMarkdown, feedbackWidgetScript } from './feedbackButton';
 
 /**
  * The address the pasted button points at: always the production origin, since the
@@ -15,7 +18,15 @@ export function feedbackLink({ kind, id }: { kind: 'project' | 'page'; id: strin
   return shareUrl({ origin: APP_ORIGIN, kind, id, ref: 'button' });
 }
 
-function CopyFormat({ label, value, format }: { label: string; value: string; format: 'html' | 'markdown' }) {
+function CopyFormat({
+  label,
+  value,
+  format,
+}: {
+  label: string;
+  value: string;
+  format: 'html' | 'markdown' | 'script';
+}) {
   const { copied, copy } = useCopyToClipboard({ resetMs: 1600 });
   return (
     <button
@@ -40,17 +51,17 @@ export function FeedbackButtonSection({ kind, id }: { kind: 'project' | 'page'; 
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} class={quietLinkBtn}>
+      <ActionRow icon={<Code size={14} strokeWidth={1.75} aria-hidden="true" />} onClick={() => setOpen(true)}>
         Feedback button for your site
-      </button>
+      </ActionRow>
     );
   }
 
   const url = feedbackLink({ kind, id });
   const html = feedbackButtonHtml({ url });
   return (
-    <div class="flex flex-col gap-2.5">
-      <span class="text-meta font-medium text-(--ds-gray-1000)">Feedback button</span>
+    <div class="flex flex-col gap-2.5 px-3.5 py-3 max-md:px-4">
+      <span class="text-ui font-medium text-(--ds-gray-1000)">Feedback button</span>
       {/* The preview is the snippet itself, so what is shown is what gets pasted. */}
       <div class="flex min-h-14 items-center justify-center rounded-md bg-(--ds-gray-alpha-100)">
         <div dangerouslySetInnerHTML={{ __html: html }} />
@@ -58,7 +69,16 @@ export function FeedbackButtonSection({ kind, id }: { kind: 'project' | 'page'; 
       <div class="flex gap-1.5">
         <CopyFormat label="Copy HTML" value={html} format="html" />
         <CopyFormat label="Copy Markdown" value={feedbackButtonMarkdown({ url })} format="markdown" />
+        <CopyFormat
+          label="Copy script"
+          value={feedbackWidgetScript({ origin: APP_ORIGIN, kind, id })}
+          format="script"
+        />
       </div>
+      <p class="text-meta leading-body text-(--ds-gray-900)">
+        The script opens comment mode on your live page. With a CSP, allow https://marklayer.app in script-src, and
+        https://marklayer.app and wss://marklayer.app in connect-src.
+      </p>
     </div>
   );
 }

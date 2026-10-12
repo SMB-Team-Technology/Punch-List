@@ -1,7 +1,8 @@
 import { computed, signal, useSignalEffect } from '@preact/signals';
 import { mergeOps } from './mergeOps';
+import { APP_ORIGIN } from './origin';
 import { connectRoom } from './realtime';
-import { APP_ORIGIN, loadAnnotations, setAnnotationId } from './share';
+import { loadAnnotations, setAnnotationId } from './share';
 import { operations } from './state';
 
 /** The room this canvas is bound to, or null while it is purely local. Written on

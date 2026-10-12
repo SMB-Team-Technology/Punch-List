@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "bun run sync:shell && vite build && bun run embed:site",
+    "build": "bun run sync:shell && vite build && bun run embed:site && bun run build:widget",
+    "build:widget": "bun ../extension/widget/build.ts public/client",
     "embed:site": "node scripts/embed-site.mjs",
     "preview": "vite preview",
     "deploy": "wrangler deploy",
@@ -34,6 +35,7 @@
     "pdfjs-dist": "6.3.289",
     "posthog-js": "^1.422.5",
     "preact": "^10.29.8",
+    "simple-icons": "^16.29.0",
     "tinykeys": "^4.0.0",
     "wouter-preact": "^3.10.0",
     "zod": "^4.5.2"

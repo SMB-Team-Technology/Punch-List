@@ -2,21 +2,18 @@ import { cn } from '@marklayer/types';
 import { useSignalEffect } from '@preact/signals';
 import { useEffect, useState } from 'preact/hooks';
 import { tinykeys } from 'tinykeys';
-import { joinRoom, useRoomConnection } from '../lib/room';
+import { joinRoom } from '../lib/room';
 import { parseUrlHash } from '../lib/share';
 import {
   activeTool,
   bindFigmaKeys,
   blockInteractions,
-  ensureHostMutationObserver,
-  ensureScrollTickListener,
   handTool,
   markersVisible,
   operations,
   redo,
   showSettings,
   showShareDialog,
-  theme,
   toggleUiHidden,
   uiHidden,
   undo,
@@ -38,6 +35,7 @@ import { ShareDialog } from './ShareDialog';
 import { TextLayer } from './TextLayer';
 import { Toasts } from './Toasts';
 import { Toolbar } from './Toolbar';
+import { useOverlayHost } from './useOverlayHost';
 
 export function App() {
   useEffect(() => {
@@ -122,15 +120,6 @@ export function App() {
     return () => window.removeEventListener('beforeunload', handler);
   }, []);
 
-  // Single rAF-coalesced scroll listener feeds every annotation layer that
-  // repositions on scroll, replacing per-component listeners.
-  // Pair with the host-page MutationObserver so element-anchored ops
-  // re-resolve their selectors when the page reflows or SPA-routes.
-  useEffect(() => {
-    ensureScrollTickListener();
-    ensureHostMutationObserver();
-  }, []);
-
   // `joinRoom` merges rather than replaces, so arriving on a hashed link keeps
   // whatever was already drawn.
   useEffect(() => {
@@ -138,16 +127,7 @@ export function App() {
     if (params) joinRoom({ id: params.id });
   }, []);
 
-  useRoomConnection();
-
-  // Sync theme class to shadow host
-  useSignalEffect(() => {
-    const t = theme.value;
-    const host = document.querySelector('mark-layer')?.shadowRoot?.host;
-    if (!host) return;
-    host.classList.remove('ml-dark', 'ml-light');
-    t !== 'system' && host.classList.add(t === 'dark' ? 'ml-dark' : 'ml-light');
-  });
+  useOverlayHost();
 
   // Hiding markers implies review mode — drop back to navigate so users don't
   // try to draw on an invisible canvas.

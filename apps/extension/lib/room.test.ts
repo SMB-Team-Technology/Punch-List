@@ -48,7 +48,7 @@ describe('joinRoom', () => {
   });
 
   test('folds the room in beside local work and binds the canvas to it', async () => {
-    respondWith(() => Response.json([op('R')]));
+    respondWith(() => Response.json({ ops: [op('R')], url: 'https://example.com/', width: 1280 }));
     expect(await joinRoom({ id: 'room-ok' })).toBe(true);
     expect(operations.value.map((o) => o.id)).toEqual(['R', 'L']);
     expect(activeRoomId.value).toBe('room-ok');
