@@ -71,8 +71,8 @@ const compare = (a, b) => {
 
 const MCP_REGISTRY = 'https://registry.modelcontextprotocol.io';
 
-/** The version the MCP registry serves for this server, or null when it has never heard of it. */
-const mcpRegistryVersion = async () => {
+/** Every version the MCP registry holds for this server, plus the one it flags latest (null when it has none). */
+const mcpRegistryVersions = async () => {
   const url = `${MCP_REGISTRY}/v0/servers?search=${encodeURIComponent(server.name)}`;
   const res = await fetch(url).catch((cause) => abort(`could not reach the MCP registry — ${cause.message}`));
   if (!res.ok) abort(`the MCP registry answered ${res.status} for ${server.name}`);
@@ -80,8 +80,14 @@ const mcpRegistryVersion = async () => {
   // The list shape has moved between registry revisions; accept either an entry
   // carrying the fields directly or one nesting them under `server`.
   const entries = Array.isArray(body.servers) ? body.servers : [];
-  const mine = entries.map((e) => e.server ?? e).find((e) => e?.name === server.name);
-  return mine?.version ?? null;
+  // The search lists every published version, oldest first, so taking the first
+  // match reads an old release as current and republishes a duplicate (a 400).
+  const mine = entries.filter((e) => (e.server ?? e)?.name === server.name);
+  const latest = mine.find((e) => e._meta?.['io.modelcontextprotocol.registry/official']?.isLatest);
+  return {
+    versions: mine.map((e) => (e.server ?? e).version),
+    latest: (latest?.server ?? latest)?.version ?? null,
+  };
 };
 
 /**
@@ -108,8 +114,8 @@ const publishToMcpRegistry = () => {
 // Read the published version straight from the registry: unlike `npm view` this
 // needs no auth, so an unchanged version stays a no-op even when logged out. The
 // two registries have nothing to say to each other, so ask them at once.
-const [registryVersion, response] = await Promise.all([
-  mcpRegistryVersion(),
+const [mcpRegistry, response] = await Promise.all([
+  mcpRegistryVersions(),
   fetch(`https://registry.npmjs.org/${pkg.name}/latest`).catch((cause) => {
     abort(`could not reach the npm registry — ${cause.message}`);
   }),
@@ -129,7 +135,7 @@ if (published !== null && compare(pkg.version, published) < 0) {
 // Each registry is decided on its own: npm can already be current while the MCP
 // registry lags behind it, which is exactly what happens when a publish half-fails.
 const npmNeeded = published === null || compare(pkg.version, published) > 0;
-const mcpNeeded = registryVersion !== pkg.version;
+const mcpNeeded = !mcpRegistry.versions.includes(pkg.version);
 
 if (!npmNeeded && !mcpNeeded) {
   console.log(`publish — ${pkg.name}@${pkg.version} is already on npm and in the MCP registry; nothing to do.`);
@@ -163,7 +169,7 @@ const plan = [
     ? `will publish ${pkg.name} ${from(published)} to npm as ${publisher}`
     : `${pkg.name}@${pkg.version} is already on npm`,
   mcpNeeded
-    ? `will publish ${server.name} ${from(registryVersion)} to the MCP registry`
+    ? `will publish ${server.name} ${from(mcpRegistry.latest)} to the MCP registry`
     : `the MCP registry is on ${pkg.version} already`,
 ];
 for (const line of plan) console.log(`publish — ${line}`);
