@@ -4,25 +4,7 @@ import { claudeMcpCommand, HOW_IT_WORKS_URL, mcpEndpoint, npxMcpCommand } from '
 import { annotationPanelOpen, copyText, operations, peerCount } from '@ext/lib/state';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn, type DrawOp, deletionDeadline } from '@marklayer/types';
-import {
-  ArrowUpRight,
-  BookOpen,
-  Bot,
-  Calendar,
-  Check,
-  Columns2,
-  Copy,
-  Hash,
-  Heart,
-  type Info,
-  Link,
-  Lock,
-  PenTool,
-  Timer,
-  Upload,
-  Users,
-  X,
-} from 'lucide-preact';
+import { ArrowUpRight, BookOpen, Bot, Check, Columns2, Copy, Heart, X } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { DOCK_GUTTER, DOCKED_ANNOTATION_WIDTH, DockedPanel, PANEL_SIDEBAR, PANEL_TRANSITION } from './AnnotationPanel';
 import { compareHref } from './compare/url';
@@ -36,52 +18,37 @@ import { connected, createdAt, expiresAt, isOwned } from './useRealtimeSync';
 export const INFO_PANEL_WIDTH = 300;
 
 /**
- * Plural tally nouns, distinct from the Toolbar's singular tool names. Keyed
- * exhaustively over the op union (plus `arrow`, which is a `line` that carries
- * one) so a tool added later is a type error here rather than a row that shows
- * the raw identifier to the reader. `eraser` never reaches the tally.
+ * Tally nouns, singular so a count of one reads right; every one pluralises
+ * with a plain `s`. Keyed exhaustively over the op union (plus `arrow`, a `line`
+ * that carries one) so a new tool is a type error, not a raw identifier.
  */
 type TallyTool = Exclude<DrawOp['tool'], 'eraser'> | 'arrow';
 
-const TOOL_LABELS: Record<TallyTool, string> = {
-  pen: 'Pen strokes',
-  highlight: 'Highlights',
-  rectangle: 'Rectangles',
-  circle: 'Circles',
-  line: 'Lines',
-  arrow: 'Arrows',
-  text: 'Text labels',
-  comment: 'Comments',
-  selection: 'Selections',
-  area: 'Areas',
-  inspect: 'Inspected elements',
-  guide: 'Guides',
+const TOOL_NOUNS: Record<TallyTool, string> = {
+  pen: 'pen stroke',
+  highlight: 'highlight',
+  rectangle: 'rectangle',
+  circle: 'circle',
+  line: 'line',
+  arrow: 'arrow',
+  text: 'text label',
+  comment: 'comment',
+  selection: 'selection',
+  area: 'area',
+  inspect: 'inspected element',
+  guide: 'guide',
 };
 
 /**
- * One labelled row of the panel. `children` carries the value when it is a
- * control rather than a string — every row shares this scaffold, so the layout
- * cannot drift between the plain rows and the interactive ones.
+ * One label/value pair of the details list. No per-row icon: the label already
+ * names the field, and a column of glyphs beside it was a second index to read.
  */
-function InfoRow({
-  icon: Icon,
-  label,
-  value,
-  children,
-}: {
-  icon: typeof Info;
-  label: string;
-  value?: string;
-  children?: ComponentChildren;
-}) {
+function InfoRow({ label, children }: { label: string; children: ComponentChildren }) {
   return (
-    <div class="flex items-start gap-3 py-2">
-      <Icon size={14} strokeWidth={1.5} class="text-(--ds-gray-900) shrink-0 mt-0.5" aria-hidden="true" />
-      <div class="flex-1 min-w-0">
-        <div class="text-meta text-(--ds-gray-900)">{label}</div>
-        {children ?? <div class="text-ui text-(--ds-gray-1000) mt-0.5 break-all">{value}</div>}
-      </div>
-    </div>
+    <>
+      <dt class="text-ui text-(--ds-gray-900)">{label}</dt>
+      <dd class="m-0 min-w-0 text-ui text-(--ds-gray-1000)">{children}</dd>
+    </>
   );
 }
 
@@ -127,7 +94,7 @@ function CommandField({ label, value }: { label: string; value: string }) {
 function InfoPanelHeader() {
   return (
     <div class="px-4 py-3 border-b border-(--ds-gray-alpha-400) shrink-0 flex items-center justify-between">
-      <h2 class="text-body font-semibold tracking-ui text-(--ds-gray-1000) m-0">Annotation info</h2>
+      <h2 class="text-body font-semibold tracking-ui text-(--ds-gray-1000) m-0">Details</h2>
       <button
         type="button"
         onClick={() => (showInfoPanel.value = false)}
@@ -141,30 +108,40 @@ function InfoPanelHeader() {
   );
 }
 
-function SessionRow() {
-  const isConnected = connected.value;
+function PeopleRow() {
+  const live = connected.value;
+  const n = peerCount.value;
   return (
-    <InfoRow icon={Users} label="Session">
-      <div class="flex items-center gap-2 mt-0.5">
-        <PresenceDot live={isConnected} />
-        <span class="text-ui text-(--ds-gray-1000)">
-          {isConnected ? `Connected · ${peerCount.value} online` : 'Offline'}
-        </span>
-      </div>
+    <InfoRow label="People">
+      <span class="flex items-center gap-2">
+        <PresenceDot live={live} />
+        {live ? (n === 1 ? 'Just you' : `${n} here now`) : 'Offline'}
+      </span>
     </InfoRow>
   );
 }
 
-function PageUrlRow({ url }: { url: string }) {
+/** Host and path only: the scheme is noise here, and the full URL is one hover away. */
+function displayUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.host}${u.pathname === '/' ? '' : u.pathname}${u.search}`;
+  } catch {
+    return url;
+  }
+}
+
+function PageRow({ url }: { url: string }) {
   return (
-    <InfoRow icon={Link} label="Page URL">
+    <InfoRow label="Page">
       <a
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        class="text-ui text-(--ds-gray-1000) mt-0.5 break-all no-underline hover:underline block transition-colors"
+        title={url}
+        class="line-clamp-2 break-all text-(--ds-gray-1000) no-underline hover:underline"
       >
-        {url}
+        {displayUrl(url)}
       </a>
     </InfoRow>
   );
@@ -172,17 +149,17 @@ function PageUrlRow({ url }: { url: string }) {
 
 function RoomIdRow({ id }: { id: string }) {
   return (
-    <InfoRow icon={Hash} label="ID">
+    <InfoRow label="ID">
       <button
         type="button"
-        class="group flex items-center gap-1.5 text-ui text-(--ds-gray-1000) mt-0.5 bg-transparent border-none cursor-pointer p-0 font-mono
+        class="group flex max-w-full items-center gap-1.5 text-meta text-(--ds-gray-1000) bg-transparent border-none cursor-pointer p-0 font-mono
                  rounded-sm outline-none focus-visible:outline-solid focus-visible:outline-2
                  focus-visible:outline-offset-2 focus-visible:outline-(--ds-focus-color)"
         onClick={() => copyText(id, 'ID copied')}
         title="Click to copy"
         aria-label="Copy annotation ID"
       >
-        {id}
+        <span class="truncate">{id}</span>
         <Copy
           size={12}
           strokeWidth={1.5}
@@ -201,33 +178,30 @@ function RoomIdRow({ id }: { id: string }) {
  */
 function AgentSection({ id }: { id: string }) {
   return (
-    <>
-      <div class={cn(geist.divider, 'my-2 -mx-4')} />
-      <PanelSection icon={Bot} label="Connect an AI agent">
-        <div class="flex flex-col gap-1.5">
-          <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
-            An agent can read this page, work these annotations and resolve them here, live. Run once in your project:
-          </p>
-          <CommandField label="Claude Code command" value={claudeMcpCommand(id)} />
-          <PanelSection label="Cursor, Codex, Windsurf…">
-            <div class="flex flex-col gap-1.5">
-              <CommandField label="MCP server URL" value={mcpEndpoint(id)} />
-              <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
-                Add as an HTTP MCP server named "marklayer". Nothing to install — the link is the server.
-              </p>
-            </div>
-          </PanelSection>
-          <PanelSection label="Older clients">
-            <div class="flex flex-col gap-1.5">
-              <CommandField label="npx command" value={npxMcpCommand(id)} />
-              <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
-                For a client that cannot reach a remote MCP server yet.
-              </p>
-            </div>
-          </PanelSection>
-        </div>
-      </PanelSection>
-    </>
+    <PanelSection icon={Bot} label="Connect an AI agent">
+      <div class="flex flex-col gap-1.5">
+        <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
+          Your agent reads this page and resolves these annotations live. Run once in your project:
+        </p>
+        <CommandField label="Claude Code command" value={claudeMcpCommand(id)} />
+        <PanelSection label="Cursor, Codex, Windsurf…">
+          <div class="flex flex-col gap-1.5">
+            <CommandField label="MCP server URL" value={mcpEndpoint(id)} />
+            <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
+              Add as an HTTP MCP server named "marklayer". Nothing to install: the link is the server.
+            </p>
+          </div>
+        </PanelSection>
+        <PanelSection label="Local server (npx)">
+          <div class="flex flex-col gap-1.5">
+            <CommandField label="npx command" value={npxMcpCommand(id)} />
+            <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
+              For a client that cannot reach a remote MCP server yet.
+            </p>
+          </div>
+        </PanelSection>
+      </div>
+    </PanelSection>
   );
 }
 
@@ -240,45 +214,37 @@ const panelLinkRow = cn(
   'focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--ds-focus-color)',
 );
 
-function ToolTally() {
+/** "3 comments, 2 pen strokes": the whole room in one line, largest first. */
+function TallyRow() {
   const ops = operations.value;
   if (ops.length === 0) return null;
-  const toolCounts = new Map<TallyTool, number>();
+  const counts = new Map<TallyTool, number>();
   for (const op of ops) {
     if (op.tool === 'eraser') continue;
     const t: TallyTool = op.tool === 'line' && op.arrow ? 'arrow' : op.tool;
-    toolCounts.set(t, (toolCounts.get(t) || 0) + 1);
+    counts.set(t, (counts.get(t) || 0) + 1);
   }
-  return (
-    <>
-      <div class={cn(geist.divider, 'my-2 -mx-4')} />
-      <PanelSection icon={PenTool} label="Annotations" count={ops.length}>
-        <div class="grid grid-cols-2 gap-x-4 gap-y-1">
-          {Array.from(toolCounts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(([tool, count]) => (
-              <div key={tool} class="flex items-center justify-between">
-                <span class="text-meta text-(--ds-gray-900)">{TOOL_LABELS[tool]}</span>
-                <span class="text-meta text-(--ds-gray-900) tabular-nums">{count}</span>
-              </div>
-            ))}
-        </div>
-      </PanelSection>
-    </>
-  );
+  const summary = Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .map(([tool, n]) => `${n} ${TOOL_NOUNS[tool]}${n === 1 ? '' : 's'}`)
+    .join(', ');
+  return <InfoRow label="Contains">{summary}</InfoRow>;
 }
 
 const formatStamp = (seconds: number) =>
-  `${new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(seconds * 1000)} (${timeAgo(seconds)})`;
+  new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(seconds * 1000);
 
 const formatDate = (seconds: number) =>
   new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(seconds * 1000);
 
 /** The Expires row: no deadline at all, one already past, or the date it lands on. */
-function expiryText({ deadline, resetsOnView }: { deadline: number | null; resetsOnView: boolean }): string {
-  if (deadline === null) return 'Never · saved to an account';
-  if (deadline * 1000 < Date.now()) return 'Expired';
-  return `${formatDate(deadline)}${resetsOnView ? ' · resets on view' : ''}`;
+function expiry({ deadline, resetsOnView }: { deadline: number | null; resetsOnView: boolean }): {
+  value: string;
+  note?: string;
+} {
+  if (deadline === null) return { value: 'Never', note: 'Saved to an account' };
+  if (deadline * 1000 < Date.now()) return { value: 'Expired' };
+  return { value: formatDate(deadline), note: resetsOnView ? 'Resets each time it is opened' : undefined };
 }
 
 function InfoPanelBody() {
@@ -291,23 +257,39 @@ function InfoPanelBody() {
 
   // Opening this panel just touched `last_accessed_at`, so `now` stands in for it.
   const deadline = deletionDeadline({ lastAccessedAt: Math.floor(Date.now() / 1000), expiresAt: expires, owned });
-  const expiresValue = expiryText({ deadline, resetsOnView: expires == null });
+  const { value: expiresValue, note: expiresNote } = expiry({ deadline, resetsOnView: expires == null });
 
   return (
     <>
       <InfoPanelHeader />
       {/* pb clears the floating toolbar that overlaps the panel's bottom-right,
           so the last rows can always be scrolled out from under it. */}
-      <div class="flex-1 overflow-y-auto px-4 pt-2 pb-16">
-        {created != null && <InfoRow icon={Calendar} label="Created" value={formatStamp(created)} />}
-        <InfoRow icon={Timer} label="Expires" value={expiresValue} />
-        <SessionRow />
-        <InfoRow icon={readonly ? Lock : Upload} label="Access" value={readonly ? 'Read-only' : 'Editable'} />
-        {url && <PageUrlRow url={url} />}
-        {id && <RoomIdRow id={id} />}
-        {id && <AgentSection id={id} />}
-        {id && !isReadonly.value && <IntegrationsSection id={id} />}
-        <ToolTally />
+      <div class="flex-1 overflow-y-auto px-4 pb-16">
+        <dl class="m-0 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2.5 py-4">
+          {url && <PageRow url={url} />}
+          {created != null && (
+            <InfoRow label="Created">
+              <time dateTime={new Date(created * 1000).toISOString()} title={formatStamp(created)}>
+                {timeAgo(created)}
+              </time>
+            </InfoRow>
+          )}
+          <InfoRow label="Expires">
+            {expiresValue}
+            {expiresNote && <span class="block text-meta text-(--ds-gray-900)">{expiresNote}</span>}
+          </InfoRow>
+          <InfoRow label="Access">{readonly ? 'View only' : 'Can edit'}</InfoRow>
+          <PeopleRow />
+          <TallyRow />
+          {id && <RoomIdRow id={id} />}
+        </dl>
+        {id && (
+          <>
+            <div class={cn(geist.divider, 'mb-2 -mx-4')} />
+            <AgentSection id={id} />
+            {!readonly && <IntegrationsSection id={id} />}
+          </>
+        )}
         <div class={cn(geist.divider, 'my-2 -mx-4')} />
         {url && !isUploadPath(url) && (
           <a href={compareHref({ a: url })} target="_blank" rel="noopener" class={panelLinkRow}>

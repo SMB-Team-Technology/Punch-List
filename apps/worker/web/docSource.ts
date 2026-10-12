@@ -22,9 +22,18 @@ export function bytesUrl({ url, origin }: { url: string; origin: string }): stri
   return proxyUrl.toString();
 }
 
+function injectStyle({ doc, css }: { doc: Document; css: string }): void {
+  const style = doc.createElement('style');
+  style.textContent = css;
+  doc.head?.appendChild(style);
+}
+
 /** Stops a same-origin frame's page from scrolling, so the wheel chains to the host instead. */
 export function stillFrame(doc: Document): void {
-  const style = doc.createElement('style');
-  style.textContent = 'html,body{overflow:hidden !important}';
-  doc.head?.appendChild(style);
+  injectStyle({ doc, css: 'html,body{overflow:hidden !important}' });
+}
+
+/** Hides a same-origin frame's scrollbars but leaves it scrollable, for a page we scroll ourselves. */
+export function hideScrollbars(doc: Document): void {
+  injectStyle({ doc, css: '*{scrollbar-width:none !important}*::-webkit-scrollbar{display:none !important}' });
 }

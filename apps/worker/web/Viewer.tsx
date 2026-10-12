@@ -56,6 +56,7 @@ import {
   currentPageIdx,
   DEVICE_WIDTHS,
   deviceMode,
+  deviceOverview,
   followingPeer,
   iframeScrollY,
   isReadonly,
@@ -523,10 +524,11 @@ export default function Viewer() {
         // panel's own board button does.
         if (opening) showAnnotationPanel.value = false;
       }),
-      '$mod+Equal': viewKeyPD(() => stepZoom(1)),
-      '$mod+Minus': viewKeyPD(() => stepZoom(-1)),
+      // The device canvas binds these to its own zoom while it is up.
+      '$mod+Equal': viewKeyPD(() => deviceOverview.value || stepZoom(1)),
+      '$mod+Minus': viewKeyPD(() => deviceOverview.value || stepZoom(-1)),
       '$mod+Digit0': viewKeyPD(() => {
-        viewerZoom.value = 'auto';
+        if (!deviceOverview.value) viewerZoom.value = 'auto';
       }),
       Escape: (e) => {
         if (isEditable(e.target) && e.target instanceof HTMLElement) {

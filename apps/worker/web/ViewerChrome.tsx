@@ -34,6 +34,7 @@ import {
 } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { lazy, Suspense } from 'preact/compat';
+import { canvasFitted, canvasZoom, toggleCanvasFit } from './DeviceOverview';
 import { isUploadPath } from './docSource';
 import { PresenceMenu } from './PresenceMenu';
 import { SharePopover } from './SharePopover';
@@ -226,7 +227,25 @@ function ZoomFill({ notch }: { notch: number }) {
  * In auto the thumb shows the fitted scale, and dragging takes over from the fit.
  * The readout toggles between the two anchors, fit and 100%.
  */
+/** While the device canvas is up, the readout is its zoom: the page's own slider would act on a hidden stage. */
+function CanvasZoomReadout() {
+  const fitted = canvasFitted.value;
+  const pct = `${Math.round(canvasZoom.value * 100)}%`;
+  return (
+    <button
+      type="button"
+      onClick={toggleCanvasFit}
+      aria-label={fitted ? `${pct}, zoom to 100%` : `${pct}, fit all devices`}
+      class={cn(geist.ctl, geist.ctlIdle, 'w-11 shrink-0 text-meta font-medium tabular-nums')}
+    >
+      {pct}
+      <Tooltip text={fitted ? 'Zoom to 100%' : 'Fit all devices'} shortcut={fitted ? '⇧0' : '⇧1'} placement="bottom" />
+    </button>
+  );
+}
+
 function ZoomControl() {
+  if (deviceOverview.value) return <CanvasZoomReadout />;
   const zoom = viewerZoom.value;
   const auto = zoom === 'auto';
   const effective = auto ? cssScale.value : zoom;
@@ -450,7 +469,7 @@ export function ViewerTopBar() {
       <UrlField />
       <BarButton
         icon={<Info size={16} strokeWidth={1.5} aria-hidden="true" />}
-        tip="Annotation info"
+        tip="Details"
         on={showInfoPanel.value}
         onClick={() => (showInfoPanel.value = !showInfoPanel.value)}
       />

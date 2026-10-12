@@ -27,16 +27,13 @@ import { timeAgo } from '@ext/lib/time';
 import type { CommentOp, CommentStatus, DeviceMode, DrawOp } from '@ext/lib/types';
 import { cn, isSettled } from '@marklayer/types';
 import {
-  Bot,
   BoxSelect,
   Check,
   CheckCheck,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ClipboardCopy,
-  Columns3,
-  Download,
+  Ellipsis,
   MessageSquare,
   Replace,
   TextSelect,
@@ -50,7 +47,7 @@ import { AnnotationDetail } from './AnnotationDetail';
 import { capture } from './analytics';
 import { type AnnotationItem, itemAnchor, itemLabel } from './annotationItems';
 import { DEVICE_ICONS, DEVICE_LABELS } from './shared';
-import { showBoard } from './signals';
+import { fileUrl, showBoard } from './signals';
 
 /** What an export writes: the live page's ops, plus every other page when this is a project. */
 export interface ExportData {
@@ -108,6 +105,49 @@ function DeviceBadge({ device }: { device?: DeviceMode }) {
 }
 
 /**
+ * A row's one status step, out of sight until the row is hovered or focused —
+ * then it takes the meta cluster's place, the way Mail swaps a date for actions.
+ * A coarse pointer has no hover to find it with, so there it sits under the text.
+ */
+function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      class={cn(
+        geist.actionBtn,
+        geist.ctlIdle,
+        'absolute right-4 top-2.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100',
+        'transition-[opacity,background-color,color]',
+        'pointer-coarse:opacity-100 pointer-coarse:top-auto pointer-coarse:bottom-2.5 pointer-coarse:right-auto pointer-coarse:left-4',
+      )}
+    >
+      {label}
+    </button>
+  );
+}
+
+/** Right side of a row's first line; steps aside for `QuickAction`. */
+const rowMeta =
+  'flex shrink-0 items-center gap-2 transition-opacity duration-150 group-hover:opacity-0 pointer-fine:group-focus-within:opacity-0';
+
+const rowButton =
+  'w-full text-left px-4 py-3 bg-transparent border-none cursor-pointer transition-colors duration-100 hover:bg-(--ds-gray-alpha-100)';
+
+/** A row that carries a `QuickAction`: room beneath the text for it on touch. */
+const actionRowButton = cn(rowButton, 'pointer-coarse:pb-10');
+
+function ReplyCount({ n }: { n: number }) {
+  if (n === 0) return null;
+  return (
+    <span class="text-meta text-(--ds-gray-900) inline-flex items-center gap-1 tabular-nums">
+      <MessageSquare size={11} aria-hidden="true" />
+      {n}
+    </span>
+  );
+}
+
+/**
  * A comment in the list: identity, triage at a glance, and the first two lines.
  * Everything else — replies, assignee, context, the reply box — lives one click
  * away in the detail view, so the list stays scannable at 340px.
@@ -119,14 +159,9 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
   const settled = isSettled(status);
 
   return (
-    <div class="border-b border-(--ds-gray-alpha-400)">
-      <button
-        type="button"
-        onClick={onOpen}
-        class="w-full text-left px-4 pt-3 pb-2 bg-transparent border-none cursor-pointer
-               transition-colors duration-100 hover:bg-(--ds-gray-alpha-100)"
-      >
-        <div class="flex items-center gap-2 mb-1.5">
+    <div class="group relative border-b border-(--ds-gray-alpha-400)">
+      <button type="button" onClick={onOpen} class={actionRowButton}>
+        <div class="flex items-center gap-2 h-5 mb-1">
           <div
             class="w-5 h-5 rounded-full text-white text-mini font-medium tabular-nums grid place-items-center shrink-0"
             style={{ background: settled ? 'var(--ds-gray-700)' : op.color }}
@@ -140,10 +175,14 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
             )}
           </div>
           <span class="text-meta text-(--ds-gray-1000) font-semibold flex-1 truncate">{op.author || 'Anonymous'}</span>
-          {op.priority && <PriorityBadge priority={op.priority} />}
-          <DeviceBadge device={op.device} />
-          <StatusBadge status={status} />
-          <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
+          <span class={rowMeta}>
+            {op.priority && <PriorityBadge priority={op.priority} />}
+            <DeviceBadge device={op.device} />
+            {/* Open is the resting state; only a change from it is news. */}
+            {status !== 'open' && <StatusBadge status={status} />}
+            <ReplyCount n={replies.length} />
+            <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
+          </span>
         </div>
         <p
           class="text-ui text-(--ds-gray-1000) leading-relaxed m-0 line-clamp-2"
@@ -152,21 +191,7 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
           <MentionText text={op.text} mentions={op.mentions} />
         </p>
       </button>
-      <div class="flex items-center gap-3 px-4 pb-2.5">
-        {replies.length > 0 && (
-          <span class="text-meta text-(--ds-gray-900) flex items-center gap-1 font-medium">
-            <MessageSquare size={11} aria-hidden="true" />
-            {replies.length}
-          </span>
-        )}
-        <button
-          type="button"
-          onClick={() => setOpStatus(op.id, STATUS_CYCLE[status])}
-          class={cn(geist.actionBtn, geist.ctlIdle)}
-        >
-          {STATUS_ACTIONS[status]}
-        </button>
-      </div>
+      <QuickAction label={STATUS_ACTIONS[status]} onClick={() => setOpStatus(op.id, STATUS_CYCLE[status])} />
     </div>
   );
 }
@@ -278,10 +303,72 @@ function StatusFilterMenu({
   );
 }
 
+const menuItem = cn(
+  'flex items-center gap-2 h-8 px-2 rounded-md cursor-pointer border-none bg-transparent outline-none',
+  'text-ui text-(--ds-gray-1000) transition-colors duration-150',
+  'data-highlighted:bg-(--ds-gray-alpha-100) data-disabled:opacity-40 data-disabled:cursor-default',
+);
+
+/**
+ * Every export and the board, behind one control. Four bare glyphs in a row
+ * asked the reader to decode each one; a menu names them and costs one click.
+ */
+function PanelMenu({
+  onCopyForAi,
+  onCopy,
+  onDownload,
+}: {
+  onCopyForAi: () => void;
+  onCopy: () => void;
+  onDownload: () => void;
+}) {
+  const noneOpen = openAnnotationTotal.value === 0;
+  return (
+    <Menu.Root>
+      <Menu.Trigger aria-label="More actions" title="More actions" className={cn(geist.ctl, geist.ctlIdle)}>
+        <Ellipsis size={16} strokeWidth={1.5} aria-hidden="true" />
+      </Menu.Trigger>
+      <Menu.Portal>
+        <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-2147483647">
+          <Menu.Popup className={cn(geist.surface, 'min-w-56 p-1 flex flex-col gap-px')}>
+            <Menu.Item className={menuItem} onClick={onCopyForAi} disabled={noneOpen}>
+              {noneOpen ? 'Nothing open to copy for AI' : 'Copy open annotations for AI'}
+            </Menu.Item>
+            <Menu.Item className={menuItem} onClick={onCopy}>
+              Copy as Markdown
+            </Menu.Item>
+            <Menu.Item className={menuItem} onClick={onDownload}>
+              Download Markdown
+            </Menu.Item>
+            <Menu.Separator className={cn(geist.divider, 'my-1 -mx-1')} />
+            <Menu.Item
+              className={menuItem}
+              onClick={() => {
+                // The board is the same annotations in another arrangement, so it
+                // replaces the panel rather than stacking over it.
+                showAnnotationPanel.value = false;
+                showBoard.value = true;
+              }}
+            >
+              Open board
+              <kbd class="ml-auto font-sans text-meta text-(--ds-gray-900)">⌘B</kbd>
+            </Menu.Item>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  );
+}
+
 function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
   const buildExport = () => {
     const data = getExportData?.() ?? { ops: operations.value };
-    return buildMarkdownExport(data.ops, { url: data.url, pages: data.pages });
+    return buildMarkdownExport(data.ops, {
+      url: data.url,
+      pages: data.pages,
+      // `fileUrl` is origin-relative here, and a pasted export has no origin to resolve it against.
+      fileUrl: (id) => new URL(fileUrl(id), location.origin).href,
+    });
   };
   // No capture here: `copyText` counts every clipboard hand-off, success and failure alike.
   const handleCopy = () => copyText(buildExport(), 'Markdown copied');
@@ -424,67 +511,18 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
 
   const threadCount = rootComments.value.length;
   const filters = filterOptions({ counts: statusCounts, active: filter, total: threadCount });
+  const totalCount = threadCount + textCount + selectionCount + areaList.length;
 
   return (
     <>
-      {/* Header */}
       <div class="px-4 py-3 border-b border-(--ds-gray-alpha-400) shrink-0">
         <div class="flex items-center justify-between gap-2">
-          {/* One line, always. The per-status tallies that used to run on here are
-              the filter tabs below now; keeping both wrapped the summary onto a
-              second line that ran under the icon row and shoved the tabs down. */}
-          <div class="min-w-0">
-            <h2 class="text-body font-semibold text-(--ds-gray-1000) m-0 tracking-ui">Comments</h2>
-            <span class="block truncate text-meta text-(--ds-gray-900)">
-              {threadCount} thread{threadCount !== 1 ? 's' : ''}
-              {textCount > 0 && ` · ${textCount} text`}
-              {selectionCount > 0 && ` · ${selectionCount} selection`}
-              {areaList.length > 0 && ` · ${areaList.length} area`}
-            </span>
-          </div>
+          <h2 class="flex items-baseline gap-2 text-body font-semibold text-(--ds-gray-1000) m-0 tracking-ui">
+            Comments
+            <span class="text-ui font-normal text-(--ds-gray-900) tabular-nums">{totalCount}</span>
+          </h2>
           <div class="flex shrink-0 items-center gap-0.5">
-            <button
-              type="button"
-              onClick={() => {
-                // The board is the same annotations in another arrangement, so it
-                // replaces the panel rather than stacking over it.
-                showAnnotationPanel.value = false;
-                showBoard.value = true;
-              }}
-              title="Open the board (⌘B)"
-              aria-label="Open the board"
-              class={cn(geist.ctl, geist.ctlIdle)}
-            >
-              <Columns3 size={16} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleCopy}
-              title="Copy comments + selections as Markdown"
-              aria-label="Copy comments and selections as Markdown"
-              class={cn(geist.ctl, geist.ctlIdle)}
-            >
-              <ClipboardCopy size={16} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleCopyForAi}
-              disabled={openAnnotationTotal.value === 0}
-              title={openAnnotationTotal.value === 0 ? 'No open annotations to copy' : 'Copy all open for AI'}
-              aria-label="Copy all open annotations as one prompt for AI"
-              class={cn(geist.ctl, geist.ctlIdle, 'disabled:opacity-40 disabled:cursor-default')}
-            >
-              <Bot size={16} strokeWidth={1.5} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              title="Download Markdown (.md)"
-              aria-label="Download Markdown"
-              class={cn(geist.ctl, geist.ctlIdle)}
-            >
-              <Download size={16} strokeWidth={1.5} aria-hidden="true" />
-            </button>
+            <PanelMenu onCopyForAi={handleCopyForAi} onCopy={handleCopy} onDownload={handleDownload} />
             <button
               type="button"
               onClick={() => (showAnnotationPanel.value = false)}
@@ -546,15 +584,9 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
             const h = Math.abs(op.endY - op.startY);
             const areaResolved = op.status === 'resolved';
             return (
-              <div key={op.id} class="border-b border-(--ds-gray-alpha-400)">
-                <button
-                  type="button"
-                  class="w-full text-left px-4 py-3
-                         bg-transparent cursor-pointer transition-colors duration-100
-                         hover:bg-(--ds-gray-alpha-100)"
-                  onClick={() => open(item)}
-                >
-                  <div class="flex items-center gap-2 mb-1">
+              <div key={op.id} class="group relative border-b border-(--ds-gray-alpha-400)">
+                <button type="button" class={actionRowButton} onClick={() => open(item)}>
+                  <div class="flex items-center gap-2 h-5 mb-1">
                     <BoxSelect
                       size={12}
                       strokeWidth={1.5}
@@ -562,8 +594,10 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
                       aria-hidden="true"
                     />
                     <span class="text-meta text-(--ds-gray-900) font-medium flex-1">Area</span>
-                    <DeviceBadge device={op.device} />
-                    {areaResolved && <StatusBadge status="resolved" />}
+                    <span class={rowMeta}>
+                      <DeviceBadge device={op.device} />
+                      {areaResolved && <StatusBadge status="resolved" />}
+                    </span>
                   </div>
                   {op.comment ? (
                     <p
@@ -582,15 +616,10 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
                     {Math.round(w)} × {Math.round(h)} px
                   </p>
                 </button>
-                <div class="flex items-center gap-3 px-4 pb-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setOpStatus(op.id, areaResolved ? 'open' : 'resolved')}
-                    class={cn(geist.actionBtn, geist.ctlIdle)}
-                  >
-                    {areaResolved ? 'Reopen' : 'Resolve'}
-                  </button>
-                </div>
+                <QuickAction
+                  label={areaResolved ? 'Reopen' : 'Resolve'}
+                  onClick={() => setOpStatus(op.id, areaResolved ? 'open' : 'resolved')}
+                />
               </div>
             );
           }
@@ -602,15 +631,9 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
             const selReplies = getReplies(op.id);
             const SelIcon = op.suggestion ? Replace : TextSelect;
             return (
-              <div key={op.id} class="border-b border-(--ds-gray-alpha-400)">
-                <button
-                  type="button"
-                  class="w-full text-left px-4 pt-3 pb-2
-                         bg-transparent border-none cursor-pointer transition-colors duration-100
-                         hover:bg-(--ds-gray-alpha-100)"
-                  onClick={() => open(item)}
-                >
-                  <div class="flex items-center gap-2 mb-1.5">
+              <div key={op.id} class="group relative border-b border-(--ds-gray-alpha-400)">
+                <button type="button" class={actionRowButton} onClick={() => open(item)}>
+                  <div class="flex items-center gap-2 h-5 mb-1">
                     <SelIcon
                       size={12}
                       strokeWidth={1.5}
@@ -620,10 +643,13 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
                     <span class="text-meta text-(--ds-gray-1000) font-semibold flex-1 truncate">
                       {op.author || 'Anonymous'}
                     </span>
-                    {op.priority && <PriorityBadge priority={op.priority} />}
-                    <DeviceBadge device={op.device} />
-                    <StatusBadge status={selStatus} />
-                    <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
+                    <span class={rowMeta}>
+                      {op.priority && <PriorityBadge priority={op.priority} />}
+                      <DeviceBadge device={op.device} />
+                      {selStatus !== 'open' && <StatusBadge status={selStatus} />}
+                      <ReplyCount n={selReplies.length} />
+                      <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
+                    </span>
                   </div>
                   {op.suggestion ? (
                     <SuggestionDiff text={op.text} suggestion={op.suggestion} resolved={selResolved} />
@@ -644,21 +670,10 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
                     </p>
                   )}
                 </button>
-                <div class="flex items-center gap-3 px-4 pb-2.5">
-                  {selReplies.length > 0 && (
-                    <span class="text-meta text-(--ds-gray-900) flex items-center gap-1 font-medium">
-                      <MessageSquare size={11} aria-hidden="true" />
-                      {selReplies.length}
-                    </span>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setOpStatus(op.id, STATUS_CYCLE[selStatus])}
-                    class={cn(geist.actionBtn, geist.ctlIdle)}
-                  >
-                    {STATUS_ACTIONS[selStatus]}
-                  </button>
-                </div>
+                <QuickAction
+                  label={STATUS_ACTIONS[selStatus]}
+                  onClick={() => setOpStatus(op.id, STATUS_CYCLE[selStatus])}
+                />
               </div>
             );
           }
@@ -668,12 +683,10 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
             <button
               key={op.id}
               type="button"
-              class="w-full text-left px-4 py-3 border-b border-(--ds-gray-alpha-400)
-                     bg-transparent cursor-pointer transition-colors duration-100
-                     hover:bg-(--ds-gray-alpha-100)"
+              class={cn(rowButton, 'border-b border-solid border-x-0 border-t-0 border-(--ds-gray-alpha-400)')}
               onClick={() => open(item)}
             >
-              <div class="flex items-center gap-2 mb-1">
+              <div class="flex items-center gap-2 h-5 mb-1">
                 <Type size={12} strokeWidth={1.5} color={op.color} aria-hidden="true" />
                 <span class="text-meta text-(--ds-gray-900) font-medium flex-1">Text</span>
                 <DeviceBadge device={op.device} />
