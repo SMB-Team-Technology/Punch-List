@@ -13,7 +13,7 @@ function isActionable(op: AnnotationOp): boolean {
   const status = resolveOpStatus(op);
   if (status !== 'open' && status !== 'in_progress') return false;
   if (op.tool === 'selection' && op.suggestion) return true;
-  if (op.tool === 'comment' && op.voice) return true;
+  if (op.tool === 'comment' && (op.voice || op.video)) return true;
   return noteOf(op).length > 0;
 }
 
@@ -23,6 +23,13 @@ export const isWatchableOp = (op: DrawOp): op is AnnotationOp =>
 
 const actionableRoots = (ops: DrawOp[]): AnnotationOp[] =>
   ops.filter((op): op is AnnotationOp => isWatchableOp(op) && isActionable(op));
+
+/** What stands in for the text of a thread that was spoken or recorded rather than typed. */
+function recordingLabel(op: AnnotationOp): string {
+  if (op.tool === 'comment' && op.voice) return '(voice note)';
+  if (op.tool === 'comment' && op.video) return '(video note)';
+  return '(no comment)';
+}
 
 function elementLine(op: AnnotationOp): string | null {
   const el = op.tool === 'inspect' ? op : op.target;
@@ -45,7 +52,7 @@ export function buildAnnotationsPrompt({ url, ops }: { url?: string; ops: DrawOp
   }
 
   const blocks = items.map((op, i) => {
-    const lines = [`${i + 1}. ${noteOf(op) || (op.tool === 'comment' && op.voice ? '(voice note)' : '(no comment)')}`];
+    const lines = [`${i + 1}. ${noteOf(op) || recordingLabel(op)}`];
     if (op.priority) lines.push(`   - Priority: ${op.priority}`);
     const el = elementLine(op);
     if (el) lines.push(`   - Element: ${el}`);

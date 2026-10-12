@@ -33,6 +33,13 @@ describe('buildAnnotationsPrompt', () => {
     expect(out).not.toContain('legacy');
   });
 
+  test('keeps a recording-only thread, labelled by what was recorded', () => {
+    const out = buildAnnotationsPrompt({
+      ops: [comment({ id: 'v', text: '', video: 'abc123def456ghi789jkl' })],
+    });
+    expect(out).toContain('1. (video note)');
+  });
+
   test('null when nothing is open', () => {
     expect(buildAnnotationsPrompt({ ops: [comment({ status: 'dismissed' })] })).toBeNull();
   });

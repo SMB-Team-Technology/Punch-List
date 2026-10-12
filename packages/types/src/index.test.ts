@@ -4,14 +4,17 @@ import {
   agentColor,
   agentLabel,
   applyOpPatch,
+  areaOpSchema,
   type CommentOp,
   canEditLink,
   clientMsgSchema,
   cn,
   commentMetaSchema,
+  commentOpSchema,
   type DrawOp,
   deletionDeadline,
   effectiveExpiresAt,
+  inspectOpSchema,
   isNewShareId,
   MAX_PAGE_ERROR_TEXT,
   MAX_PAGE_ERRORS,
@@ -19,9 +22,11 @@ import {
   MIN_SHARE_ID_LENGTH,
   mentionSegments,
   normalizeSuggestion,
+  opAnchor,
   RETENTION_DAYS,
   redactSharePath,
   resolveOpStatus,
+  selectionOpSchema,
   translateOp,
 } from './index';
 
@@ -397,5 +402,58 @@ describe('redactSharePath', () => {
     'https://x.test/s/abc',
   ])('leaves %s alone', (input) => {
     expect(redactSharePath(input)).toBe(input);
+  });
+});
+
+describe('opAnchor', () => {
+  const base = { id: 'op-1', color: '#000', lineWidth: 2, ts: 1, author: 'Ada' };
+
+  // A reply posted onto a non-comment annotation used to be dropped entirely, so
+  // these anchors are the difference between a resolve summary the human reads
+  // and one that silently never existed.
+  test('takes a comment its own point', () => {
+    expect(opAnchor(commentOpSchema.parse({ ...base, tool: 'comment', num: 1, text: 'hi', x: 5, y: 6 }))).toEqual({
+      x: 5,
+      y: 6,
+    });
+  });
+
+  test('takes a selection the top-left of its first rect', () => {
+    const op = selectionOpSchema.parse({
+      ...base,
+      tool: 'selection',
+      text: 'headline',
+      rects: [
+        { x: 12, y: 34, width: 100, height: 20 },
+        { x: 12, y: 54, width: 80, height: 20 },
+      ],
+    });
+    expect(opAnchor(op)).toEqual({ x: 12, y: 34 });
+  });
+
+  test('falls back to the origin for a selection with no rects', () => {
+    const op = selectionOpSchema.parse({ ...base, tool: 'selection', text: 'x', rects: [] });
+    expect(opAnchor(op)).toEqual({ x: 0, y: 0 });
+  });
+
+  test('takes an area its top-left corner, whichever way it was dragged', () => {
+    const op = areaOpSchema.parse({ ...base, tool: 'area', startX: 7, startY: 8, endX: 90, endY: 80 });
+    expect(opAnchor(op)).toEqual({ x: 7, y: 8 });
+    // Dragged right-to-left, `startX` is the RIGHT edge. Reading it raw is what
+    // put an agent's reply pin at the wrong corner of the area it answered.
+    const backwards = areaOpSchema.parse({ ...base, tool: 'area', startX: 90, startY: 80, endX: 7, endY: 8 });
+    expect(opAnchor(backwards)).toEqual({ x: 7, y: 8 });
+  });
+
+  test('takes an inspect the top-left of its rect', () => {
+    const op = inspectOpSchema.parse({
+      ...base,
+      tool: 'inspect',
+      selector: '#a',
+      tag: 'div',
+      markdown: '<div/>',
+      rect: { x: 3, y: 4, width: 10, height: 10 },
+    });
+    expect(opAnchor(op)).toEqual({ x: 3, y: 4 });
   });
 });

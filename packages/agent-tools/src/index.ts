@@ -80,6 +80,8 @@ export function projectAnnotation(op: AnnotationOp, apiBase: string) {
       attachments: attachmentUrls(op.attachments, apiBase),
       // The recording behind `text`, which is its transcript and may be empty if transcription failed.
       voice: op.voice ? attachmentUrls([op.voice], apiBase)[0] : null,
+      // A recorded camera or screen clip, with no transcript: `text` is only what was typed beside it.
+      video: op.video ? attachmentUrls([op.video], apiBase)[0] : null,
     };
   }
   if (op.tool === 'area') {

@@ -77,6 +77,12 @@ export const MAX_VOICE_SECONDS = 120;
 /** Cap on a voice-note upload: 120 s of Opus/AAC is well under 1 MB, so 4 MB leaves ample headroom while keeping the model call cheap. */
 export const MAX_VOICE_BYTES = 4 * 1024 * 1024;
 
+/** The longest video note a comment records; the recorder stops itself here too. */
+export const MAX_VIDEO_SECONDS = 120;
+
+/** Cap on a video-note upload: 120 s at the recorder's ~1 Mbit/s is ~15 MB. Stays under MAX_UPLOAD_BYTES. */
+export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
+
 /** A format the product accepts as an upload: what it is, and how to recognise it. */
 export const uploadFormatSchema = z.object({
   contentType: z.string(),
@@ -128,8 +134,8 @@ export const UPLOAD_FORMATS: UploadFormat[] = [
   },
   // Voice notes, from the comment composer's recorder. The containers are shared
   // with video (WebM, Ogg and MP4 all carry either), which is harmless here: the
-  // bytes are only ever served back as `audio/*` with `nosniff`, and a media type
-  // cannot run script. MP4 is matched by brand because the flavour at 8 is all that
+  // bytes are only ever served back as a media type with `nosniff`, which cannot
+  // run script. MP4 is matched by brand because the flavour at 8 is all that
   // tells it from an AVIF; Safari's recorder writes one of these, never `avif`.
   { contentType: 'audio/webm', extension: 'webm', magic: [{ offset: 0, bytes: [0x1a, 0x45, 0xdf, 0xa3] }] },
   { contentType: 'audio/ogg', extension: 'ogg', magic: [{ offset: 0, bytes: ascii('OggS') }] },
@@ -141,13 +147,24 @@ export const UPLOAD_FORMATS: UploadFormat[] = [
       { offset: 8, bytes: ascii(brand) },
     ],
   })),
+  // Video notes: the same containers as above, so bytes alone cannot choose these.
+  // Only an upload that says `kind=video` is sniffed against them (`isVideoType`).
+  // Any `ftyp` brand passes: no other format competes on that path, and an unlisted
+  // brand from one browser's recorder would otherwise fail as a 415.
+  { contentType: 'video/webm', extension: 'webm', magic: [{ offset: 0, bytes: [0x1a, 0x45, 0xdf, 0xa3] }] },
+  { contentType: 'video/mp4', extension: 'mp4', magic: [{ offset: 4, bytes: ascii('ftyp') }] },
 ];
 
 /** Recordings come from the composer's mic button, so no file picker or drop zone should offer them. */
 export const isAudioType = (contentType: string): boolean => contentType.startsWith('audio/');
 
+/** Video notes come from the composer's camera/screen recorder, never a picker, like audio. */
+export const isVideoType = (contentType: string): boolean => contentType.startsWith('video/');
+
 /** What a picker, drop zone or paste accepts, derived so it cannot drift from what the sniffer takes. */
-export const PICKABLE_TYPES = UPLOAD_FORMATS.map((format) => format.contentType).filter((type) => !isAudioType(type));
+export const PICKABLE_TYPES = UPLOAD_FORMATS.map((format) => format.contentType).filter(
+  (type) => !isAudioType(type) && !isVideoType(type),
+);
 
 export const UPLOAD_ACCEPT = PICKABLE_TYPES.join(',');
 
@@ -519,6 +536,8 @@ export const commentOpSchema = z.object({
    * thread has to know to draw a player and not a thumbnail.
    */
   voice: z.optional(z.string().check(z.refine(isUploadId))),
+  /** Upload id of a recorded camera or screen clip. Unlike `voice` it has no transcript. */
+  video: z.optional(z.string().check(z.refine(isUploadId))),
   tool: z.literal('comment'),
   num: z.number(),
   text: z.string(),
@@ -938,7 +957,19 @@ export type ClientMsg = z.infer<typeof clientMsgSchema>;
  * Destinations a room can post to. Each one is rendered by a pure provider module
  * in apps/worker/src/integrations, which describes a request but never makes one.
  */
-export const integrationProviderSchema = z.enum(['slack', 'teams', 'discord', 'webhook', 'linear', 'github', 'jira']);
+export const integrationProviderSchema = z.enum([
+  'slack',
+  'teams',
+  'discord',
+  'webhook',
+  'linear',
+  'github',
+  'jira',
+  'trello',
+  'zapier',
+  'notion',
+  'clickup',
+]);
 export type IntegrationProvider = z.infer<typeof integrationProviderSchema>;
 
 /**
