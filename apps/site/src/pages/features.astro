@@ -10,7 +10,7 @@ const { published, modified } = dates.features;
 const path = '/features';
 const title = 'MarkLayer Features: Every Tool, Integration and AI Hook';
 const description =
-  'The full feature list: 16 annotation tools, threaded comments with status and priority, live cursors, voice and video, Slack, Jira, Linear and GitHub, a 12-tool MCP server, Markdown and PNG export. Free, no account.';
+  'The full feature list: 16 annotation tools, threaded comments with status and priority, live cursors, voice and video, Slack, Jira, Linear, GitHub and Trello, a 12-tool MCP server, Markdown and PNG export. Free, no account.';
 const h1 = 'MarkLayer features';
 
 /**
@@ -45,6 +45,7 @@ const integrations: { name: string; when: string; sends: string }[] = [
   { name: 'Linear', when: 'You pick one', sends: 'Files a single annotation as a Linear issue and hands you the link.' },
   { name: 'GitHub', when: 'You pick one', sends: 'Opens a GitHub issue on a repository from one annotation.' },
   { name: 'Jira', when: 'You pick one', sends: 'Creates a Jira issue in the project and issue type you name.' },
+  { name: 'Trello', when: 'You pick one', sends: 'Adds a card to the list you name from one annotation.' },
 ];
 
 const agentTools: { name: string; does: string }[] = [
@@ -68,12 +69,12 @@ const qa: QA[] = [
     a: 'Sixteen, and every one of them is free. Move, pen, highlight, line, arrow, rectangle, circle, text, comment, selection, area, eraser, inspector, multi-select, measure and guide. Each has a single-key shortcut, and the toolbar can be dragged anywhere on screen and reordered to suit how you work.',
   },
   {
-    q: 'Can MarkLayer send annotations to Jira, Linear or GitHub?',
-    a: 'Yes. Open the panel on a share link, connect Linear, GitHub or Jira, then file any single annotation as an issue and MarkLayer hands you the link to it. This is one way out: MarkLayer creates the issue, and nothing about that issue flows back. Slack, Microsoft Teams, Discord and a plain JSON webhook work differently, posting every new batch of annotations automatically. A room can hold five destinations at once.',
+    q: 'Can MarkLayer send annotations to Jira, Linear, GitHub or Trello?',
+    a: 'Yes. Open the panel on a share link, connect Linear, GitHub, Jira or Trello, then file any single annotation as an issue and MarkLayer hands you the link to it. This is one way out: MarkLayer creates the issue, and nothing about that issue flows back. Slack, Microsoft Teams, Discord and a plain JSON webhook work differently, posting every new batch of annotations automatically. A room can hold five destinations at once.',
   },
   {
-    q: 'Do the Jira, Linear and GitHub tokens get stored on your server?',
-    a: 'No. For the three issue trackers, the room stores only the parts that are not secret, such as the repository name or the project key. The API token stays in the browser of whoever set it up and is sent straight to Linear, GitHub or Jira when they file something. Chat webhooks are different: the webhook URL is the credential, so it is stored with the room, and anyone holding the share link can see its last four characters and remove it.',
+    q: 'Do the Jira, Linear, GitHub and Trello tokens get stored on your server?',
+    a: 'No. For the four issue trackers, the room stores only the parts that are not secret, such as the repository name or the project key. The API token stays in the browser of whoever set it up and is sent straight to Linear, GitHub, Jira or Trello when they file something. Chat webhooks are different: the webhook URL is the credential, so it is stored with the room, and anyone holding the share link can see its last four characters and remove it.',
   },
   {
     q: 'What can an AI coding agent do with a MarkLayer link?',
@@ -110,7 +111,7 @@ const qa: QA[] = [
   <Fragment slot="intro">
     MarkLayer is a free web app and Chrome extension for drawing and commenting on any live webpage, PDF or image, then
     sharing it as a link. It has 16 annotation tools, threaded comments with status and priority, live cursors, voice
-    and video, seven places to send feedback, and a 12-tool MCP server for AI coding agents. No account, no paid tier.
+    and video, eight places to send feedback, and a 12-tool MCP server for AI coding agents. No account, no paid tier.
   </Fragment>
 
   <h2>The 16 annotation tools</h2>
@@ -193,7 +194,7 @@ const qa: QA[] = [
     account is optional and free; annotating and viewing never require one.
   </p>
 
-  <h2>Send feedback to Slack, Teams, Discord, Linear, GitHub or Jira</h2>
+  <h2>Send feedback to Slack, Teams, Discord, Linear, GitHub, Jira or Trello</h2>
   <p>
     Connect a destination from the panel on any share link. Chat destinations post on their own as annotations arrive.
     Issue trackers wait for you to pick a specific annotation and file it, which is what stops a review from
@@ -223,14 +224,14 @@ const qa: QA[] = [
     </table>
   </div>
   <p>
-    Be clear about the direction: this is one way out. MarkLayer creates the Linear, GitHub or Jira issue and gives you
+    This is one way out. MarkLayer creates the Linear, GitHub, Jira issue or Trello card and gives you
     the link to it, and nothing about that issue's later life comes back. If you need a comment to close when the ticket
     closes, you want a bug tracker, and the honest recommendation is <a href="/vs/bugherd">BugHerd</a> or
     <a href="/vs/marker-io">Marker.io</a>.
   </p>
   <p>
-    One detail worth knowing, because most tools do the opposite: for Linear, GitHub and Jira the API token never
-    reaches our server. The room stores only the repository, project key or team id. The token stays in the browser of
+    Unlike most tools, MarkLayer never sends the API token for Linear, GitHub, Jira or Trello to
+    its server. The room stores only the repository, project key or team id. The token stays in the browser of
     whoever set it up. A room holds five destinations at once.
   </p>
 
@@ -330,7 +331,7 @@ const qa: QA[] = [
   <h2>What MarkLayer does not do</h2>
   <p>
     It captures no console logs and no network requests, which is what the $39 to $79 tier at Marker.io and BugHerd is
-    priced for. Nothing syncs back from Jira, Linear or GitHub. Both surfaces are desktop only today, and a phone will
+    priced for. Nothing syncs back from Jira, Linear, GitHub or Trello. Both surfaces are desktop only today, and a phone will
     tell you so. There is no list of your past links unless you sign in, because without an account there is nothing to
     look them up against. And on a PDF or an image, the inspector, measure and multi-select are off.
   </p>

@@ -112,7 +112,7 @@ I make MarkLayer, so this section is what makes the rest of the page worth readi
 
 **No automatic technical context.** Marker.io, Jam, Ybug and BugHerd capture the URL, browser, operating system, screen size, console errors and network requests alongside the report. That is the biggest single reason a team pays $39 to $59 a month, and MarkLayer captures none of it. If you need a bug report a developer can reproduce, buy one of those.
 
-**No tracker routing.** No Jira, Linear, GitHub or Trello sync, and no built-in board. Comments live in the share link. BugHerd and Marker.io both sync two ways, and Atarim ships a whole agency workflow around it.
+**No tracker routing.** No two-way Jira, Linear, GitHub or Trello sync, and no built-in board. A single thread can be filed one way into any of the four. Comments live in the share link. BugHerd and Marker.io both sync two ways, and Atarim ships a whole agency workflow around it.
 
 **Ninety-day deletion.** Free and permanent are different claims, and this page should not blur them. A MarkLayer share link is deleted 90 days after anyone last opened it.
 

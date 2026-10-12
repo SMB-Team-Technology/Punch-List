@@ -80,7 +80,7 @@ Superflow now describes its free allowance as one small-site scan plus a signup 
 
 ## When the free tier is not enough
 
-If you need console logs, network requests or screen recording on every report, none of the free-forever tools provide them, MarkLayer included. Jam's capped free tier records console and network data, and Marker.io's paid plans do too. If you need two-way sync so a closed ticket closes the comment, nothing free here offers it; MarkLayer files into Linear, GitHub or Jira one way only. And if a review runs past 20 items on Usersnap, or past 90 idle days on an unclaimed MarkLayer link, you've outgrown the free setup. On MarkLayer, claiming the link fixes that.
+If you need console logs, network requests or screen recording on every report, none of the free-forever tools provide them, MarkLayer included. Jam's capped free tier records console and network data, and Marker.io's paid plans do too. If you need two-way sync so a closed ticket closes the comment, nothing free here offers it; MarkLayer files into Linear, GitHub, Jira or Trello one way only. And if a review runs past 20 items on Usersnap, or past 90 idle days on an unclaimed MarkLayer link, you've outgrown the free setup. On MarkLayer, claiming the link fixes that.
 
 For paid pricing across twenty-one tools in this category (the cheapest plan starts at $8 a month), see [website feedback tools compared](/guides/website-feedback-tools). If a BugHerd trial runs out before your project does, [free BugHerd alternatives](/alternatives/bugherd) lists what to try next.
 

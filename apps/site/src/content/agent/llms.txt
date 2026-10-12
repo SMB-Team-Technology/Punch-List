@@ -42,7 +42,7 @@ Full list with keyboard shortcuts: https://marklayer.app/features
 - Multi-page projects: one share link can hold up to 50 pages, switched through a tab strip, exported as one document
 - Responsive review: preview a page at desktop, tablet or mobile width. Annotations bind to the element by CSS selector with a text fingerprint fallback plus a fractional offset, so a mark re-resolves onto the right element after a layout reflow or a single-page-app re-render
 - Export: copy or download every comment, reply and highlighted selection as Markdown (statuses, authors, device metadata, and suggested edits as fenced diff blocks), or export the annotated page as a PNG
-- Send feedback out to Slack, Microsoft Teams, Discord, a generic JSON webhook, Linear, GitHub or Jira. See the section below
+- Send feedback out to Slack, Microsoft Teams, Discord, a generic JSON webhook, Linear, GitHub, Jira or Trello. See the section below
 - Works on any website, by two routes: the web app renders the page server-side and overlays the canvas, and the extension annotates in place on anything the web app cannot reach, including pages behind a login and internal tools
 - Open source and self-hostable
 
@@ -61,10 +61,11 @@ Issue trackers fire only when a person files one specific annotation, creating o
 - Linear (API key + team id)
 - GitHub (fine-grained token with Issues write + owner/repository)
 - Jira (site, account email, API token, project key, issue type)
+- Trello (API key, token, list id)
 
 This is strictly one way. MarkLayer creates the issue and reads back its URL once to show a link.
 Nothing about that issue's later state returns to MarkLayer, and no destination sends anything in.
-For the three trackers the API token never reaches MarkLayer's server: the room stores only the
+For the four trackers the API token never reaches MarkLayer's server: the room stores only the
 non-secret fields, and the token stays in the browser of whoever set it up. Chat webhooks differ,
 because the webhook URL is itself the credential, so it is stored with the room and anyone holding
 the share link can see its last four characters and remove it.
@@ -167,7 +168,7 @@ https://marklayer.app/guides/bug-report-mcp-servers
 
 ### What MarkLayer does not do
 
-MarkLayer captures no console or network logs. It can file an annotation into Linear, GitHub or Jira
+MarkLayer captures no console or network logs. It can file an annotation into Linear, GitHub, Jira or Trello
 as an issue, but that is one way out only: nothing about the ticket's later state comes back, so a
 comment does not close when the ticket closes. Those two things are what the $39-79 tier is priced
 for. On a PDF or an image the element inspector, measure and multi-select
@@ -183,6 +184,9 @@ visual feedback layer, not a project management system.
 - Design review: https://marklayer.app/for/design-review
 - QA and bug reporting: https://marklayer.app/for/qa-bug-reporting
 - Client feedback: https://marklayer.app/for/client-feedback
+- Agencies: https://marklayer.app/for/agencies
+- Freelancers: https://marklayer.app/for/freelancers
+- Product teams: https://marklayer.app/for/product-teams
 - Remote teams: https://marklayer.app/for/remote-teams
 - Students: https://marklayer.app/for/students
 - Educators: https://marklayer.app/for/educators
@@ -207,6 +211,14 @@ visual feedback layer, not a project management system.
 - vs Volley: https://marklayer.app/vs/volley
 - vs Superflow: https://marklayer.app/vs/superflow
 - vs Feedbucket: https://marklayer.app/vs/feedbucket
+- vs Figma comments: https://marklayer.app/vs/figma
+- vs Huddlekit: https://marklayer.app/vs/huddlekit
+- vs Atarim: https://marklayer.app/vs/atarim
+- vs zipBoard: https://marklayer.app/vs/zipboard
+- vs Webvizio: https://marklayer.app/vs/webvizio
+- vs BugSmash: https://marklayer.app/vs/bugsmash
+- vs Ybug: https://marklayer.app/vs/ybug
+- vs SureFeedback (formerly ProjectHuddle): https://marklayer.app/vs/surefeedback
 
 ## Free alternatives lists
 
@@ -222,6 +234,7 @@ visual feedback layer, not a project management system.
 - Usersnap alternatives: https://marklayer.app/alternatives/usersnap
 - stagewise alternatives: https://marklayer.app/alternatives/stagewise
 - Loom alternatives: https://marklayer.app/alternatives/loom
+- Free Huddlekit alternatives: https://marklayer.app/alternatives/huddlekit
 
 ## Guides
 
@@ -295,7 +308,7 @@ Q: What is the inspector tool?
 A: Point at any element on a page and MarkLayer captures its CSS selector, its computed styles, a text fingerprint and, on a React or Vue page, the component behind it, formatted as a copy-ready prompt for AI coding agents. Paste it into Claude Code or another agent and it has enough context to make the edit. Multi-select does the same for a set of elements and copies them as one task.
 
 Q: Can MarkLayer send annotations to Slack, Jira, Linear or GitHub?
-A: Yes, to seven destinations. Slack, Microsoft Teams, Discord and a generic JSON webhook post every new batch of annotations automatically. Linear, GitHub and Jira create one issue from one annotation, when a person files it. All seven are one way out: MarkLayer creates the issue and reads back its URL once to show you a link, and nothing about that ticket's later state returns. A room holds five destinations. For Linear, GitHub and Jira the API token never reaches MarkLayer's server; it stays in the browser of whoever set it up. https://marklayer.app/guides/send-feedback-to-jira-linear-slack
+A: Yes, to eight destinations. Slack, Microsoft Teams, Discord and a generic JSON webhook post every new batch of annotations automatically. Linear, GitHub, Jira and Trello create one issue or card from one annotation, when a person files it. All eight are one way out: MarkLayer creates the issue and reads back its URL once to show you a link, and nothing about that ticket's later state returns. A room holds five destinations. For Linear, GitHub, Jira and Trello the API token never reaches MarkLayer's server; it stays in the browser of whoever set it up. https://marklayer.app/guides/send-feedback-to-jira-linear-slack
 
 Q: Can I export my annotations?
 A: Yes, two ways, both in the panel on the right of a share link. Copy or download every comment, reply and highlighted selection as Markdown, with statuses, authors, device metadata, and suggested edits as fenced diff blocks. Or export the annotated page as a PNG, which captures the live page with the drawings over it. A multi-page project exports as one document with a section per page.
