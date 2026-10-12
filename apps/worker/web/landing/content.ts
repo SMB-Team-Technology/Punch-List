@@ -1,38 +1,19 @@
 import { HOW_IT_WORKS_PATH } from '@ext/lib/share';
 import { Eye, FileDown, Files, type LucideIcon, MonitorPlay, Ruler, Send, SquareKanban, Video } from 'lucide-preact';
 
-/**
- * The three claims named under the demo, each set as a bold lead-in that runs
- * on into its sentence. Text only: the visual is the live board above them.
- */
-export const MOMENTS: { title: string; desc: string }[] = [
-  {
-    title: 'Send one link.',
-    desc: 'Whoever opens it can read the page and comment on it in their own browser. No account, nothing to install.',
-  },
-  {
-    title: 'Watch it happen.',
-    desc: 'Cursors, strokes and replies land for everyone at once, so a review is a conversation, not a queue of screenshots.',
-  },
-  {
-    title: 'It stays put.',
-    desc: 'Threads anchor to the element they were left on, so they survive a deploy, a reflow and a different screen size.',
-  },
-];
-
-/** What an agent does once it is in the room, in the same lead-in form as MOMENTS. */
+/** What an agent does once it is in the room, one claim per cell. */
 export const AGENT_MOMENTS: { title: string; desc: string }[] = [
   {
-    title: 'It gets the element.',
-    desc: 'A comment pinned to an element reaches the agent with its selector and a markdown snapshot. Screenshots come as links.',
+    title: 'It knows what you clicked.',
+    desc: 'The comment arrives with the exact piece of the page it was left on, so nobody has to describe it twice.',
   },
   {
     title: 'You watch it work.',
-    desc: 'Acknowledged, replied, resolved. Every status change lands on the page while the thread is still in front of you.',
+    desc: 'Seen, replied, done. Every step shows up on the page while the thread is still in front of you.',
   },
   {
-    title: 'Copy fixes arrive as diffs.',
-    desc: 'A typo or grammar fix comes back as the exact replacement, not a paragraph describing it.',
+    title: 'Wording fixes come back exact.',
+    desc: 'A typo or a better sentence comes back as the replacement itself.',
   },
 ];
 
@@ -44,36 +25,36 @@ export const AGENT_IDS = ['claude', 'cursor', 'copilot', 'windsurf', 'cline', 'z
  * row at two columns and at four.
  */
 export const FEATURES: { title: string; desc: string; icon: LucideIcon }[] = [
-  { title: 'Voice and video.', desc: 'Talk it through in the room. Nobody installs anything to join.', icon: Video },
+  { title: 'Talk it through.', desc: 'Voice and video calls, right inside the review.', icon: Video },
   {
-    title: 'Present and follow.',
-    desc: 'Pull everyone to your scroll position, or ride along on someone else’s.',
+    title: 'Walk people through it.',
+    desc: 'Bring everyone to the part you are looking at, or follow along with someone else.',
     icon: MonitorPlay,
   },
   {
-    title: 'Status and priority.',
-    desc: 'Five statuses and four priorities, with a board to triage them on.',
+    title: 'Track what is done.',
+    desc: 'Mark a comment open, in progress or done, give it a priority, and see them all on one board.',
     icon: SquareKanban,
   },
   {
-    title: 'Measure and guides.',
-    desc: 'Hold Alt for pixel distances, as in Figma, and pin ruler guides to the page.',
+    title: 'Measure anything.',
+    desc: 'Check sizes and spacing in pixels, and pin ruler lines to the page.',
     icon: Ruler,
   },
-  { title: 'Up to 50 pages.', desc: 'Review a whole flow on one link, switched through tabs.', icon: Files },
+  { title: 'Review a whole site.', desc: 'Up to 50 pages on one link, each in its own tab.', icon: Files },
   {
-    title: 'Out to your tools.',
-    desc: 'Batches post to Slack, Teams or Discord. A single comment files as a Linear, GitHub or Jira issue.',
+    title: 'Send it to your tools.',
+    desc: 'New comments post to Slack, Teams or Discord. One comment becomes a Linear, GitHub, Jira or Trello task.',
     icon: Send,
   },
   {
-    title: 'Markdown export.',
-    desc: 'Every comment, reply and suggested edit in one document, copied or downloaded.',
+    title: 'Export the whole review.',
+    desc: 'Every comment and reply in one document you can copy or download.',
     icon: FileDown,
   },
   {
-    title: 'View-only links.',
-    desc: 'Optional email sign-in lets you lock a link to view-only, set when it expires and see every link you own.',
+    title: 'Lock a link.',
+    desc: 'Sign in with your email, if you want to, and make a link read-only, set an end date or see all your links.',
     icon: Eye,
   },
 ];
@@ -104,10 +85,14 @@ export const COMPARISON_NAMES = new Intl.ListFormat('en', { type: 'conjunction' 
 
 export const FAQ: { q: string; a: string }[] = [
   {
-    q: 'Does the other person need the extension installed?',
-    a: 'No. Anyone can view your annotations via the share link. No install required.',
+    q: 'Does my client need to install anything?',
+    a: 'No. They open the link, click on the page and type. They do not install anything or create an account.',
   },
-  { q: 'Is it really free?', a: 'Yes. No account, no paywall, no trial period.' },
+  { q: 'Is it really free?', a: 'Yes. No account, no paywall, no trial that runs out.' },
+  {
+    q: 'Does my client need to know anything technical?',
+    a: 'No. If they can use a web browser, they can leave a comment. The technical details come attached on their own.',
+  },
   {
     q: 'Does it work on any website?',
     a: 'Yes. Production, staging, internal tools, localhost, third-party pages.',

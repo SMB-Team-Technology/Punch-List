@@ -9,27 +9,20 @@ import { agentLabel, cn } from '@marklayer/types';
 import copy from '@site/data/home-copy.json';
 import { ASK_AI, ASK_AI_LABEL, COLOPHON, FOOTER_COLUMNS, TRADEMARK_NOTICE } from '@site/lib/footer';
 import { CHROME_STORE_URL } from '@site/lib/site';
-import { ArrowUpRight, type LucideIcon } from 'lucide-preact';
+import { ArrowUpRight, type LucideIcon, Plus } from 'lucide-preact';
 import { nanoid } from 'nanoid';
 import type { ComponentChildren } from 'preact';
+import { siProducthunt } from 'simple-icons';
 import { capture } from './analytics';
 import { ChannelCycle } from './ChannelCycle';
 import { FakeCursors } from './FakeCursors';
 import { frameViewport } from './iframeOverlay';
 import { ChromeIcon, ChromeStoreLink } from './landing/ChromeStoreLink';
-import {
-  AGENT_IDS,
-  AGENT_MOMENTS,
-  COMPARISON_NAMES,
-  COMPARISONS,
-  FAQ,
-  FEATURES,
-  MOMENTS,
-  NAV_LINKS,
-} from './landing/content';
+import { AGENT_IDS, AGENT_MOMENTS, COMPARISON_NAMES, COMPARISONS, FAQ, FEATURES, NAV_LINKS } from './landing/content';
 import { DemoStage } from './landing/DemoStage';
 import { HeroSource } from './landing/HeroSource';
 import { McpCommand } from './landing/McpCommand';
+import { MarginNote, ProblemRow, ProofGrid } from './landing/Proof';
 import { useLandingCanvas } from './landing/useLandingCanvas';
 import { useLandingPresence } from './landing/useLandingPresence';
 import { useLandingShortcuts } from './landing/useLandingShortcuts';
@@ -144,7 +137,7 @@ export function Landing() {
               >
                 <span class="sr-only">Product Hunt</span>
                 <svg class="size-[18px] fill-current" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M13.604 8.4h-3.405V12h3.405a1.8 1.8 0 0 0 0-3.6ZM12 0C5.372 0 0 5.372 0 12s5.372 12 12 12 12-5.372 12-12S18.628 0 12 0Zm1.604 14.4h-3.405V18H7.801V6h5.804a4.2 4.2 0 0 1 0 8.4Z" />
+                  <path d={siProducthunt.path} />
                 </svg>
               </a>
               <GithubLink dark />
@@ -243,39 +236,48 @@ export function Landing() {
                 </div>
               </section>
 
+              {/* The problem first, in the reader's own terms: the gate a client
+                  meets, and where the feedback ends up instead. */}
+              <section class="lp-cell px-6 pt-24 pb-14 sm:px-10 sm:pt-32 sm:pb-16">
+                <MarginNote class="top-[38%] left-[5%]">Been here?</MarginNote>
+                <SectionHead title="Clients will not install anything to tell you a button is wrong.">
+                  So the feedback comes by email instead, and nobody can tell which button they meant.
+                </SectionHead>
+              </section>
+              <ProblemRow />
+
               {/* The proof: the real viewer on a shared room, which scroll grows to
                   the whole screen. The heading's second clause is a tonal step, not
                   a colour. */}
               <section class="lp-cell px-6 pt-24 pb-14 sm:px-10 sm:pt-32 sm:pb-16">
-                <SectionHead title="Three things it does that a screenshot in a thread cannot.">
-                  Somebody else&rsquo;s page, opened from a link and marked up in the browser. No install on either end.
+                <MarginNote class="top-[38%] right-[5%]" flip>
+                  The whole fix
+                </MarginNote>
+                <SectionHead title="One link is the whole setup.">
+                  Your client opens it and comments straight on the page, in their own browser. Nothing to install on
+                  either end.
                 </SectionHead>
                 <div class="mt-12 sm:mt-14">
                   <DemoStage />
                 </div>
               </section>
 
-              {/* Three cells on one row: each claim is a single paragraph, so the
-                  lead-ins share a baseline whatever the copy length. */}
-              <section class={MOMENTS_ROW_CLS}>
-                {MOMENTS.map((m) => (
-                  <LeadIn key={m.title} {...m} />
-                ))}
-              </section>
+              {/* The claims, each proved by a piece of the product. */}
+              <ProofGrid />
 
               {/* The agent handoff. The command is the install, not a room: pointing a visitor's
                   agent at the public demo board would feed it strangers' comments. */}
               <section class="lp-cell px-6 pt-24 pb-20 text-center sm:px-10 sm:pt-32 sm:pb-24">
-                <SectionHead title="Hand the review to your coding agent.">
-                  Give it a share link and ask it to watch the room. It reads each comment, replies, and resolves what
-                  it fixed.
+                <SectionHead title="Let your AI coding tool make the fixes.">
+                  Give Claude Code or Cursor the link. It reads each comment, changes the code, and ticks the comment
+                  off while you watch.
                 </SectionHead>
                 <div class="mt-12">
                   <McpCommand />
                 </div>
                 <p class="mt-5 text-ui text-ml-fg/60">
-                  Or skip the install: every page link also answers at its own <code class="font-mono">/mcp</code>{' '}
-                  address.
+                  Or skip the install: add <code class="font-mono">/mcp</code> to the end of any share link and point
+                  the agent at that.
                 </p>
                 <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-ui text-ml-fg/60">
                   <span id="lp-agents" class="text-ml-fg">
@@ -303,7 +305,7 @@ export function Landing() {
 
               <section class="lp-cell px-6 py-24 sm:px-10 sm:py-32">
                 <SectionHead title="Everything else a review needs.">
-                  All of it free. The{' '}
+                  All of it free, for everyone on the link. The{' '}
                   <a href="/features" class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30">
                     features page
                   </a>{' '}
@@ -330,8 +332,8 @@ export function Landing() {
                 <div class="mx-auto mt-12 grid max-w-[960px] gap-x-14 gap-y-5 md:grid-cols-2">
                   <p class={cn(BODY_CLS, 'text-pretty')}>{copy.pricingFacts}</p>
                   <p class={cn(BODY_CLS, 'text-pretty')}>
-                    MarkLayer is free because of its licence, not a pricing policy that could change. The code is
-                    Apache-2.0 and you can self-host it.{' '}
+                    MarkLayer is free because of its licence, not a pricing policy that could change. The code is open
+                    (Apache-2.0) and you can run your own copy.{' '}
                     <a
                       href="/guides/free-website-annotation-tools"
                       class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30"
@@ -389,21 +391,7 @@ export function Landing() {
                     <details key={item.q}>
                       <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-6 py-5 text-lede text-ml-fg">
                         {item.q}
-                        <svg
-                          class="lp-faq-mark shrink-0 text-ml-fg/60"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 14 14"
-                          fill="none"
-                          aria-hidden="true"
-                        >
-                          <path
-                            d="M7 1.5v11M1.5 7h11"
-                            stroke="currentColor"
-                            stroke-width="1.5"
-                            stroke-linecap="round"
-                          />
-                        </svg>
+                        <Plus class="lp-faq-mark shrink-0 text-ml-fg/60" size={14} strokeWidth={1.5} />
                       </summary>
                       <p class={cn(BODY_CLS, 'max-w-[62ch] pb-6 text-pretty')}>{item.a}</p>
                     </details>
@@ -415,7 +403,7 @@ export function Landing() {
                   takes the hero's step, so the page ends at the size it opened at. */}
               <section class="lp-cell px-6 py-24 text-center sm:px-10 sm:py-32">
                 <h2 class="lp-display mx-auto mb-12 max-w-[16em] text-hero text-balance text-ml-fg">
-                  Start annotating any page on the web.
+                  Get feedback on the page, not in your inbox.
                 </h2>
                 <ChromeStoreLink label="Add to Chrome" at="closing" />
                 <p class="mt-4 text-ui text-ml-fg/60">Free to use &middot; No sign-up required</p>
@@ -477,7 +465,14 @@ export function Landing() {
                             survives translation and a stripped attribute, and
                             it is what the header's GitHub mark already does. */}
                         <span class="sr-only">Ask {a.label} about MarkLayer</span>
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          fill-rule="evenodd"
+                          aria-hidden="true"
+                        >
                           <path d={a.path} />
                         </svg>
                       </a>

@@ -20,7 +20,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks';
  * already in MarkLayer's own cursor palette rather than borrowing a mail
  * client's identity for the generic case.
  */
-const CHANNELS = [
+export const CHANNELS = [
   // The first word is the headline as it ships prerendered — see home-copy.json.
   { name: copy.headlineChannel, color: '#3B82F6' },
   { name: 'Slack', color: '#4A154B' },
