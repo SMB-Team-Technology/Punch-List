@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { DrawOp } from '@marklayer/types';
+import { validateIntegration } from './deliver';
 import { PROVIDERS, providerList } from './providers';
 import { type Notifiable, notifiableFrom, type RoomEvent } from './types';
 
@@ -47,6 +48,10 @@ const configs: Record<string, unknown> = {
   linear: { apiKey: 'lin_api_x', teamId: 'ENG' },
   github: { token: 'ghp_x', repo: 'acme/site' },
   jira: { site: 'acme', email: 'ada@acme.com', apiToken: 'tok', projectKey: 'PROJ', issueType: 'Task' },
+  trello: { apiKey: 'key', token: 'tok', listId: 'list1' },
+  zapier: { url: 'https://hooks.zapier.com/hooks/catch/1/abc/' },
+  notion: { token: 'ntn_x', pageId: 'https://www.notion.so/acme/Feedback-0123456789abcdef0123456789abcdef' },
+  clickup: { token: 'pk_x', listId: '901234567' },
 };
 
 /** The event a destination is for: chat posts every batch, a tracker is asked. */
@@ -89,8 +94,8 @@ describe('every provider', () => {
 describe('issue trackers', () => {
   const trackers = providerList.filter((p) => p.trigger === 'manual');
 
-  test('there are three of them, and they are the manual ones', () => {
-    expect(trackers.map((p) => p.id).sort()).toEqual(['github', 'jira', 'linear']);
+  test('there are six of them, and they are the manual ones', () => {
+    expect(trackers.map((p) => p.id).sort()).toEqual(['clickup', 'github', 'jira', 'linear', 'notion', 'trello']);
   });
 
   // The whole reason `trigger` exists. An issue per comment, filed unasked off
@@ -251,5 +256,53 @@ describe('webhook', () => {
       page: 'https://example.com',
     });
     expect(body.items[0]).toMatchObject({ author: 'Ada', kind: 'Comment' });
+  });
+});
+
+describe('trello', () => {
+  const body = (b: unknown) => PROVIDERS.trello.parseResult?.(b);
+
+  // The response may omit either link; a card is still created if one is there.
+  test('reads shortUrl, falling back to url, and nothing from a body with neither', () => {
+    expect(body({ shortUrl: 'https://trello.com/c/abc', url: 'https://trello.com/c/abc/1-x' })).toBe(
+      'https://trello.com/c/abc',
+    );
+    expect(body({ url: 'https://trello.com/c/abc/1-x' })).toBe('https://trello.com/c/abc/1-x');
+    expect(body({ id: 'x' })).toBeNull();
+    expect(body(null)).toBeNull();
+  });
+});
+
+describe('zapier', () => {
+  // The allowlist is the only thing separating this row from the open webhook.
+  test('accepts a Zapier catch hook and refuses any other host', () => {
+    expect(validateIntegration({ provider: 'zapier', config: configs.zapier }).ok).toBe(true);
+    expect(validateIntegration({ provider: 'zapier', config: { url: 'https://example.com/hook' } }).ok).toBe(false);
+  });
+});
+
+describe('notion', () => {
+  const render = (pageId: string) =>
+    PROVIDERS.notion.render({
+      event: { type: 'annotation.pushed', items: [item] },
+      config: { token: 'ntn_x', pageId },
+      ...args,
+    });
+  const parent = (pageId: string) => JSON.parse(render(pageId)?.body ?? '{}').parent?.page_id;
+
+  // People paste the page link, not the id; every spelling has to land on the same page.
+  test('takes the page id out of a link, a dashed id or a bare one', () => {
+    const id = '0123456789abcdef0123456789abcdef';
+    expect(parent(`https://www.notion.so/acme/Feedback-${id}`)).toBe(id);
+    expect(parent(`https://www.notion.so/${id}?pvs=4`)).toBe(id);
+    expect(parent('01234567-89ab-cdef-0123-456789abcdef')).toBe(id);
+    expect(render('https://www.notion.so/acme/Feedback')).toBeNull();
+  });
+});
+
+describe('clickup', () => {
+  test('refuses a list id that is not a number, so the path cannot leave /list', () => {
+    const config = { token: 'pk_x', listId: '1/../../team' };
+    expect(validateIntegration({ provider: 'clickup', config }).ok).toBe(false);
   });
 });

@@ -1,16 +1,18 @@
-import { Select } from '@base-ui/react/select';
+import { Menu } from '@base-ui/react/menu';
 import { PanelSection } from '@ext/components/PanelSection';
 import { geist } from '@ext/lib/geist';
 import { toast } from '@ext/lib/state';
-import { cn } from '@marklayer/types';
-import { Check, ChevronDown, Send } from 'lucide-preact';
+import { cn, MAX_INTEGRATIONS_PER_ROOM } from '@marklayer/types';
+import { Check, Ellipsis, Send } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { capture } from './analytics';
 import { Help, helpFor, Input, LabelledField } from './IntegrationFields';
 import {
+  type DestinationSummary,
   destinationListSchema,
   destinations,
   loadIntegrations,
+  type ProviderInfo,
   providerCatalogue,
   saveSecrets,
   stringField,
@@ -28,8 +30,25 @@ import { API_BASE } from './signals';
  */
 
 /**
- * Send this room's new annotations somewhere: a Slack or Teams channel, Discord,
- * or any URL that wants JSON.
+ * Split by when a destination fires, because that is the one thing a person
+ * cannot guess from the name: Slack gets every batch, Linear only what is filed.
+ */
+const GROUPS = [
+  { trigger: 'auto', label: 'Every new annotation' },
+  { trigger: 'manual', label: 'Threads you file' },
+] as const;
+
+const menuItem =
+  'flex w-full items-center px-2.5 py-2 rounded-md text-ui cursor-pointer outline-none data-highlighted:bg-(--ds-gray-alpha-100)';
+
+/**
+ * One destination per row, every one visible at once, set up in place.
+ *
+ * A row list rather than the select it replaced: a closed select hides which of
+ * eleven destinations are already connected, and that is the question this
+ * section opens on. No logos — Slack's and Microsoft's trademark policies bar
+ * third-party use of their marks, and a row of initials in tiles is worse than
+ * the names alone.
  *
  * The room id is the only credential involved, which is the bargain the rest of
  * the product makes too: whoever holds the share link is a participant. The copy
@@ -38,7 +57,7 @@ import { API_BASE } from './signals';
 export function IntegrationsSection({ id }: { id: string }) {
   const providers = providerCatalogue.value;
   const configured = destinations.value;
-  const [picked, setPicked] = useState('');
+  const [open, setOpen] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -46,20 +65,12 @@ export function IntegrationsSection({ id }: { id: string }) {
     void loadIntegrations({ id });
   }, [id]);
 
-  // Defaulted here rather than at load, so the catalogue arriving after this
-  // panel mounts still lands on a chosen destination instead of an empty form.
-  const active = picked || (providers[0]?.id ?? '');
-
-  const provider = providers.find((p) => p.id === active);
-  const fields = provider?.fields ?? [];
-  // A chat hook is one URL and reads best with Add inside the field. An issue
-  // tracker needs a token, a project and where to file it, and four unlabelled
-  // boxes in a column are unusable — so the shape of the form follows the
-  // destination rather than one compromise that suits neither.
-  const single = fields.length === 1 ? fields[0] : null;
-  const ready = fields.length > 0 && fields.every((f) => (values[f.name] ?? '').trim());
-  const labelFor = (providerId: string) => providers.find((p) => p.id === providerId)?.label ?? providerId;
   const set = (name: string, v: string) => setValues((prev) => ({ ...prev, [name]: v }));
+  // Nothing typed for Slack belongs in Linear's token box.
+  const toggle = (providerId: string | null) => {
+    setOpen((current) => (current === providerId ? null : providerId));
+    setValues({});
+  };
 
   /**
    * One request per change, and never a stored config in either direction: the
@@ -90,13 +101,14 @@ export function IntegrationsSection({ id }: { id: string }) {
     }
   };
 
-  const add = async () => {
-    if (!provider || !ready || busy) return;
+  const connect = async (provider: ProviderInfo) => {
+    const ready = provider.fields.every((f) => (values[f.name] ?? '').trim());
+    if (!ready || busy) return;
     // The token half never leaves this browser. What the room stores is where to
     // file — the repository, the project key — and nothing that authorises it.
     saveSecrets({ provider, values });
     const config = Object.fromEntries(
-      fields.filter((f) => f.type !== 'secret').map((f) => [f.name, (values[f.name] ?? '').trim()]),
+      provider.fields.filter((f) => f.type !== 'secret').map((f) => [f.name, (values[f.name] ?? '').trim()]),
     );
     const ok = await send(
       {
@@ -107,189 +119,216 @@ export function IntegrationsSection({ id }: { id: string }) {
       'integration_added',
       provider.id,
     );
+    // Kept open on failure: a rejected token should not take the four fields the
+    // person got right down with it.
     if (ok) {
-      // Cleared on success only: a rejected token should not take the four
-      // fields the person got right down with it.
-      setValues({});
+      toggle(null);
       toast(`${provider.label} connected`, { type: 'success' });
     }
   };
 
-  const remove = (providerId: string) =>
+  const disconnect = (providerId: string) =>
     void send(
       { url: `${API_BASE}${id}/integrations/${encodeURIComponent(providerId)}`, method: 'DELETE' },
       'integration_removed',
       providerId,
     );
 
-  const submit = () => void add();
+  const full = configured.length >= MAX_INTEGRATIONS_PER_ROOM;
 
-  /**
-   * The one Add control. The two form shapes place it differently, not style it
-   * differently. A plain call rather than a nested component: a component
-   * declared in a render body is a new type every render, which is an unmount
-   * and remount of the button on every keystroke.
-   */
-  const addButton = ({ label, ariaLabel, class: extra }: { label: string; ariaLabel?: string; class?: string }) => (
+  return (
+    <PanelSection icon={Send} label="Integrations" count={configured.length || undefined}>
+      <div class="flex flex-col gap-3">
+        {GROUPS.map((group) => {
+          const rows = providers.filter((p) => p.trigger === group.trigger);
+          if (rows.length === 0) return null;
+          return (
+            <section key={group.trigger} aria-label={group.label} class="flex flex-col">
+              <h3 class={cn(geist.sectionLabel, 'm-0 mb-1')}>{group.label}</h3>
+              <ul class="m-0 flex list-none flex-col p-0">
+                {rows.map((provider) => (
+                  <ProviderRow
+                    key={provider.id}
+                    provider={provider}
+                    connection={configured.find((c) => c.provider === provider.id) ?? null}
+                    open={open === provider.id}
+                    busy={busy}
+                    full={full}
+                    values={values}
+                    onToggle={() => toggle(provider.id)}
+                    onInput={set}
+                    onConnect={() => void connect(provider)}
+                    onDisconnect={() => disconnect(provider.id)}
+                  />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+
+        {/* Said once, at the bottom, where it is a caveat rather than the first
+              thing between the reader and the control they came for. */}
+        <p class="m-0 text-meta leading-snug text-(--ds-gray-900)">
+          Up to {MAX_INTEGRATIONS_PER_ROOM} per room. Tracker tokens stay in your browser, never in the room. Anyone
+          with the room link can change these.
+        </p>
+      </div>
+    </PanelSection>
+  );
+}
+
+function ProviderRow({
+  provider,
+  connection,
+  open,
+  busy,
+  full,
+  values,
+  onToggle,
+  onInput,
+  onConnect,
+  onDisconnect,
+}: {
+  provider: ProviderInfo;
+  connection: DestinationSummary | null;
+  open: boolean;
+  busy: boolean;
+  full: boolean;
+  values: Record<string, string>;
+  onToggle: () => void;
+  onInput: (name: string, value: string) => void;
+  onConnect: () => void;
+  onDisconnect: () => void;
+}) {
+  const formId = `integration-${provider.id}`;
+  return (
+    <li class="flex flex-col border-b border-(--ds-gray-alpha-400) py-2 last:border-b-0">
+      <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="truncate text-ui font-medium text-(--ds-gray-1000)">{provider.label}</span>
+          {connection ? (
+            <span class="flex min-w-0 items-center gap-1 text-meta text-(--ds-green-900)">
+              <Check size={12} strokeWidth={2} aria-hidden="true" class="shrink-0" />
+              <span class="truncate">
+                Connected
+                {connection.hint && <span class="text-(--ds-gray-900)"> · {connection.hint}</span>}
+              </span>
+            </span>
+          ) : (
+            <span class="text-meta leading-snug text-(--ds-gray-900)">{provider.blurb}</span>
+          )}
+        </div>
+
+        {connection && !open ? (
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label={`${provider.label} options`}
+              disabled={busy}
+              className={cn(
+                geist.actionBtn,
+                'mx-0 shrink-0 px-1 text-(--ds-gray-900) hover:bg-(--ds-gray-alpha-100) hover:text-(--ds-gray-1000) data-popup-open:bg-(--ds-gray-alpha-100)',
+              )}
+            >
+              <Ellipsis size={16} strokeWidth={1.5} aria-hidden="true" />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-2147483647">
+                <Menu.Popup className={cn(geist.surface, 'min-w-40 p-1 text-(--ds-gray-1000)')}>
+                  <Menu.Item className={menuItem} onClick={onToggle}>
+                    Change settings
+                  </Menu.Item>
+                  <Menu.Item className={cn(menuItem, 'data-highlighted:text-(--ds-red-700)')} onClick={onDisconnect}>
+                    Disconnect
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ) : (
+          <button
+            type="button"
+            onClick={onToggle}
+            disabled={busy || (full && !open)}
+            aria-expanded={open}
+            aria-controls={formId}
+            title={full && !open ? `A room holds at most ${MAX_INTEGRATIONS_PER_ROOM} destinations` : undefined}
+            class={cn(
+              geist.actionBtn,
+              'mx-0 shrink-0 px-2 hover:bg-(--ds-gray-alpha-200)',
+              open ? 'text-(--ds-gray-900)' : 'bg-(--ds-gray-alpha-100) text-(--ds-gray-1000)',
+            )}
+          >
+            {open ? 'Cancel' : 'Set up'}
+          </button>
+        )}
+      </div>
+
+      {open && <SetupForm id={formId} provider={provider} values={values} busy={busy} {...{ onInput, onConnect }} />}
+    </li>
+  );
+}
+
+/**
+ * A chat hook is one URL and reads best with Connect inside the field. An issue
+ * tracker needs a token, a project and where to file it, and four unlabelled
+ * boxes in a column are unusable — so the shape of the form follows the
+ * destination rather than one compromise that suits neither.
+ */
+function SetupForm({
+  id,
+  provider,
+  values,
+  busy,
+  onInput,
+  onConnect,
+}: {
+  id: string;
+  provider: ProviderInfo;
+  values: Record<string, string>;
+  busy: boolean;
+  onInput: (name: string, value: string) => void;
+  onConnect: () => void;
+}) {
+  const fields = provider.fields;
+  const single = fields.length === 1 ? fields[0] : null;
+  const ready = fields.length > 0 && fields.every((f) => (values[f.name] ?? '').trim());
+  const button = (extra: string) => (
     <button
       type="button"
-      onClick={submit}
+      onClick={onConnect}
       disabled={busy || !ready}
-      aria-label={ariaLabel}
       class={cn(geist.actionBtn, 'mx-0 px-2 text-(--ds-gray-1000) hover:bg-(--ds-gray-alpha-200)', extra)}
     >
-      {busy ? 'Saving…' : label}
+      {busy ? 'Saving…' : 'Connect'}
     </button>
   );
 
-  return (
-    <>
-      <div class={cn(geist.divider, 'my-2 -mx-4')} />
-      <PanelSection icon={Send} label="Send annotations out">
-        <div class="flex flex-col gap-2">
-          {/* What is already wired up comes first: it is the answer to the question
-              that opens this section, and on a room with a destination the picker
-              below is a secondary task. */}
-          {configured.length > 0 && (
-            <ul class="m-0 mb-1 flex list-none flex-col gap-0.5 p-0">
-              {configured.map((c) => (
-                <li key={`${c.provider}-${c.hint}`} class="flex items-center justify-between gap-2">
-                  <span class="min-w-0 truncate text-meta text-(--ds-gray-1000)">
-                    {labelFor(c.provider)}
-                    {c.hint && <span class="text-(--ds-gray-900)"> · {c.hint}</span>}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => remove(c.provider)}
-                    aria-label={`Remove ${labelFor(c.provider)}`}
-                    class={cn(geist.actionBtn, geist.actionBtnDanger, 'shrink-0')}
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {/* A select, not a row of tabs: the labels are of very different widths
-              and the catalogue is a list that grows server-side, so a horizontal
-              track either wrapped raggedly or scrolled the later destinations out
-              of sight. A closed select names the current one and promises the
-              rest, at any panel width and any catalogue length. */}
-          {providers.length > 1 && (
-            <Select.Root
-              value={active}
-              items={providers.map((p) => ({ label: p.label, value: p.id }))}
-              onValueChange={(next: string | null) => {
-                if (!next) return;
-                setPicked(next);
-                // Nothing typed for Slack belongs in Linear's token box.
-                setValues({});
-              }}
-            >
-              <Select.Trigger
-                aria-label="Destination"
-                className={cn(
-                  geist.field,
-                  `flex w-full items-center justify-between gap-2 px-2.5 text-ui text-(--ds-gray-1000)
-                   cursor-pointer appearance-none text-left outline-none
-                   hover:border-(--ds-gray-600) data-popup-open:border-(--ds-gray-700)
-                   focus-visible:border-(--ds-gray-700)`,
-                )}
-              >
-                <Select.Value className="min-w-0 truncate" />
-                <Select.Icon className="shrink-0 inline-flex text-(--ds-gray-900)">
-                  <ChevronDown size={14} strokeWidth={1.5} aria-hidden="true" />
-                </Select.Icon>
-              </Select.Trigger>
-
-              <Select.Portal>
-                {/* Anchored under the trigger rather than over it: this select sits
-                    inside a scrolling panel, and the overlap mode lifts the popup
-                    off the control it belongs to. */}
-                <Select.Positioner
-                  side="bottom"
-                  align="start"
-                  sideOffset={6}
-                  alignItemWithTrigger={false}
-                  className="z-2147483647"
-                >
-                  {/* Height is the smaller of a comfortable list and what the
-                      viewport actually has left, which Base UI measures for us —
-                      a catalogue that grows scrolls rather than running off screen. */}
-                  <Select.Popup
-                    className={cn(
-                      geist.surface,
-                      'min-w-(--anchor-width) max-h-[min(16rem,var(--available-height))] overflow-y-auto p-1 text-ui',
-                    )}
-                  >
-                    {providers.map((p) => (
-                      <Select.Item
-                        key={p.id}
-                        value={p.id}
-                        className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-md cursor-pointer border-none transition-colors
-                               bg-transparent text-(--ds-gray-1000) data-highlighted:bg-(--ds-gray-alpha-100)
-                               data-selected:bg-(--ds-gray-alpha-100) data-selected:font-medium"
-                      >
-                        <Select.ItemText className="truncate leading-tight">{p.label}</Select.ItemText>
-                        <Select.ItemIndicator className="shrink-0 inline-flex text-(--ds-gray-900)">
-                          <Check size={14} strokeWidth={1.5} aria-hidden="true" />
-                        </Select.ItemIndicator>
-                      </Select.Item>
-                    ))}
-                  </Select.Popup>
-                </Select.Positioner>
-              </Select.Portal>
-            </Select.Root>
-          )}
-
-          {/* The catalogue already describes each destination in one line; the
-              client was overriding all four with the same four-line paragraph. */}
-          {provider && <p class="m-0 text-meta leading-snug text-(--ds-gray-900)">{provider.blurb}</p>}
-
-          {single && (
-            <div class="flex flex-col gap-1">
-              {/* Add lives inside the field, not under it. Beside a help line that
-                  wraps to two, a `justify-between` button floats to whatever height
-                  the wrap leaves it at — which is how it came to sit level with the
-                  second line of a link it has nothing to do with. */}
-              <div class={cn(geist.field, 'flex items-center gap-1 py-0 pr-1 pl-2.5')}>
-                <Input field={single} value={values[single.name] ?? ''} onInput={set} onEnter={submit} />
-                {/* A word, not a glyph. A bare `+` at the end of a URL field does
-                    not say what it does to anyone who has not met the pattern, and
-                    Enter is not an affordance you can see. */}
-                {addButton({ label: 'Add', ariaLabel: `Add ${provider?.label ?? 'destination'}`, class: 'shrink-0' })}
-              </div>
-              <Help field={single} text={helpFor(single)} />
-            </div>
-          )}
-
-          {!single && fields.length > 0 && (
-            <div class="flex flex-col gap-2">
-              {fields.map((f) => (
-                <LabelledField
-                  key={f.name}
-                  id={`${active}-${f.name}`}
-                  field={f}
-                  label={f.label}
-                  value={values[f.name] ?? ''}
-                  onInput={set}
-                  onEnter={submit}
-                />
-              ))}
-              <div class="flex justify-end">{addButton({ label: `Connect ${provider?.label ?? ''}`.trim() })}</div>
-            </div>
-          )}
-
-          {/* Said once, at the bottom, where it is a caveat rather than the first
-              thing between the reader and the control they came for. */}
-          <p class="m-0 mt-1 text-meta leading-snug text-(--ds-gray-900)">
-            Chat destinations get every annotation, batched. Issue trackers file only what you send them, with a token
-            kept in your browser and never in the room. Anyone with the room link can change these.
-          </p>
+  if (single) {
+    return (
+      <div id={id} class="mt-2 flex flex-col gap-1">
+        <div class={cn(geist.field, 'flex items-center gap-1 py-0 pr-1 pl-2.5')}>
+          <Input field={single} value={values[single.name] ?? ''} onInput={onInput} onEnter={onConnect} />
+          {button('shrink-0')}
         </div>
-      </PanelSection>
-    </>
+        <Help field={single} text={helpFor(single)} />
+      </div>
+    );
+  }
+
+  return (
+    <div id={id} class="mt-2 flex flex-col gap-2">
+      {fields.map((f) => (
+        <LabelledField
+          key={f.name}
+          id={`${id}-${f.name}`}
+          field={f}
+          label={f.label}
+          value={values[f.name] ?? ''}
+          onInput={onInput}
+          onEnter={onConnect}
+        />
+      ))}
+      <div class="flex justify-end">{button('bg-(--ds-gray-alpha-100)')}</div>
+    </div>
   );
 }

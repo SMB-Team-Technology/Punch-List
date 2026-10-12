@@ -1,3 +1,4 @@
+import type { IntegrationProvider } from '@marklayer/types';
 import { z } from 'zod/mini';
 import { base64Utf8 } from '../http';
 import { type ConfigField, type Notifiable, oneLine, type Provider, type RenderArgs, summarize } from './types';
@@ -101,7 +102,7 @@ function fit({ lines, budget }: { lines: string[]; budget: number }): string[] {
 const slack = chatProvider({
   id: 'slack',
   label: 'Slack',
-  blurb: 'Post new annotations to a Slack channel.',
+  blurb: 'Posts to a channel.',
   fields: [
     {
       name: 'url',
@@ -130,7 +131,7 @@ const slack = chatProvider({
 const teams = chatProvider({
   id: 'teams',
   label: 'Microsoft Teams',
-  blurb: 'Post new annotations to a Teams channel.',
+  blurb: 'Posts to a channel.',
   fields: [
     {
       name: 'url',
@@ -174,7 +175,7 @@ const teams = chatProvider({
 const discord = chatProvider({
   id: 'discord',
   label: 'Discord',
-  blurb: 'Post new annotations to a Discord channel.',
+  blurb: 'Posts to a channel.',
   fields: [
     {
       name: 'url',
@@ -205,10 +206,25 @@ const discord = chatProvider({
  * private-address guard does the work instead. Its payload is structured rather
  * than prose: whatever receives it is a program, not a person.
  */
+function renderJson({ event, config, roomUrl, pageUrl }: RenderArgs) {
+  const url = hookUrl(config);
+  if (!url) return null;
+  return {
+    url,
+    headers: json,
+    body: JSON.stringify({
+      type: event.type,
+      room: roomUrl,
+      page: pageUrl,
+      items: event.items.map((i) => ({ ...i, text: oneLine(i.text) })),
+    }),
+  };
+}
+
 const webhook: Provider = {
   id: 'webhook',
   label: 'Webhook',
-  blurb: 'POST new annotations as JSON to any URL.',
+  blurb: 'POSTs JSON to any URL.',
   fields: [
     {
       name: 'url',
@@ -220,20 +236,33 @@ const webhook: Provider = {
   ],
   allowedHosts: [],
   trigger: 'auto',
-  render({ event, config, roomUrl, pageUrl }: RenderArgs) {
-    const url = hookUrl(config);
-    if (!url) return null;
-    return {
-      url,
-      headers: json,
-      body: JSON.stringify({
-        type: event.type,
-        room: roomUrl,
-        page: pageUrl,
-        items: event.items.map((i) => ({ ...i, text: oneLine(i.text) })),
-      }),
-    };
-  },
+  render: renderJson,
+};
+
+/**
+ * The webhook payload, pinned to Zapier's catch-hook host. Its own row because
+ * "paste a Zapier URL" is what people look for; the allowlist is the difference.
+ */
+const zapier: Provider = {
+  id: 'zapier',
+  label: 'Zapier',
+  blurb: 'Starts a Zap.',
+  fields: [
+    {
+      name: 'url',
+      label: 'Catch hook URL',
+      type: 'url',
+      placeholder: 'https://hooks.zapier.com/hooks/catch/…',
+      // Webhooks by Zapier is not on Zapier's Free plan; said here so a hook that
+      // never fires is not blamed on us.
+      help: 'Webhooks by Zapier → Catch Hook. Paid Zapier plans.',
+      helpUrl: 'https://help.zapier.com/hc/en-us/articles/8496288690317-Trigger-Zaps-from-webhooks',
+    },
+  ],
+  // Zapier's own docs show catch hooks on both hosts.
+  allowedHosts: ['hooks.zapier.com', 'zapier.com'],
+  trigger: 'auto',
+  render: renderJson,
 };
 
 /**
@@ -278,7 +307,7 @@ const linearConfig = z.object({ apiKey: z.string(), teamId: z.string() });
 const linear: Provider = {
   id: 'linear',
   label: 'Linear',
-  blurb: 'File a thread as a Linear issue.',
+  blurb: 'Files an issue.',
   fields: [
     {
       name: 'apiKey',
@@ -345,7 +374,7 @@ const REPO_SHAPE = /^[\w.-]+\/[\w.-]+$/;
 const github: Provider = {
   id: 'github',
   label: 'GitHub',
-  blurb: 'File a thread as a GitHub issue.',
+  blurb: 'Files an issue.',
   fields: [
     {
       name: 'token',
@@ -435,7 +464,7 @@ function adf(body: string) {
 const jira: Provider = {
   id: 'jira',
   label: 'Jira',
-  blurb: 'File a thread as a Jira issue.',
+  blurb: 'Files an issue.',
   fields: [
     {
       name: 'site',
@@ -494,8 +523,208 @@ const jira: Provider = {
 
 const jiraResult = z.object({ key: z.string(), self: z.string() });
 
-/** Every destination a room can post to, by id. */
-export const PROVIDERS = { slack, teams, discord, webhook, linear, github, jira } as const;
+/** The stored config for Trello: an app key and member token, and the list a card lands in. */
+const trelloConfig = z.object({ apiKey: z.string(), token: z.string(), listId: z.string() });
+const trelloResult = z.object({ shortUrl: z.optional(z.string()), url: z.optional(z.string()) });
+
+const trello: Provider = {
+  id: 'trello',
+  label: 'Trello',
+  blurb: 'Files a card.',
+  fields: [
+    {
+      name: 'apiKey',
+      label: 'API key',
+      type: 'secret',
+      placeholder: 'Power-Up API key',
+      help: 'From a Trello Power-Up admin page.',
+      helpUrl: 'https://trello.com/power-ups/admin',
+    },
+    {
+      name: 'token',
+      label: 'Token',
+      type: 'secret',
+      placeholder: 'ATTA…',
+      help: 'Generate one from the same page, with write access.',
+      helpUrl: 'https://developer.atlassian.com/cloud/trello/guides/rest-api/authorization/',
+    },
+    {
+      name: 'listId',
+      label: 'List ID',
+      type: 'text',
+      placeholder: '5f1c…',
+      help: 'Add .json to a board URL and find the list under "lists".',
+    },
+  ],
+  allowedHosts: ['api.trello.com'],
+  trigger: 'manual',
+  render(args: RenderArgs) {
+    const parsed = trelloConfig.safeParse(args.config);
+    if (!parsed.success) return null;
+    const content = issueContent(args);
+    if (!content) return null;
+
+    return {
+      url: 'https://api.trello.com/1/cards',
+      headers: {
+        ...json,
+        // Header auth keeps the key and token out of the URL, and so out of logs.
+        Authorization: `OAuth oauth_consumer_key="${parsed.data.apiKey}", oauth_token="${parsed.data.token}"`,
+      },
+      body: JSON.stringify({
+        idList: parsed.data.listId,
+        name: content.title,
+        desc: content.body,
+        urlSource: args.roomUrl,
+      }),
+    };
+  },
+  /** `shortUrl` is stable across card renames; `url` carries the slug and is the fallback. */
+  parseResult(body: unknown): string | null {
+    const parsed = trelloResult.safeParse(body);
+    if (!parsed.success) return null;
+    return parsed.data.shortUrl ?? parsed.data.url ?? null;
+  },
+};
+
+const notionConfig = z.object({ token: z.string(), pageId: z.string() });
+const urlResult = z.object({ url: z.string() });
+
+function parseUrl(body: unknown): string | null {
+  const parsed = urlResult.safeParse(body);
+  return parsed.success ? parsed.data.url : null;
+}
+
+/**
+ * A Notion page id, out of either the bare id or a pasted page URL, whose last
+ * 32 hex characters are the id. Dashes are optional in both spellings.
+ */
+function notionPageId(raw: string): string | null {
+  const match = raw.replace(/-/g, '').match(/([0-9a-f]{32})(?:[?#].*)?$/i);
+  return match?.[1] ?? null;
+}
+
+/** One paragraph block per line; a blank line is an empty paragraph, as typed. */
+function notionParagraphs(body: string) {
+  return body.split('\n').map((line) => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: line ? [{ type: 'text', text: { content: line } }] : [] },
+  }));
+}
+
+/**
+ * A child page under one parent page rather than a database row: a database's
+ * title column can be named anything, and guessing "Name" fails on every
+ * database somebody renamed. Under a page, `title` is the only property.
+ */
+const notion: Provider = {
+  id: 'notion',
+  label: 'Notion',
+  blurb: 'Files a page.',
+  fields: [
+    {
+      name: 'token',
+      label: 'Connection token',
+      type: 'secret',
+      placeholder: 'ntn_…',
+      help: 'Create an internal connection, then copy it from Configuration.',
+      helpUrl: 'https://app.notion.com/developers/connections',
+    },
+    {
+      name: 'pageId',
+      label: 'Parent page',
+      type: 'text',
+      placeholder: 'https://www.notion.so/…',
+      help: 'The page link. Share it with the connection: ••• → Add connections.',
+    },
+  ],
+  allowedHosts: ['api.notion.com'],
+  trigger: 'manual',
+  render(args: RenderArgs) {
+    const parsed = notionConfig.safeParse(args.config);
+    if (!parsed.success) return null;
+    const pageId = notionPageId(parsed.data.pageId);
+    if (!pageId) return null;
+    const content = issueContent(args);
+    if (!content) return null;
+
+    return {
+      url: 'https://api.notion.com/v1/pages',
+      headers: {
+        ...json,
+        Authorization: `Bearer ${parsed.data.token}`,
+        // Pinned for the same reason as GitHub's: a create call should not change under us.
+        'Notion-Version': '2026-03-11',
+      },
+      body: JSON.stringify({
+        parent: { type: 'page_id', page_id: pageId },
+        properties: { title: { title: [{ type: 'text', text: { content: content.title } }] } },
+        children: notionParagraphs(content.body),
+      }),
+    };
+  },
+  parseResult: parseUrl,
+};
+
+const clickupConfig = z.object({ token: z.string(), listId: z.string() });
+
+/** ClickUp list ids are numeric; anything else could walk the path out of /list. */
+const CLICKUP_LIST_SHAPE = /^\d+$/;
+
+/** A personal token goes in `Authorization` raw, like Linear's — `Bearer` is for OAuth tokens. */
+const clickup: Provider = {
+  id: 'clickup',
+  label: 'ClickUp',
+  blurb: 'Files a task.',
+  fields: [
+    {
+      name: 'token',
+      label: 'API token',
+      type: 'secret',
+      placeholder: 'pk_…',
+      help: 'ClickUp → Settings → Apps → API Token.',
+      helpUrl: 'https://app.clickup.com/settings/apps',
+    },
+    {
+      name: 'listId',
+      label: 'List ID',
+      type: 'text',
+      placeholder: '901234567',
+      help: 'The number after /li/ in the list URL.',
+    },
+  ],
+  allowedHosts: ['api.clickup.com'],
+  trigger: 'manual',
+  render(args: RenderArgs) {
+    const parsed = clickupConfig.safeParse(args.config);
+    if (!parsed.success || !CLICKUP_LIST_SHAPE.test(parsed.data.listId)) return null;
+    const content = issueContent(args);
+    if (!content) return null;
+
+    return {
+      url: `https://api.clickup.com/api/v2/list/${parsed.data.listId}/task`,
+      headers: { ...json, Authorization: parsed.data.token },
+      body: JSON.stringify({ name: content.title, description: content.body }),
+    };
+  },
+  parseResult: parseUrl,
+};
+
+/** Every destination a room can post to, by id; an enum entry with no provider fails tsc. */
+export const PROVIDERS = {
+  slack,
+  teams,
+  discord,
+  webhook,
+  zapier,
+  linear,
+  github,
+  jira,
+  trello,
+  notion,
+  clickup,
+} as const satisfies Record<IntegrationProvider, Provider>;
 
 export const providerList: readonly Provider[] = Object.values(PROVIDERS);
 
