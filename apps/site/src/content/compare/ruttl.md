@@ -1,6 +1,6 @@
 ---
 order: 7
-title: "Ruttl vs MarkLayer: Free Ruttl Alternative, No Per-User Fee"
+title: "Ruttl vs MarkLayer: Per-User Pricing vs Free, Compared"
 description: "Ruttl has project workspaces and live CSS edit mode on paid tiers. MarkLayer is the free, open-source path for visual feedback on live web pages. Live cursors included."
 competitor: "Ruttl"
 competitorTagline: "a paid visual feedback platform with project workspaces, version comparison, and live website edit mode"

@@ -34,7 +34,7 @@ faq:
   - q: "Can I self-host Marker.io or MarkLayer?"
     a: "Marker.io is closed-source SaaS with no self-hosting option at any plan. MarkLayer is open source, so a team with the engineering time could run its own instance, though the hosted version at marklayer.app is free and needs no setup."
   - q: "What does MarkLayer not offer compared to Marker.io?"
-    a: "MarkLayer now files one Linear, GitHub, or Jira issue at a time, but nothing syncs back after that ticket is created. Marker.io's two-way sync, console logs, network requests, and session replay are still missing here. Trello, Asana, and ClickUp aren't connected either. Those are Marker.io's paid strengths, and MarkLayer doesn't try to match all of them."
+    a: "MarkLayer now files one Linear, GitHub, or Jira issue at a time, but nothing syncs back after that ticket is created. Marker.io's two-way sync, console logs, network requests, and session replay are still missing here. Asana and ClickUp aren't connected, and the Trello card it files is one way too. Those are Marker.io's paid strengths, and MarkLayer doesn't try to match all of them."
   - q: "Which of these tools fits a dev team that lives in Jira or Linear?"
     a: "Marker.io's Team plan for full two-way Jira sync, or Jam for a free tier that already includes Jira and Linear alongside console and network logs. MarkLayer's one-way Jira or Linear filing works fine at low volume too, if a shared live canvas matters more than an automatic sync."
   - q: "Do any of these free Marker.io alternatives connect to AI coding agents?"

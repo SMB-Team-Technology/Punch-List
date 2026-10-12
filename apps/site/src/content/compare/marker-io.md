@@ -1,13 +1,13 @@
 ---
 order: 5
-title: "Marker.io vs MarkLayer: A Free Marker.io Alternative"
+title: "Marker.io vs MarkLayer: From $39/Month Widget vs Free"
 description: "Marker.io costs $59/month ($39 annual, 3 seats); Jira sync needs the $199 Team plan. MarkLayer is a free Marker.io alternative with one-way issue filing."
 intro: "MarkLayer is a free, open-source Marker.io alternative for visual feedback: paste a URL and annotate the live page in your browser without installing anything or making an account. Marker.io costs at least $39 a month and adds two-way Jira sync, console logs, and network capture that MarkLayer does not have."
 competitor: "Marker.io"
 competitorTagline: "a paid visual bug-reporting platform with deep integrations into Jira, GitHub, and project management tools like Trello, Asana, and ClickUp"
 homepage: "https://marker.io"
 bottomLine: "Choose MarkLayer for free, real-time visual feedback with one-way issue filing into Linear, GitHub, or Jira. Choose Marker.io if you want two-way Jira sync, console and network capture, and your team already pays for a bug-tracking subscription."
-quote: "Marker.io's moat is automatic console capture on every report and a Jira sync that runs both ways, and that sync sits on the $199-a-month Team plan (checked September 2026). MarkLayer files a Linear, GitHub or Jira issue for you now too. One way out, and free."
+quote: "Marker.io's moat is automatic console capture on every report and a Jira sync that runs both ways, and that sync sits on the $199-a-month Team plan (checked September 2026). MarkLayer also files a Linear, GitHub or Jira issue, or a Trello card, but only one way, and it is free."
 published: 2026-01-28
 modified: 2026-10-08
 rows:
@@ -74,7 +74,7 @@ faq:
 ---
 ## How MarkLayer's issue filing compares to Marker.io's two-way sync
 
-MarkLayer files one Linear, GitHub or Jira issue from one annotation, and the connection runs one way. Marker.io's Team plan keeps a Jira ticket and its bug report in step in both directions, and that plan costs $149 to $199 a month rather than the $39 Starter tier most teams try first.
+MarkLayer files one Linear, GitHub or Jira issue, or one Trello card, from one annotation, and the connection runs one way. Marker.io's Team plan keeps a Jira ticket and its bug report in step in both directions, and that plan costs $149 to $199 a month rather than the $39 Starter tier most teams try first.
 
 Marker.io's pricing page, checked September 2026, puts Jira and Azure DevOps on Team: $199 a month billed monthly, or $149 annually, for 15 users. GitHub, GitLab, Linear, Trello, Asana and ClickUp already come with Starter ($59 a month, or $39 annually, for three users).
 

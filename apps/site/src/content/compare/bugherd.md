@@ -1,14 +1,14 @@
 ---
 order: 2
-title: "BugHerd vs MarkLayer: A Free BugHerd Alternative to $50/Month"
-description: "BugHerd starts at $50/month for 5 members (August 2026). MarkLayer is free, with no Kanban board and one-way Slack, Jira, Linear and GitHub."
+title: "BugHerd vs MarkLayer: $50/Month Bug Tracker vs Free Links"
+description: "BugHerd starts at $50/month for 5 members (August 2026). MarkLayer is free, with a status board on every link and one-way Slack, Jira, Linear and GitHub."
 competitor: "BugHerd"
 competitorTagline: "a paid visual bug tracker that turns annotations into a Kanban-style task board"
 homepage: "https://bugherd.com"
-bottomLine: "Choose MarkLayer for free, fast visual feedback that posts to Slack or files a Jira, Linear or GitHub issue one way. Choose BugHerd if you need a built-in Kanban board, automatic browser/OS/console capture, and native Jira/GitHub/Trello sync, and you have budget for a paid bug-tracking platform."
-quote: "BugHerd's published Standard plan is $50 a month for five members as of August 2026, with extra seats at $8 each, and that math adds up on client-facing teams. MarkLayer doesn't replicate the Kanban board or the console and network capture, but for the annotation half of the workflow, it's free."
+bottomLine: "Choose MarkLayer for free, fast visual feedback that posts to Slack or files a Jira, Linear, GitHub issue or Trello card one way. Choose BugHerd if you need user roles and permissions, automatic browser/OS/console capture, and native Jira/GitHub/Trello sync, and you have budget for a paid bug-tracking platform."
+quote: "BugHerd's published Standard plan is $50 a month for five members as of August 2026, with extra seats at $8 each, and that math adds up on client-facing teams. MarkLayer has a status board of its own but no BugHerd-style roles and no console or network capture. For the annotation half of the workflow, it's free."
 published: 2026-02-02
-modified: 2026-10-08
+modified: 2026-10-11
 rows:
   - feature: "Price"
     ml: "Free"
@@ -26,7 +26,7 @@ rows:
     ml: "Yes"
     them: "No"
   - feature: "Kanban task board"
-    ml: "No"
+    ml: "Yes, status columns and assignees on every link"
     them: "Yes"
   - feature: "Integrations"
     ml: "One-way. Posts new comments to Slack, Teams, Discord or a webhook; files single threads as Jira, Linear or GitHub issues. Nothing syncs back"
@@ -49,25 +49,25 @@ chooseMl:
   - "You want freehand drawing tools, not just pinned comments."
   - "You want real-time collaboration with live cursors."
 chooseThem:
-  - "You need a structured Kanban board to triage and assign bugs."
+  - "You need a task board backed by user roles, permissions and reporting."
   - "You need automatic capture of browser, OS, resolution, and the exact element selector per report."
   - "You need deep integrations with Jira, GitHub, or Trello."
   - "You manage QA at scale and need user roles, permissions, and reporting."
 faq:
   - q: "Is MarkLayer a free BugHerd alternative?"
-    a: "For lightweight visual feedback, yes. MarkLayer is free and does the annotation part well. For full bug-tracking workflows with task boards and integrations, BugHerd remains the heavier-duty tool."
+    a: "For lightweight visual feedback, yes. MarkLayer is free and does the annotation part well. For full bug-tracking workflows with roles, automatic capture and two-way integrations, BugHerd remains the heavier-duty tool."
   - q: "Can MarkLayer capture browser metadata for bug reports?"
     a: "Partly. Every comment left in the browser carries the page URL, browser, OS and viewport size. MarkLayer does not capture console or network logs, a screen resolution or a screenshot on its own. If you need those on every report, BugHerd is a better fit; for console and network logs, look at Marker.io or Jam.dev."
   - q: "Does MarkLayer integrate with Jira or GitHub?"
-    a: "One way. MarkLayer posts new comments to Slack, Teams, Discord or a webhook, and can file a single thread as a Jira, Linear or GitHub issue. Nothing syncs back: closing the ticket does not update the annotation. For a built-in Kanban board and deeper tracker integrations, BugHerd is the heavier-duty tool."
+    a: "One way. MarkLayer posts new comments to Slack, Teams, Discord or a webhook, and can file a single thread as a Jira, Linear or GitHub issue. Nothing syncs back: closing the ticket does not update the annotation. For two-way tracker integrations, BugHerd is the heavier-duty tool."
   - q: "Can MarkLayer replace BugHerd for small teams?"
-    a: "For small teams that want fast visual feedback without a Kanban board or paid subscription, MarkLayer is a viable replacement. For teams that already depend on BugHerd integrations, switching means giving those up."
+    a: "For small teams that want fast visual feedback and a simple status board without a paid subscription, MarkLayer is a viable replacement. For teams that already depend on BugHerd integrations, switching means giving those up."
   - q: "What actually happens to a BugHerd task after someone files it?"
-    a: "It becomes a card. BugHerd auto-captures the browser, OS, screen resolution, and the exact CSS selector of whatever was clicked, then drops all of it onto a Kanban board where a lead assigns, prioritizes, and tracks it to done, with two-way sync out to Jira, GitHub, or Trello if the team already lives there. MarkLayer stops one step earlier: the annotation exists on the page and in the share link, and from there it can post to Slack, Teams, Discord or a webhook automatically, or be filed by hand as a Jira, Linear or GitHub issue. Nothing syncs back."
+    a: "It becomes a card. BugHerd auto-captures the browser, OS, screen resolution, and the exact CSS selector of whatever was clicked, then drops all of it onto a Kanban board where a lead assigns, prioritizes, and tracks it to done, with two-way sync out to Jira, GitHub, or Trello if the team already lives there. MarkLayer keeps it lighter: the annotation lives on the page and on the link's status board, where it can be assigned and moved to resolved, and from there it can post to Slack, Teams, Discord or a webhook automatically, or be filed by hand as a Jira, Linear, GitHub issue or Trello card. Nothing syncs back."
 ---
 
-MarkLayer and [BugHerd](https://bugherd.com) both let you annotate web pages with arrows and comments, but they stop at different points in the workflow. BugHerd's annotation step is really the front door to a full bug-tracking system: click an element, and the tool automatically attaches your browser, OS, and CSS selector, then files the whole thing as a card on a Kanban board that a QA lead can triage, assign, and sync into Jira or GitHub. MarkLayer's annotation is the whole product. Draw the arrow, leave the comment, share the link; there's no board underneath it, and only the basics ride along: URL, browser, OS and viewport, but no console or network logs.
+MarkLayer and [BugHerd](https://bugherd.com) both let you annotate web pages with arrows and comments, but they stop at different points in the workflow. BugHerd's annotation step is really the front door to a full bug-tracking system: click an element, and the tool automatically attaches your browser, OS, and CSS selector, then files the whole thing as a card on a Kanban board that a QA lead can triage, assign, and sync into Jira or GitHub. MarkLayer's annotation is the whole product. Draw the arrow, leave the comment, share the link; the board underneath is a set of status columns with assignees, and only the basics ride along: URL, browser, OS and viewport, but no console or network logs.
 
-That difference in scope is also the whole story on price. BugHerd is priced like the project-management tool it partly is, $50/month minimum for five members with no free plan, because the thing being sold is the board and the integrations, not the click-and-annotate step. MarkLayer has no board to sell, so there's nothing to meter.
+That difference in scope is also the whole story on price. BugHerd is priced like the project-management tool it partly is, $50/month minimum for five members with no free plan, because the thing being sold is the triage workflow and the integrations. The click-and-annotate step is incidental. MarkLayer has no seats to sell, so there's nothing to meter.
 
-The practical split, per the public reviews and support threads: teams that keep BugHerd stay for the Kanban workflow and the automatic metadata on every report, features that matter most once a QA team is triaging dozens of bugs a week across a real backlog. Teams that leave, or never sign up in the first place, usually just wanted the annotation, one or two visual notes a week that don't need a task-tracking system wrapped around them. MarkLayer is built for exactly that second group, for free.
+The practical split, per the public reviews and support threads: teams that keep BugHerd stay for the role-based triage workflow and the automatic metadata on every report, features that matter most once a QA team is triaging dozens of bugs a week across a real backlog. Teams that leave, or never sign up in the first place, usually just wanted the annotation, one or two visual notes a week that don't need a task-tracking system wrapped around them. MarkLayer is built for exactly that second group, for free.

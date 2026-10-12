@@ -13,7 +13,7 @@ modified: 2026-09-24
 options:
   - name: "MarkLayer"
     url: "/"
-    pitch: "Free and open source. Paste a URL and annotate the live page in your browser; the web app needs no account and no extension unless the page sits behind a login. Drawing tools, pinned comments and live cursors cover the annotation itself. A board sorts every comment into status columns, and a one-way integration files a comment into Linear, GitHub or Jira. It tracks no due dates, and a ticket's later status never comes back. An MCP server lets an AI coding agent work the same room."
+    pitch: "Free and open source. Paste a URL and annotate the live page in your browser; the web app needs no account and no extension unless the page sits behind a login. Drawing tools, pinned comments and live cursors cover the annotation itself. A board sorts every comment into status columns, and a one-way integration files a comment into Linear, GitHub, Jira or Trello. It tracks no due dates, and a ticket's later status never comes back. An MCP server lets an AI coding agent work the same room."
     bestFor: "Lightweight visual feedback without a paid bug-tracking platform."
   - name: "Markup.io"
     url: "/vs/markup-io"
@@ -34,7 +34,7 @@ faq:
   - q: "Can I self-host a free alternative instead of paying for BugHerd?"
     a: "MarkLayer and Hypothesis are both open source, so you can self-host either one instead of running it as a hosted SaaS product. Not BugHerd or Markup.io. Both are closed source and only available as paid, hosted platforms."
   - q: "What does MarkLayer not offer compared to BugHerd?"
-    a: "Due dates, a view across projects, a widget for your own site's visitors, and ticket status that syncs back. MarkLayer does record the browser, operating system and viewport width on every comment, and it files into Linear, GitHub or Jira, but only one way. Trello and Asana aren't supported."
+    a: "Due dates, a view across projects, a widget for your own site's visitors, and ticket status that syncs back. MarkLayer does record the browser, operating system and viewport width on every comment, and it files into Linear, GitHub, Jira or Trello, but only one way. Asana isn't supported."
   - q: "Which alternative fits a QA workflow best?"
     a: "Budget matters here. If QA needs due dates, a Kanban board split across multiple projects, and Premium-tier Jira status sync, BugHerd's own feature set is hard to fully replace with a free tool. If QA mainly needs to mark up a bug, sort it by status, and hand it to a tracker, MarkLayer now covers that natively, for free. GitHub Issues plus manual screenshots works fine if you're already a GitHub-only shop."
   - q: "Does BugHerd's Jira integration sync both ways?"
@@ -52,13 +52,13 @@ So the plan you need depends on your tracker more than your headcount. A three-p
 
 A BugHerd free alternative still costs you something. BugHerd's board has due dates and a view across projects. Its embeddable widget lets visitors to your own site report a problem without being invited anywhere. On Premium, closing a Jira ticket moves the matching BugHerd task to done.
 
-MarkLayer's board sorts comments by status (open, in progress, resolved, approved, dismissed), but it has no due dates and no cross-project view. Feedback starts only once someone has the share link. Filing into Linear, GitHub or Jira works one way, so a closed ticket never closes the comment that produced it.
+MarkLayer's board sorts comments by status (open, in progress, resolved, approved, dismissed), but it has no due dates and no cross-project view. Feedback starts only once someone has the share link. Filing into Linear, GitHub, Jira or Trello works one way, so a closed ticket never closes the comment that produced it.
 
 ## Setting up each one
 
 On MarkLayer you paste the URL at marklayer.app and share the link, and whoever opens it can draw on the page. Nobody signs up and nothing gets added to the target site. The optional Chrome extension only matters for pages behind a login or on localhost.
 
-BugHerd asks more up front. Your team needs accounts and seats, and for public feedback you add BugHerd's JavaScript snippet to your site's header. That is a one-time cost, and it pays for itself once a team runs many reviews a week. Clients who only leave feedback don't take up a seat on any tier, which matters a lot to agencies.
+BugHerd asks more up front. Your team needs accounts and seats, and for public feedback you add BugHerd's JavaScript snippet to your site's header. That is a one-time cost, and it pays for itself once a team runs many reviews a week. Clients who only leave feedback don't take up a seat on any tier, which matters a lot to [agencies](/for/agencies).
 
 ## How the AI agent handoff compares
 

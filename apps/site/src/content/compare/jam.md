@@ -1,6 +1,6 @@
 ---
 order: 4
-title: "Jam.dev vs MarkLayer: A Free Jam.dev Alternative for Feedback"
+title: "Jam.dev vs MarkLayer: Bug Capture vs Visual Page Review"
 description: "Jam auto-captures console logs and network traces for engineering bug reports. MarkLayer is the free visual annotation half. Pick by the bug you're filing."
 competitor: "Jam.dev"
 competitorTagline: "a paid bug-reporting Chrome extension that auto-captures console logs, network requests, and device metadata for engineering teams"

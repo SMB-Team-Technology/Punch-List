@@ -1,19 +1,19 @@
 ---
 order: 0
 title: "Annotate a Staging Site for Client Review (No Extension)"
-description: "Paste your staging URL and share one link. The client comments in their own browser with no extension and no account. Works on password-protected staging."
+description: "Paste your staging URL and share one link. The client comments in their own browser with no extension and no account. Password-protected staging needs the free extension instead."
 h1: "How to get client feedback on a staging site without asking them to install anything"
 nav: "Staging sites, no install"
 audience: "agencies, freelancers, and product teams sharing staging URLs"
-bottomLine: "MarkLayer lets clients annotate a staging URL in their own browser with no extension, no account, and no PDF screenshot loop. Open the web app at marklayer.app, paste the staging URL, share the link. The client sees the live page with a comment-pin tool already loaded. Works on any URL, including password-protected staging sites the client can already access."
+bottomLine: "MarkLayer lets clients annotate a staging URL in their own browser with no extension, no account, and no PDF screenshot loop. Open the web app at marklayer.app, paste the staging URL, share the link. The client sees the live page with a comment-pin tool already loaded. Works on any staging URL the public internet can reach; a password-protected one needs the free browser extension on each side instead, running in the tab where that person is already logged in."
 problem: "The default flow is broken. You ship a staging URL. The client opens it on their phone, takes a screenshot, types 'this is broken' in iMessage, and you have no idea which button they meant. You ask for screenshots in your project management tool, and the screenshots arrive without URLs. You suggest a paid annotation platform, and the client refuses to sign up. Half your feedback cycle becomes 'which page were you on when this happened?'."
 published: 2026-01-30
-modified: 2026-03-19
+modified: 2026-10-11
 why:
   - "The recipient does not need a Chrome extension or any other install. They open the link in their browser and the comment-pin tool is already loaded."
   - "No account, no signup, no email collected from the client. The friction that kills review cycles is gone."
-  - "Works on any URL: your staging environment, production, a third-party page you do not own."
-  - "For password-protected staging sites, the client uses the same credentials they already have. MarkLayer does not need its own access; it overlays the page they see."
+  - "Works on any URL the public internet can reach: your staging environment, production, a third-party page you do not own."
+  - "The web app fetches the page from MarkLayer's server with no cookies or credentials, so a password-protected staging site shows its password prompt. For that case the free browser extension overlays the page in your own logged-in tab, and each reviewer joins the same room from their own extension, signed in to the staging site as they already are."
   - "Real-time cursors mean you and the client can review the page together on a call, with each cursor visible, which removes the need to screen-share or to say \"click the thing under your cursor.\""
   - "Free for every client engagement with no per-seat math."
 steps:
@@ -31,9 +31,9 @@ steps:
     text: "You see new comments in real time. Jump on a call with live cursors when you want to walk through them, or pick up the thread async."
 faq:
   - q: "Does my client need to install a Chrome extension to leave feedback?"
-    a: "No. The whole point of this flow is that the client uses the web app on marklayer.app, which needs neither an extension nor an account. The Chrome extension is only useful for annotating pages that cannot be loaded inside the web-app viewer (some heavy-CSP single-page apps), and only for the person creating annotations, never the reviewer."
+    a: "No. The whole point of this flow is that the client uses the web app on marklayer.app, which needs neither an extension nor an account. The Chrome extension is only needed for pages the web-app viewer cannot load: password-protected or VPN-only staging, and some heavy-CSP single-page apps. On those, each reviewer runs it in their own logged-in tab (see the next question)."
   - q: "Does this work on a password-protected staging site?"
-    a: "Yes, as long as the client can already access the staging site with their own credentials. MarkLayer overlays the page the client loads in their browser; it does not need its own login. For staging behind a corporate VPN, the client needs VPN access; MarkLayer rides on top of whatever they can already see."
+    a: "Not through the plain web-app link. The web app fetches the page from MarkLayer's server, and that request carries no cookies, no Authorization header and no VPN, so a password-protected or VPN-only staging site shows its login prompt instead of the page. Use the free browser extension there: it runs inside your own tab, where you are already signed in, and overlays the page you see. The share link carries the annotations and the URL. It holds no copy of the page, so a reviewer on a protected site also opens it in their own logged-in browser and joins the same room from the extension's settings panel."
   - q: "How long does the share link stay live?"
     a: "Annotations on a share link persist for 90 days from last activity (see the cleanup cron in the codebase). For longer review cycles, a single comment or page view resets the timer."
   - q: "Can multiple clients review the same staging URL at once?"

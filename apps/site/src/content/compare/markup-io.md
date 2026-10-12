@@ -1,6 +1,6 @@
 ---
 order: 0
-title: "Markup.io Alternative & Review: MarkLayer vs $79/Month"
+title: "Markup.io Review & Pricing (2026): MarkLayer vs $79/Month"
 description: "Markup.io's Pro plan is now usage-tiered from $79 to $129 a month, with Business from $499 (as of September 2026). MarkLayer stays fully free with no account."
 competitor: "Markup.io"
 competitorTagline: "a project-based feedback platform from Ceros for reviewing live websites, PDFs, videos, and design files"
