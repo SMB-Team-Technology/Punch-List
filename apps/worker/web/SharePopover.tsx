@@ -1,7 +1,7 @@
 import { Popover } from '@base-ui/react/popover';
 import { ModalSheet } from '@ext/components/BottomSheet';
 import { Tooltip } from '@ext/components/Tooltip';
-import { quietLinkBtn, submitBtn } from '@ext/lib/buttons';
+import { submitBtn } from '@ext/lib/buttons';
 import { geist } from '@ext/lib/geist';
 import { glass } from '@ext/lib/glass';
 import { portalContainer } from '@ext/lib/portal';
@@ -9,9 +9,10 @@ import { shareUrl } from '@ext/lib/share';
 import { toast } from '@ext/lib/state';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn, type OwnedLink } from '@marklayer/types';
-import { ArrowUpRight, Share2, Upload } from 'lucide-preact';
+import { ArrowUpRight, Link2, Mail, Share2, Upload } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { useRef, useState } from 'preact/hooks';
+import { ActionRow } from './ActionRow';
 import { capture } from './analytics';
 import { LinkSettings } from './dashboard/LinkSettings';
 import { inviteToLink, links, linksLoading, loadSession, sessionLoading, user } from './dashboard/session';
@@ -79,19 +80,17 @@ function useNativeShare(url: string) {
   return { busy, send: () => void send() };
 }
 
-/** On a desktop, a quiet second path under the field: Copy stays the obvious action there. */
+/** On a desktop, a second path under the field: Copy stays the obvious action there. */
 function ShareSheet({ url }: { url: string }) {
   const { busy, send } = useNativeShare(url);
   return (
-    <button
-      type="button"
+    <ActionRow
+      icon={busy ? <Spinner /> : <Share2 size={14} strokeWidth={1.75} aria-hidden="true" />}
       onClick={send}
       disabled={busy}
-      class={cn(quietLinkBtn, 'inline-flex items-center gap-1 disabled:pointer-events-none disabled:opacity-50')}
     >
-      {busy ? <Spinner /> : <Share2 size={13} strokeWidth={1.75} aria-hidden="true" />}
       Share…
-    </button>
+    </ActionRow>
   );
 }
 
@@ -125,9 +124,9 @@ function InviteByEmail({ id, url }: { id: string; url: string }) {
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} class={quietLinkBtn}>
+      <ActionRow icon={<Mail size={14} strokeWidth={1.75} aria-hidden="true" />} onClick={() => setOpen(true)}>
         Invite by email
-      </button>
+      </ActionRow>
     );
   }
 
@@ -149,7 +148,7 @@ function InviteByEmail({ id, url }: { id: string; url: string }) {
 
   return (
     <form
-      class="flex items-center gap-1.5"
+      class="flex items-center gap-1.5 px-3.5 py-2.5 max-md:px-4"
       onSubmit={(e) => {
         e.preventDefault();
         void submit();
@@ -219,9 +218,9 @@ function ClaimPrompt({ id }: { id: string }) {
 }
 
 /**
- * The popover's second section, or null when there's nothing to show: a
- * project has no per-link access to set, and a link that doesn't exist yet
- * has nothing to set it on.
+ * The popover's lower sections, null where there's nothing to show: a project
+ * has no per-link access to set, and a link that doesn't exist yet has nothing
+ * to set it on. `footer` is the claim prompt, which sits on its own tinted floor.
  */
 function renderLinkSettings({
   pid,
@@ -233,32 +232,24 @@ function renderLinkSettings({
   id: string | null;
   owned: OwnedLink | undefined;
   checkingOwner: boolean;
-}): ComponentChildren {
-  if (pid || !id) return null;
-  if (owned) return <LinkSettings link={owned} />;
-  if (checkingOwner) return <Note>Checking who owns this link…</Note>;
-  return <ClaimPrompt id={id} />;
+}): { settings: ComponentChildren; footer: ComponentChildren } {
+  if (pid || !id) return { settings: null, footer: null };
+  if (owned) return { settings: <LinkSettings link={owned} />, footer: null };
+  if (checkingOwner) return { settings: null, footer: <Note>Checking who owns this link…</Note> };
+  return { settings: null, footer: <ClaimPrompt id={id} /> };
 }
 
 /** The way out to the full list. Owners only, so it never competes with the claim prompt above. */
 function ManageLinksRow() {
   return (
-    <a
+    // Outward, not the stock rightward arrow: this leaves the viewer for another page.
+    <ActionRow
       href="/app"
-      class={cn(
-        'text-meta flex h-10 items-center justify-between px-3.5 font-medium no-underline max-md:h-12 max-md:px-4',
-        'text-(--ds-gray-900) transition-colors duration-150',
-        'hover:bg-(--ds-gray-alpha-100) hover:text-(--ds-gray-1000)',
-        // Inset, because the row is full-bleed inside an `overflow-hidden`
-        // shell — an outset ring would be clipped on three sides.
-        'outline-none focus-visible:outline-solid focus-visible:outline-2',
-        'focus-visible:-outline-offset-2 focus-visible:outline-(--ds-focus-color)',
-      )}
+      icon={<Link2 size={14} strokeWidth={1.75} aria-hidden="true" />}
+      trailing={<ArrowUpRight size={14} strokeWidth={1.75} aria-hidden="true" />}
     >
       Manage links
-      {/* Outward, not the stock rightward arrow: this leaves the viewer for another page. */}
-      <ArrowUpRight size={13} strokeWidth={1.75} aria-hidden="true" />
-    </a>
+    </ActionRow>
   );
 }
 
@@ -300,8 +291,13 @@ function useShareLink() {
   // Whichever id the card is actually showing a link for — a project or a
   // page — since inviting doesn't care which kind it is, only that one exists.
   const linkId = pid ?? id;
-  const settings = renderLinkSettings({ pid, id, owned, checkingOwner: sessionLoading.value || linksLoading.value });
-  return { share, pid, url, owned, linkId, settings };
+  const { settings, footer } = renderLinkSettings({
+    pid,
+    id,
+    owned,
+    checkingOwner: sessionLoading.value || linksLoading.value,
+  });
+  return { share, pid, url, owned, linkId, settings, footer };
 }
 
 type ShareLink = ReturnType<typeof useShareLink>;
@@ -315,17 +311,19 @@ function LinkOrCreate({ link }: { link: ShareLink }) {
   );
 }
 
-/** Everything under the link, the same on either surface. */
-function ShareSections({ link }: { link: ShareLink }) {
-  const { pid, linkId, settings, owned } = link;
+/** Everything under the link, the same on either surface: ways to send it, then who may edit it. */
+function ShareSections({ link, sheet }: { link: ShareLink; sheet: boolean }) {
+  const { pid, url, linkId, settings, footer, owned } = link;
   return (
     <>
-      {linkId && (
+      {url && linkId && (
         <>
           <div class={geist.divider} />
-          <Block>
+          <div class="flex flex-col py-1">
+            {sheet && hasShareSheet && <ShareSheet url={url} />}
+            {!hasShareSheet && <InviteByEmail id={linkId} url={url} />}
             <FeedbackButtonSection kind={pid ? 'project' : 'page'} id={linkId} />
-          </Block>
+          </div>
         </>
       )}
 
@@ -339,7 +337,16 @@ function ShareSections({ link }: { link: ShareLink }) {
       {owned && (
         <>
           <div class={geist.divider} />
-          <ManageLinksRow />
+          <div class="py-1">
+            <ManageLinksRow />
+          </div>
+        </>
+      )}
+
+      {footer && (
+        <>
+          <div class={geist.divider} />
+          <div class="bg-(--ds-gray-100) px-3.5 py-3 max-md:px-4">{footer}</div>
         </>
       )}
     </>
@@ -350,15 +357,13 @@ const SHARE_TITLE_CLS = 'text-ui tracking-ui m-0 font-semibold text-(--ds-gray-1
 
 function PopoverShareBody() {
   const link = useShareLink();
-  const { url, linkId } = link;
   return (
     <>
       <Block>
         <Popover.Title className={SHARE_TITLE_CLS}>Share</Popover.Title>
         <LinkOrCreate link={link} />
-        {url && linkId && (hasShareSheet ? <ShareSheet url={url} /> : <InviteByEmail id={linkId} url={url} />)}
       </Block>
-      <ShareSections link={link} />
+      <ShareSections link={link} sheet />
     </>
   );
 }
@@ -370,16 +375,15 @@ function PopoverShareBody() {
  */
 function DrawerShareBody() {
   const link = useShareLink();
-  const { url, linkId } = link;
+  const { url } = link;
   return (
     <>
       <div class="flex flex-col gap-3 px-4 pt-1 pb-4">
         <h2 class="text-body m-0 font-semibold tracking-ui text-(--ds-gray-1000)">Share</h2>
         <LinkOrCreate link={link} />
         {url && hasShareSheet && <ShareButton url={url} />}
-        {url && linkId && !hasShareSheet && <InviteByEmail id={linkId} url={url} />}
       </div>
-      <ShareSections link={link} />
+      <ShareSections link={link} sheet={false} />
     </>
   );
 }
