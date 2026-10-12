@@ -31,13 +31,15 @@ const peerRoster = stableComputed({
   },
 });
 
+/* The value is the control: no box at rest, a tonal fill on hover. The negative
+   margin keeps the chevron on the card's gutter while the fill grows outward. */
 const triggerCls = cn(
-  'w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer select-none',
-  'border border-(--ds-gray-alpha-400) bg-(--ds-gray-alpha-100)',
+  'min-w-0 max-w-[60%] inline-flex items-center gap-1.5 h-7 px-2 -mr-2 rounded-md cursor-pointer select-none',
+  'appearance-none border-none bg-transparent outline-none',
   'text-meta font-medium text-(--ds-gray-1000)',
-  'hover:bg-(--ds-gray-alpha-100) hover:text-(--ds-gray-1000)',
-  'data-popup-open:bg-(--ds-gray-alpha-100) data-popup-open:text-(--ds-gray-1000)',
-  'transition-[background-color,color] duration-150',
+  'hover:bg-(--ds-gray-alpha-100) data-popup-open:bg-(--ds-gray-alpha-100)',
+  'focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-(--ds-focus-color)',
+  'transition-[background-color] duration-150 ease-out',
 );
 
 const itemCls = cn(
@@ -63,12 +65,12 @@ function TriageMenu({
     <Menu.Root onOpenChange={onOpenChange}>
       <Menu.Trigger className={triggerCls} onClick={(e: MouseEvent) => e.stopPropagation()}>
         {trigger}
-        <ChevronDown size={12} class="text-(--ds-gray-900) shrink-0 ml-auto" aria-hidden="true" />
+        <ChevronDown size={12} class="text-(--ds-gray-900) shrink-0" aria-hidden="true" />
       </Menu.Trigger>
       <Menu.Portal container={portalContainer.value ?? undefined}>
         <Menu.Positioner
           side="bottom"
-          align="start"
+          align="end"
           sideOffset={4}
           collisionPadding={6}
           className="z-2147483647 outline-none"
@@ -82,7 +84,7 @@ function TriageMenu({
   );
 }
 
-function CheckMark() {
+export function CheckMark() {
   return (
     <Menu.RadioItemIndicator className="shrink-0 inline-flex text-(--ds-gray-900) ml-auto">
       <Check size={12} strokeWidth={2.5} aria-hidden="true" />
@@ -193,7 +195,8 @@ function AssigneePicker({
   );
 }
 
-const triageLabelCls = 'text-meta text-(--ds-gray-900) font-medium';
+const rowCls = 'flex items-center justify-between gap-3 h-8';
+const triageLabelCls = 'text-meta text-(--ds-gray-900) font-medium shrink-0';
 
 /**
  * A triage dropdown portals outside the pin, so the pointer leaving for the menu
@@ -216,7 +219,7 @@ export function useTriageHold() {
   };
 }
 
-/** The Status + Assignee grid shared by both comment cards. */
+/** Status and Assignee as property rows, label left and value right, shared by every comment card. */
 export function TriageSection({
   opId,
   status,
@@ -232,12 +235,12 @@ export function TriageSection({
   class?: string;
 }) {
   return (
-    <div class={cn('px-3.5 py-2.5 grid grid-cols-2 gap-2', cls)}>
-      <div class="flex flex-col gap-1">
+    <div class={cn('px-3.5 py-1.5', cls)}>
+      <div class={rowCls}>
         <span class={triageLabelCls}>Status</span>
         <StatusPicker opId={opId} status={status} onOpenChange={onOpenChange} />
       </div>
-      <div class="flex flex-col gap-1">
+      <div class={rowCls}>
         <span class={triageLabelCls}>Assignee</span>
         <AssigneePicker opId={opId} assignee={assignee} onOpenChange={onOpenChange} />
       </div>

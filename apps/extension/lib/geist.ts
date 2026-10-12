@@ -71,6 +71,9 @@ export const geist = {
    */
   ctlXs: ctlShape('h-6 w-6', 'rounded-sm'),
 
+  /** Widens a `ctlXs` to carry a word after its glyph, where an icon alone would not say what it does. */
+  ctlLabel: 'w-auto gap-1 pl-1 pr-1.5 text-meta font-medium',
+
   /**
    * App bar. A hairline, never a shadow: a bar is welded to the page it sits on,
    * and a shadow under it would float it off a surface it belongs to.

@@ -1,72 +1,46 @@
 import { type CommentPriority, cn } from '@marklayer/types';
-import { CircleAlert, type LucideIcon, SignalHigh, SignalLow, SignalMedium } from 'lucide-preact';
-
-interface PriorityMeta {
-  label: string;
-  /** oklch accent for the signal icon. It reinforces the level, never carries it. */
-  color: string;
-  Icon: LucideIcon;
-}
-
-/** Ordered low → urgent so the click cycle and any future sorting share one source of truth. */
-export const PRIORITY_LEVELS: CommentPriority[] = ['low', 'medium', 'high', 'urgent'];
-
-/** Next step in the click cycle: unset → low → medium → high → urgent → unset. */
-function nextPriority(current: CommentPriority | undefined): CommentPriority | undefined {
-  if (!current) return PRIORITY_LEVELS[0];
-  const idx = PRIORITY_LEVELS.indexOf(current);
-  return idx === PRIORITY_LEVELS.length - 1 ? undefined : PRIORITY_LEVELS[idx + 1];
-}
-
-export const PRIORITY_META: Record<CommentPriority, PriorityMeta> = {
-  low: { label: 'Low', color: 'oklch(0.72 0.19 150)', Icon: SignalLow },
-  medium: { label: 'Medium', color: 'oklch(0.80 0.15 85)', Icon: SignalMedium },
-  high: { label: 'High', color: 'oklch(0.70 0.18 55)', Icon: SignalHigh },
-  urgent: { label: 'Urgent', color: 'oklch(0.63 0.23 25)', Icon: CircleAlert },
-};
+import { ChevronDown, SignalHigh } from 'lucide-preact';
+import { geist } from '../lib/geist';
+import { PRIORITY_META } from '../lib/priority';
+import { PriorityMenu } from './PriorityMenu';
 
 /**
- * Compact priority control for annotation composers — a single trigger that
- * reads "Set priority" until a level is chosen. Clicking cycles through the
- * levels (low → medium → high → urgent) and then back to unset, so the whole
- * control is one button with no popover. Controlled: the value lives on the
- * parent's draft op, the picker just renders + reports.
+ * Priority control for annotation composers. Controlled: the value lives on the
+ * parent's draft op, the picker just renders + reports. The accent rides the
+ * icon and the word stays in ink, as in `PriorityBadge`.
+ *
+ * `bare` is the toolbar form, a 24px control sized like the buttons beside it.
  */
 export function PriorityPicker({
   value,
   onChange,
+  bare,
   class: cls,
 }: {
   value: CommentPriority | undefined;
   onChange: (next: CommentPriority | undefined) => void;
+  bare?: boolean;
   class?: string;
 }) {
   const meta = value ? PRIORITY_META[value] : null;
-  const next = nextPriority(value);
-  const nextLabel = next ? PRIORITY_META[next].label : 'none';
-
+  const Icon = meta ? meta.Icon : SignalHigh;
   return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onChange(next);
-      }}
+    <PriorityMenu
+      value={value}
+      onChange={onChange}
       class={cn(
-        `inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-meta font-medium cursor-pointer
-         bg-transparent border-none transition-colors hover:bg-(--ds-gray-alpha-100)`,
+        bare
+          ? cn(geist.ctlXs, geist.ctlIdle, geist.ctlLabel)
+          : `inline-flex items-center gap-1.5 rounded-lg px-1.5 py-1 text-meta font-medium cursor-pointer
+             bg-transparent border-none text-(--ds-gray-900) transition-colors hover:bg-(--ds-gray-alpha-100)`,
+        'data-popup-open:bg-(--ds-gray-alpha-100)',
         cls,
       )}
-      style={meta ? { color: meta.color } : undefined}
-      title={`Priority: ${meta ? meta.label : 'none'} — click to set ${nextLabel}`}
     >
-      {meta ? (
-        <meta.Icon size={14} strokeWidth={2.25} />
-      ) : (
-        <SignalHigh size={14} strokeWidth={2.25} class="text-(--ds-gray-900)" />
-      )}
-      <span class={meta ? '' : 'text-(--ds-gray-900)'}>{meta ? meta.label : 'Set priority'}</span>
-    </button>
+      <Icon size={14} strokeWidth={1.75} style={meta ? { color: meta.color } : undefined} aria-hidden="true" />
+      {meta ? <span class="text-(--ds-gray-1000)">{meta.label}</span> : bare ? 'Priority' : 'Set priority'}
+      <ChevronDown size={12} class="-ml-0.5 text-(--ds-gray-900)" aria-hidden="true" />
+    </PriorityMenu>
   );
 }
 
