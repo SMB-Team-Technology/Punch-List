@@ -30,6 +30,7 @@
       "/api/*",
       "/proxy",
       "/px/*",
+      "/_r/*", // first-party PostHog relay (src/posthog-relay.ts)
       "/robots.txt",
       "/llms.txt",
       "/llms-full.txt",
@@ -51,7 +52,8 @@
   //                 `proxy_render_failed` never recorded a single event while
   //                 client-side telemetry looked healthy. Verify a deploy by
   //                 checking the PostHog event list, not the code.
-  //   POSTHOG_HOST  Optional. Defaults to https://us.i.posthog.com.
+  //   POSTHOG_HOST  Optional. Defaults to https://us.i.posthog.com. Also the
+  //                 upstream of the browser's /_r relay.
   // Voice-note transcripts: POST /f/:id/transcribe runs whisper-large-v3-turbo.
   "ai": { "binding": "AI" },
   // Caps /f/:id/transcribe per client IP (keyed by cf-connecting-ip). 10 calls a minute per

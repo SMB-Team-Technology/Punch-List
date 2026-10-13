@@ -24,6 +24,7 @@ import { cachedPng, dayCached, once, overRateLimit, sha256Hex, toBase64 } from '
 import { handleMcpRequest, readRoomPage } from './mcp';
 import { generateOgImage, generatePageOgImage } from './og';
 import { collectTally, EMPTY_TALLY_LABEL, plural, tallyParts } from './og-tally';
+import { RELAY_PREFIX, relayToPosthog } from './posthog-relay';
 import { proxy } from './proxy';
 import { annotationStore, nowInSeconds, projectStore, uploadStore } from './store';
 import { type ByteSpan, classifyUpload, extensionFor, isTranscribable, isUploadType, resolveRange } from './uploads';
@@ -473,6 +474,8 @@ const builtLlms = import.meta.glob<string>(['../../site/dist/llms.txt', '../../s
 });
 const LLMS_TXT = builtLlms['../../site/dist/llms.txt'] ?? LLMS_SOURCE;
 const LLMS_FULL_TXT = builtLlms['../../site/dist/llms-full.txt'] ?? LLMS_FULL_SOURCE;
+
+app.all(`${RELAY_PREFIX}/*`, (c) => relayToPosthog({ req: c.req.raw, host: c.env.POSTHOG_HOST, ctx: c.executionCtx }));
 
 app.get('/robots.txt', (c) => c.body(ROBOTS_TXT, 200, dayCached('text/plain; charset=utf-8')));
 

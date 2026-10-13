@@ -14,6 +14,7 @@ import { type AnalyticsProps, type Surface, setAnalytics } from '@ext/lib/analyt
 import { parseShareRef, type ShareRef } from '@ext/lib/share';
 import { redactSharePath } from '@marklayer/types';
 import type { CaptureResult } from 'posthog-js';
+import { RELAY_PREFIX } from '../src/posthog-relay';
 
 type Props = AnalyticsProps;
 type Role = 'editor' | 'viewer';
@@ -161,7 +162,7 @@ export function markReloading(): void {
   reloading = true;
 }
 
-export function initAnalytics({ key, host, surface: from }: { key?: string; host?: string; surface: Surface }): void {
+export function initAnalytics({ key, surface: from }: { key?: string; surface: Surface }): void {
   surface = from;
   // Ahead of the opt-out return below: the URL gets cleaned whether or not
   // anything is ever reported from this page.
@@ -184,7 +185,8 @@ export function initAnalytics({ key, host, surface: from }: { key?: string; host
     const mod = await import('posthog-js');
     posthog = mod.default as Posthog;
     posthog.init(key, {
-      api_host: host,
+      api_host: RELAY_PREFIX,
+      ui_host: 'https://us.posthog.com',
       defaults: '2026-01-30',
       ip: false,
       autocapture: false,

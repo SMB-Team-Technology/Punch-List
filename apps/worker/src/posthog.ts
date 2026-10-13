@@ -24,6 +24,7 @@
  */
 
 import { parseFetchableUrl } from '@marklayer/types';
+import { DEFAULT_POSTHOG_HOST } from './posthog-relay';
 
 /**
  * PostHog's Error Tracking payload: a list of exception objects, each with a
@@ -121,7 +122,7 @@ export function captureServer(
     }
     return Promise.resolve();
   }
-  const host = env.POSTHOG_HOST || 'https://us.i.posthog.com';
+  const host = env.POSTHOG_HOST || DEFAULT_POSTHOG_HOST;
   const body = JSON.stringify({
     api_key: key,
     event,

@@ -33,7 +33,6 @@ effect(() => {
 // with our own localhost sessions and replays. Nothing here is a real user.
 initAnalytics({
   key: import.meta.env.DEV ? undefined : import.meta.env.VITE_PUBLIC_POSTHOG_KEY,
-  host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
   surface: isLanding.peek() ? 'landing' : STILL_FRAME ? 'demo' : 'viewer',
 });
 
