@@ -115,9 +115,10 @@ app.route('/api', api);
 
 /**
  * The shell names this build's hashed chunks and a deploy deletes the last build's, so a
- * cached shell 404s on its lazy imports. Revalidated on every open, as Vite recommends.
+ * cached shell 404s on its lazy imports. Vite suggests `no-cache`, but history navigation may show
+ * a cached copy unrevalidated, and restored tabs kept opening pre-deploy builds; `no-store` leaves none.
  */
-const SHELL_CACHE = 'no-cache';
+const SHELL_CACHE = 'no-store';
 
 // Shared annotation page — injects dynamic OG tags then serves the SPA
 app.get('/s/:id', async (c) => {
