@@ -32,6 +32,18 @@ let reloading = false;
 let surface: Surface = 'viewer';
 
 /**
+ * Errors with no bug behind them: Chrome's ResizeObserver notice, and the rejection
+ * Outlook's Safe Links scanner throws while it previews a shared link.
+ */
+const NOISE = /ResizeObserver loop|Object Not Found Matching Id:\d+, MethodName:update/;
+
+function isNoise(e: CaptureResult): boolean {
+  const list: unknown = e.properties.$exception_list;
+  if (!Array.isArray(list)) return false;
+  return list.some((x: unknown) => typeof x === 'object' && x !== null && 'value' in x && NOISE.test(String(x.value)));
+}
+
+/**
  * Editor or read-only viewer, as a per-event label — not an identity. DAU/WAU and
  * retention counted a share link opened once the same as a session someone drew
  * in; this separates the two without a person profile or anything that survives
@@ -195,7 +207,7 @@ export function initAnalytics({ key, surface: from }: { key?: string; surface: S
       capture_exceptions: true,
       // main.tsx's stale-chunk reload lets the failed import throw on its way out, so
       // without this every tab it rescues also files an error.
-      before_send: (e: CaptureResult | null) => (reloading && e?.event === '$exception' ? null : e),
+      before_send: (e: CaptureResult | null) => (e?.event === '$exception' && (reloading || isNoise(e)) ? null : e),
       // No person records: events are counted, nobody is profiled. Also stops
       // posthog-js writing the identity cookie, so the viewer stays cookieless.
       person_profiles: 'never',
