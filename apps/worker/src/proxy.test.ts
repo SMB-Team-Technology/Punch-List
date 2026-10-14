@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
+  fetchPage,
   fetchWithHeaderTimeout,
   isChallenged,
   isRefusedSubResource,
@@ -336,5 +337,58 @@ describe('GET /proxy — naming the firewall that refused us', () => {
     );
     expect(body).toContain('reason:"firewall"');
     expect(body).toContain('firewall:null');
+  });
+});
+
+describe('fetchPage — leaving a host alone once it refuses the relay too', () => {
+  const relay = { FETCHER_URL: 'https://relay.invalid', FETCHER_TOKEN: 'tok' };
+  // biome-ignore lint/suspicious/noExplicitAny: only the relay bindings are read.
+  const env = relay as any;
+  const challenge = '<html><head><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F"></head></html>';
+  let relayCalls = 0;
+
+  beforeEach(() => {
+    resetRelayBreaker();
+    relayCalls = 0;
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const relayed = String(input).startsWith(relay.FETCHER_URL);
+        if (relayed) relayCalls++;
+        const asset = String(input).includes('missing.png');
+        return new Response(asset ? '<html>Not found</html>' : challenge, {
+          status: asset ? 404 : 202,
+          headers: { 'content-type': 'text/html', ...(relayed ? { 'x-ml-relay': 'ok' } : {}) },
+        });
+      },
+      { preconnect: realFetchForRoutes.preconnect },
+    );
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetchForRoutes;
+  });
+
+  test('a second view of a host that challenged the relay does not knock again', async () => {
+    // Repeat refusals from our one IP are what got it flagged across SiteGround's whole network.
+    expect((await fetchPage({ url: 'https://flagged.example/', env })).challenged).toBe(true);
+    expect((await fetchPage({ url: 'https://flagged.example/other', env })).challenged).toBe(true);
+    expect(relayCalls).toBe(1);
+
+    await fetchPage({ url: 'https://another.example/', env });
+    expect(relayCalls).toBe(2);
+  });
+
+  test("one missing asset doesn't stop the relay rescuing the host's pages", async () => {
+    // A 404 page for a stray image is HTML answering a non-HTML request, from the relay as much as direct.
+    await proxy.request(
+      '/px/flagged.example/missing.png',
+      { headers: { Accept: 'image/avif,image/webp,*/*' } },
+      env,
+      // biome-ignore lint/suspicious/noExplicitAny: a fake execution context.
+      { waitUntil() {}, passThroughOnException() {} } as any,
+    );
+    expect(relayCalls).toBe(1);
+
+    await fetchPage({ url: 'https://flagged.example/', env });
+    expect(relayCalls).toBe(2);
   });
 });

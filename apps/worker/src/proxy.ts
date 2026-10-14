@@ -164,6 +164,17 @@ const RELAY_COOLDOWN_MS = 60_000;
 let relayFailures = 0;
 let relayBlockedUntil = 0;
 
+/** Host → rest-until. Re-knocking a refusal from our one IP got it flagged across SiteGround's network. */
+const relayRefusedBy = new Map<string, number>();
+const RELAY_REFUSED_REST_MS = 30 * 60_000;
+const RELAY_REFUSED_MAX_HOSTS = 500;
+
+function noteRelayRefused(url: string): void {
+  // Forgetting every rest at the cap costs one extra knock per host; tracking age would cost more code.
+  if (relayRefusedBy.size >= RELAY_REFUSED_MAX_HOSTS) relayRefusedBy.clear();
+  relayRefusedBy.set(new URL(url).hostname, Date.now() + RELAY_REFUSED_REST_MS);
+}
+
 /**
  * Just the bindings the relay reads. Narrower than `Env['Bindings']` on purpose:
  * this code has no business touching the database or the bucket, and saying so
@@ -190,6 +201,7 @@ async function relayFetch({ url, env }: { url: string; env: RelaySettings }): Pr
   const relay = relayConfig(env);
   if (!relay) return null;
   if (Date.now() < relayBlockedUntil) return null;
+  if (Date.now() < (relayRefusedBy.get(new URL(url).hostname) ?? 0)) return null;
 
   try {
     const resp = await fetch(`${relay.url}/fetch?url=${encodeURIComponent(url)}`, {
@@ -214,13 +226,50 @@ async function relayFetch({ url, env }: { url: string; env: RelaySettings }): Pr
 export function resetRelayBreaker(): void {
   relayFailures = 0;
   relayBlockedUntil = 0;
+  relayRefusedBy.clear();
+}
+
+/** Ten minutes: one fetch per colo across viewers, still short enough to pick up a dev site's CSS edits. */
+const RELAY_ASSET_TTL_S = 600;
+
+/** A refused sub-resource via the relay, cached per colo so a busy page costs the host one burst, not one per viewer. */
+async function relaySubResource({
+  url,
+  accept,
+  env,
+  ctx,
+}: {
+  url: string;
+  accept: string | undefined;
+  env: RelaySettings;
+  ctx: { waitUntil(promise: Promise<unknown>): void };
+}): Promise<Response | null> {
+  // The off switch covers what the relay already fetched, not only new fetches.
+  if (!relayConfig(env)) return null;
+  // `caches` is the Workers runtime's; absent under `bun test`.
+  const cache = typeof caches === 'undefined' ? null : await caches.open('relay-assets');
+  const key = new Request(url);
+  const hit = await cache?.match(key);
+  if (hit) return hit;
+
+  // A refusal here never rests the host: a 404 page for one stray image looks
+  // just like a challenge to `isRefusedSubResource`. Only `fetchPage` judges that.
+  const relayed = await relayFetch({ url, env });
+  if (!relayed || isRefusedSubResource({ resp: relayed, accept })) return null;
+  if (!cache || relayed.status !== 200) return relayed;
+
+  const stored = new Response(relayed.body, relayed);
+  stored.headers.delete('set-cookie');
+  stored.headers.set('cache-control', `public, max-age=${RELAY_ASSET_TTL_S}`);
+  ctx.waitUntil(cache.put(key, stored.clone()));
+  return stored;
 }
 
 /** A firewall the viewer has host-specific advice for. Only named when its challenge says so. */
 export type Firewall = 'siteground';
 
 /** SiteGround's owner can't disable or even see its challenge, so the generic "ask your host" copy misleads. */
-export function identifyFirewall({ headers, head }: { headers: Headers; head: string }): Firewall | null {
+function identifyFirewall({ headers, head }: { headers: Headers; head: string }): Firewall | null {
   return headers.has('sg-captcha') || /\/\.well-known\/sgcaptcha/i.test(head) ? 'siteground' : null;
 }
 
@@ -326,7 +375,13 @@ export async function fetchPage({ url, env }: { url: string; env: Env['Bindings'
   // The direct body lost, so release its upstream connection rather than leaving
   // it open for the life of the request.
   void direct.stream?.cancel();
-  return describePage({ resp: relayed, finalUrl: relayed.headers.get('x-ml-final-url') || url, via: 'relay' });
+  const page = await describePage({
+    resp: relayed,
+    finalUrl: relayed.headers.get('x-ml-final-url') || url,
+    via: 'relay',
+  });
+  if (page.challenged) noteRelayRefused(url);
+  return page;
 }
 
 /**
@@ -688,7 +743,12 @@ proxy.all('/px/*', async (c) => {
     // speaks GET, which is every sub-resource a rendered page actually needs.
     let resp = direct;
     if (c.req.method === 'GET' && isRefusedSubResource({ resp: direct, accept: c.req.header('Accept') })) {
-      const relayed = await relayFetch({ url: targetUrl, env: c.env });
+      const relayed = await relaySubResource({
+        url: targetUrl,
+        accept: c.req.header('Accept'),
+        env: c.env,
+        ctx: c.executionCtx,
+      });
       if (relayed) {
         void direct.body?.cancel(); // the direct body lost; do not hold its connection open
         resp = relayed;
