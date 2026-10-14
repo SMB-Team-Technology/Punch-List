@@ -13,6 +13,7 @@ import {
 } from '@ext/lib/state';
 import type { TextOp } from '@ext/lib/types';
 import { cn } from '@marklayer/types';
+import { CHROME_STORE_URL } from '@site/lib/site';
 import { Loader2 } from 'lucide-preact';
 import { nanoid } from 'nanoid';
 import { classifyProxyError } from '../src/proxy-errors';
@@ -20,10 +21,11 @@ import { AnnotationPanel, AnnotationSheet, DockedAnnotationPanel } from './Annot
 import { CursorLayer } from './CursorLayer';
 import { DeviceOverview } from './DeviceOverview';
 import { audioConstraint } from './devicePrefs';
-import { frameSrc, isUploadPath, stillFrame } from './docSource';
+import { frameSrc, isUploadPath, liveRoomUrl, stillFrame } from './docSource';
 import { captureAnchors, frameViewport, useFrameRectTracker } from './iframeOverlay';
 import { HOME_LINK_PROPS, Logo, TextInputOverlay } from './shared';
 import {
+  annotationId,
   commentPopover,
   compactChrome,
   cssScale,
@@ -133,6 +135,10 @@ function pointerModes() {
 function PageFailure() {
   const { state } = useViewerFrame();
   const copy = state.failureCopy.value;
+  const upload = isUploadPath(pageUrl.value);
+  const openHref = upload
+    ? pageUrl.value
+    : liveRoomUrl({ url: pageUrl.value, width: originalWidth.value, id: annotationId.value });
   return (
     <div class="absolute inset-0 z-10 overflow-y-auto bg-ml-bg-viewer">
       <div class="min-h-full flex flex-col items-center justify-center gap-4 px-8 py-10 text-center">
@@ -154,13 +160,26 @@ function PageFailure() {
             second outlined button, so the recovery path has a clear rank. */}
         <div class="flex flex-col items-center gap-3">
           <a
-            href={pageUrl.value}
+            href={openHref}
             target="_blank"
             rel="noreferrer"
             class="px-4 py-2 rounded-lg bg-ml-btn text-ml-btn-fg text-ui font-medium no-underline hover:bg-ml-btn-hover transition-colors"
           >
-            {isUploadPath(pageUrl.value) ? 'Open the file' : 'Open original site'}
+            {upload ? 'Open the file' : 'Open on the live site'}
           </a>
+          {!upload && (
+            <p class="text-meta text-ml-fg/60 max-w-xs leading-snug m-0">
+              Then click the MarkLayer extension's icon to load these annotations there.{' '}
+              <a
+                href={CHROME_STORE_URL}
+                target="_blank"
+                rel="noreferrer"
+                class="text-ml-fg/70 underline underline-offset-2 hover:text-ml-fg"
+              >
+                Get the extension
+              </a>
+            </p>
+          )}
           <a
             {...HOME_LINK_PROPS}
             class="text-ui text-ml-fg/70 underline underline-offset-2 hover:text-ml-fg transition-colors"

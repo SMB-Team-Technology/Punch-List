@@ -13,6 +13,17 @@ export function frameSrc({ url }: { url: string }): string {
   return `${route}?url=${encodeURIComponent(url)}`;
 }
 
+/**
+ * The live page with the room in its `#ant=` hash — the format the extension's
+ * `parseUrlHash` joins on activation, so the annotations follow the reader there.
+ */
+export function liveRoomUrl({ url, width, id }: { url: string; width: number; id: string }): string {
+  if (!id || !URL.canParse(url)) return url;
+  const live = new URL(url);
+  live.hash = `ant=${width > 0 ? width : 1280}=${id}`;
+  return live.href;
+}
+
 /** Where the viewer should read a document's bytes from. */
 export function bytesUrl({ url, origin }: { url: string; origin: string }): string {
   if (isUploadPath(url)) return url;

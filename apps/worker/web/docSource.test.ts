@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { bytesUrl, frameSrc } from './docSource';
+import { bytesUrl, frameSrc, liveRoomUrl } from './docSource';
 
 const origin = 'https://marklayer.app';
 
@@ -26,5 +26,20 @@ describe('document source', () => {
     for (const url of ['/f/../../api/openapi.json', '/api/openapi.json', '/f/short', '/f/V1StGXR8Z5jdHi6BmyTaa/x']) {
       expect(bytesUrl({ url, origin }).startsWith('https://marklayer.app/proxy?')).toBe(true);
     }
+  });
+});
+
+describe('liveRoomUrl', () => {
+  it("writes the room in the extension's `#ant=<width>=<id>` format, replacing the page's own hash", () => {
+    // The extension joins only on this exact shape; anything else opens the live page with no annotations.
+    expect(liveRoomUrl({ url: 'https://example.com/a?b=1#top', width: 1440, id: 'abc123' })).toBe(
+      'https://example.com/a?b=1#ant=1440=abc123',
+    );
+  });
+
+  it('falls back to a width the extension accepts before the room has reported one', () => {
+    expect(liveRoomUrl({ url: 'https://example.com/', width: 0, id: 'abc123' })).toBe(
+      'https://example.com/#ant=1280=abc123',
+    );
   });
 });
