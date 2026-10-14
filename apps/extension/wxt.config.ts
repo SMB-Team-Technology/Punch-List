@@ -10,7 +10,6 @@ export default defineConfig({
     name: 'MarkLayer — Webpage Annotator & Visual Feedback Tool',
     description:
       'Free open-source webpage annotator. Mark up any page, share a link, no account needed. Hand feedback to AI agents via MCP.',
-    version: '0.9.0',
     action: {},
     permissions: ['activeTab', 'scripting', 'contextMenus'],
   },
