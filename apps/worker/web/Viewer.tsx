@@ -42,6 +42,7 @@ import { nanoid } from 'nanoid';
 import { lazy, Suspense } from 'preact/compat';
 import { useCallback, useEffect, useMemo, useRef } from 'preact/hooks';
 import { tinykeys } from 'tinykeys';
+import type { Firewall } from '../src/proxy';
 import type { ExportData } from './AnnotationPanel';
 import { capture } from './analytics';
 import { frameViewport, isElementNode, sameOriginWindow } from './iframeOverlay';
@@ -147,6 +148,7 @@ export default function Viewer() {
   const iframeLoaded = useSignal(false);
   const renderFailed = useSignal<RenderFailure | null>(null);
   const blockedEgressIp = useSignal<string | null>(null);
+  const blockedFirewall = useSignal<Firewall | null>(null);
   const pageSlow = useSignal(false);
   // The two causes the upstream names itself win; anything else is judged by the URL.
   const failureCopy = useComputed(() => {
@@ -465,7 +467,9 @@ export default function Viewer() {
         // only the first is worth showing an allowlisting address for.
         const failure: RenderFailure = e.data.reason === 'firewall' ? 'firewall' : 'upstream-error';
         blockedEgressIp.value = failure === 'firewall' && typeof e.data.ip === 'string' ? e.data.ip : null;
-        reportRenderFailure(failure, { block_reason: e.data.reason, status: e.data.status });
+        const firewall = failure === 'firewall' && e.data.firewall === 'siteground' ? 'siteground' : null;
+        blockedFirewall.value = firewall;
+        reportRenderFailure(failure, { block_reason: e.data.reason, status: e.data.status, firewall });
         renderFailed.value = failure;
       }
     };
@@ -1099,7 +1103,7 @@ export default function Viewer() {
   // once and a Viewer re-render never invalidates the subtree beneath it.
   const frame = useMemo<ViewerFrame>(
     () => ({
-      state: { iframeLoaded, renderFailed, pageSlow, blockedEgressIp, failureCopy },
+      state: { iframeLoaded, renderFailed, pageSlow, blockedEgressIp, blockedFirewall, failureCopy },
       actions: {
         canvasCoords,
         startDrawing,

@@ -216,6 +216,14 @@ export function resetRelayBreaker(): void {
   relayBlockedUntil = 0;
 }
 
+/** A firewall the viewer has host-specific advice for. Only named when its challenge says so. */
+export type Firewall = 'siteground';
+
+/** SiteGround's owner can't disable or even see its challenge, so the generic "ask your host" copy misleads. */
+export function identifyFirewall({ headers, head }: { headers: Headers; head: string }): Firewall | null {
+  return headers.has('sg-captcha') || /\/\.well-known\/sgcaptcha/i.test(head) ? 'siteground' : null;
+}
+
 /** A page, and how it was obtained. */
 export interface FetchedPage {
   status: number;
@@ -224,6 +232,7 @@ export interface FetchedPage {
   stream: ReadableStream<Uint8Array> | null;
   via: 'direct' | 'relay';
   challenged: boolean;
+  firewall: Firewall | null;
   /** The relay's public address, when the relay is what answered. */
   egressIp: string | null;
 }
@@ -247,10 +256,12 @@ async function describePage({
   const base = { status: resp.status, contentType, finalUrl, via, egressIp };
 
   if (!contentType.includes('text/html') || !resp.body) {
-    return { ...base, stream: resp.body, challenged: false };
+    return { ...base, stream: resp.body, challenged: false, firewall: null };
   }
   const { head, stream } = await peekBody(resp.body);
-  return { ...base, stream, challenged: isChallenged({ status: resp.status, head }) };
+  const challenged = isChallenged({ status: resp.status, head });
+  const firewall = challenged ? identifyFirewall({ headers: resp.headers, head }) : null;
+  return { ...base, stream, challenged, firewall };
 }
 
 /**
@@ -332,9 +343,9 @@ function blockedNotice({ resp, env }: { resp: FetchedPage; env: Env['Bindings'] 
   // What the relay reported about itself beats a hand-copied secret; the secret
   // is only the answer for the case where the relay never got to speak.
   const ip = resp.egressIp || env.FETCHER_EGRESS_IP;
-  return `<script>window.parent.postMessage({type:"ml-blocked",reason:"${reason}",status:${resp.status},via:"${resp.via}",ip:${
-    ip ? `"${escapeForScript(ip)}"` : 'null'
-  }},"*")</script>`;
+  const ipJs = ip ? `"${escapeForScript(ip)}"` : 'null';
+  const firewallJs = resp.firewall ? `"${resp.firewall}"` : 'null';
+  return `<script>window.parent.postMessage({type:"ml-blocked",reason:"${reason}",status:${resp.status},via:"${resp.via}",ip:${ipJs},firewall:${firewallJs}},"*")</script>`;
 }
 
 /** The shared gate's failure reasons, in the proxy's own error vocabulary. */

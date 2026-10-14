@@ -12,6 +12,7 @@ import {
   toolPaintsCanvas,
 } from '@ext/lib/state';
 import type { TextOp } from '@ext/lib/types';
+import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn } from '@marklayer/types';
 import { CHROME_STORE_URL } from '@site/lib/site';
 import { Loader2 } from 'lucide-preact';
@@ -49,7 +50,7 @@ import {
   uploadVideo,
 } from './signals';
 import { DockedInfoPanel, InfoPanel } from './ViewerInfoPanel';
-import { useViewerFrame } from './viewerFrame';
+import { FIREWALL_ADVICE, useViewerFrame } from './viewerFrame';
 import { WebAreaLayer } from './WebAreaLayer';
 import { WebAreaShape } from './WebAreaShape';
 import { WebCommentPin } from './WebCommentPin';
@@ -126,6 +127,33 @@ function pointerModes() {
   };
 }
 
+/** Our relay's own address, so the ask is one specific IP rather than "allow Cloudflare". */
+function OwnerFix({ ip }: { ip: string }) {
+  const { state } = useViewerFrame();
+  const { copied, copy } = useCopyToClipboard({ resetMs: 1600 });
+  const firewall = state.blockedFirewall.value;
+  const advice = firewall ? FIREWALL_ADVICE[firewall] : null;
+  const host = URL.canParse(pageUrl.value) ? new URL(pageUrl.value).hostname : pageUrl.value;
+  return (
+    <div class="flex flex-col items-center gap-2 max-w-md">
+      <p class="text-ui text-ml-fg/70 leading-snug m-0">
+        {advice?.before ?? 'Own this site? Your host can allow MarkLayer with one address:'}{' '}
+        <code class="px-1.5 py-0.5 rounded bg-ml-fg/8 font-mono text-meta text-ml-fg">{ip}</code>
+        {advice ? ` ${advice.after}` : '.'}
+      </p>
+      {advice && (
+        <button
+          type="button"
+          onClick={() => copy(advice.request({ ip, host }))}
+          class="px-3 py-1.5 rounded-lg border border-ml-fg/15 bg-transparent text-meta text-ml-fg cursor-pointer hover:bg-ml-fg/5 transition-colors"
+        >
+          {copied.value ? 'Copied' : 'Copy support request'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /**
  * Scroll container + `min-h-full` inner, rather than a centred flex box: the
  * ancestor clips on the y axis, so in a short device preview a centred box would
@@ -136,6 +164,7 @@ function PageFailure() {
   const { state } = useViewerFrame();
   const copy = state.failureCopy.value;
   const upload = isUploadPath(pageUrl.value);
+  const ip = state.blockedEgressIp.value;
   const openHref = upload
     ? pageUrl.value
     : liveRoomUrl({ url: pageUrl.value, width: originalWidth.value, id: annotationId.value });
@@ -145,17 +174,7 @@ function PageFailure() {
         <Logo size={48} />
         <h2 class="text-body font-semibold text-ml-fg m-0">{copy.title}</h2>
         <p class="text-ui text-ml-fg/70 max-w-md leading-snug m-0">{copy.body}</p>
-        {/* Our relay's own address, so the ask is one specific IP rather than
-            "allow Cloudflare", which is every Worker on the platform. */}
-        {state.renderFailed.value === 'firewall' && state.blockedEgressIp.value && (
-          <p class="text-ui text-ml-fg/70 max-w-md leading-snug m-0">
-            Own this site? Your host can allow MarkLayer with one address:{' '}
-            <code class="px-1.5 py-0.5 rounded bg-ml-fg/8 font-mono text-meta text-ml-fg">
-              {state.blockedEgressIp.value}
-            </code>
-            .
-          </p>
-        )}
+        {state.renderFailed.value === 'firewall' && ip && <OwnerFix ip={ip} />}
         {/* One primary action; the escape route is a text link rather than a
             second outlined button, so the recovery path has a clear rank. */}
         <div class="flex flex-col items-center gap-3">

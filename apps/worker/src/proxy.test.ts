@@ -260,32 +260,33 @@ describe('isChallenged — interstitials with no status, path or title tell', ()
   });
 });
 
+const realFetchForRoutes = globalThis.fetch;
+
+/** Serve every upstream fetch from `respond`, then GET `/proxy` with no bindings (so no relay). */
+async function getProxy({ query, respond }: { query: string; respond: () => Response }): Promise<Response> {
+  globalThis.fetch = Object.assign(async () => respond(), { preconnect: realFetchForRoutes.preconnect });
+  return proxy.request(
+    `/proxy?${query}`,
+    {},
+    // biome-ignore lint/suspicious/noExplicitAny: a fake env with no bindings; the route only reads optional ones.
+    {} as any,
+    // biome-ignore lint/suspicious/noExplicitAny: ditto for the execution context.
+    { waitUntil() {}, passThroughOnException() {} } as any,
+  );
+}
+
 describe("GET /proxy — a stranger's non-HTML bytes", () => {
-  const realFetch = globalThis.fetch;
   afterEach(() => {
-    globalThis.fetch = realFetch;
+    globalThis.fetch = realFetchForRoutes;
   });
 
-  const serve = ({ body, type }: { body: string; type: string }) => {
-    globalThis.fetch = Object.assign(async () => new Response(body, { headers: { 'content-type': type } }), {
-      preconnect: realFetch.preconnect,
-    });
-  };
-  const get = (query: string) =>
-    proxy.request(
-      `/proxy?${query}`,
-      {},
-      // biome-ignore lint/suspicious/noExplicitAny: a fake env with no bindings; the route only reads optional ones.
-      {} as any,
-      // biome-ignore lint/suspicious/noExplicitAny: ditto for the execution context.
-      { waitUntil() {}, passThroughOnException() {} } as any,
-    );
+  const get = ({ query, body, type }: { query: string; body: string; type: string }) =>
+    getProxy({ query, respond: () => new Response(body, { headers: { 'content-type': type } }) });
 
   test('come back sandboxed', async () => {
     const target = encodeURIComponent('https://example.com/x.svg');
     for (const query of [`url=${target}&raw=1`, `url=${target}`]) {
-      serve({ body: '<svg onload=alert(1)>', type: 'image/svg+xml' });
-      const res = await get(query);
+      const res = await get({ query, body: '<svg onload=alert(1)>', type: 'image/svg+xml' });
       expect(res.headers.get('content-security-policy')).toContain('sandbox');
       expect(res.headers.get('x-content-type-options')).toBe('nosniff');
       expect(res.headers.get('content-type')).toBe('image/svg+xml');
@@ -293,9 +294,47 @@ describe("GET /proxy — a stranger's non-HTML bytes", () => {
   });
 
   test('a PDF without raw is handed to the document viewer', async () => {
-    serve({ body: '%PDF-1.4', type: 'application/pdf' });
-    const res = await get(`url=${encodeURIComponent('https://example.com/a.pdf')}`);
+    const res = await get({
+      query: `url=${encodeURIComponent('https://example.com/a.pdf')}`,
+      body: '%PDF-1.4',
+      type: 'application/pdf',
+    });
     expect(res.status).toBe(302);
     expect(res.headers.get('location')).toBe('/doc?url=https%3A%2F%2Fexample.com%2Fa.pdf');
+  });
+});
+
+describe('GET /proxy — naming the firewall that refused us', () => {
+  afterEach(() => {
+    globalThis.fetch = realFetchForRoutes;
+  });
+
+  const blockedBy = async (respond: () => Response) =>
+    (await getProxy({ query: `url=${encodeURIComponent('https://example.com/')}`, respond })).text();
+
+  test("SiteGround's challenge is named, so the owner is told it can't be fixed from their side", async () => {
+    const body = await blockedBy(
+      () =>
+        new Response(
+          '<html><head><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F"></head></html>',
+          {
+            status: 202,
+            headers: { 'content-type': 'text/html', 'sg-captcha': 'challenge' },
+          },
+        ),
+    );
+    expect(body).toContain('firewall:"siteground"');
+  });
+
+  test('any other firewall gets the generic advice', async () => {
+    const body = await blockedBy(
+      () =>
+        new Response('<html><head><title>Just a moment...</title></head></html>', {
+          status: 403,
+          headers: { 'content-type': 'text/html' },
+        }),
+    );
+    expect(body).toContain('reason:"firewall"');
+    expect(body).toContain('firewall:null');
   });
 });

@@ -2,6 +2,7 @@ import type { Point } from '@ext/lib/types';
 import type { ReadonlySignal, Signal } from '@preact/signals';
 import { createContext } from 'preact';
 import { useContext } from 'preact/hooks';
+import type { Firewall } from '../src/proxy';
 import type { ExportData } from './AnnotationPanel';
 
 /** Why the page never rendered. One list: the signal holds it, telemetry reports it. */
@@ -32,6 +33,20 @@ export const FAILURE_COPY = {
   },
 } as const;
 
+/**
+ * What a site owner can do about a named firewall, split around the relay address
+ * the page renders between `before` and `after`.
+ */
+export const FIREWALL_ADVICE = {
+  siteground: {
+    before:
+      "Own this site? It's SiteGround's Anti-Bot AI, which runs on their servers. You can't switch it off in Site Tools or your security plugin, and it doesn't show up in your logs. SiteGround support can whitelist",
+    after: 'for you.',
+    request: ({ ip, host }: { ip: string; host: string }) =>
+      `Hi, please whitelist the IP address ${ip} from the Anti-Bot AI (sgcaptcha) challenge for ${host}. It belongs to MarkLayer, a review tool that loads my pages so my team can annotate them.`,
+  },
+} as const satisfies Record<Firewall, unknown>;
+
 /** Refs and signals are structural on purpose — every consumer only reads `.current`. */
 type Ref<T> = { current: T | null };
 
@@ -45,6 +60,8 @@ interface ViewerFrameState {
    * one — the only detail that turns "it broke" into something the owner can act on.
    */
   blockedEgressIp: Signal<string | null>;
+  /** The firewall that refused us, when it is one with host-specific advice. */
+  blockedFirewall: Signal<Firewall | null>;
   failureCopy: ReadonlySignal<{ readonly title: string; readonly body: string }>;
 }
 
