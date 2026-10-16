@@ -47,6 +47,7 @@ import { AnnotationDetail } from './AnnotationDetail';
 import { capture } from './analytics';
 import { type AnnotationItem, itemAnchor, itemLabel } from './annotationItems';
 import { IntroComposerSlot, IntroVideo, introComposerOpen, intros } from './IntroVideo';
+import { ReviewSection } from './ReviewPanel';
 import { DEVICE_ICONS, DEVICE_LABELS, menuItem } from './shared';
 import { fileUrl, isReadonly, showBoard } from './signals';
 
@@ -556,6 +557,7 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
       {/* List */}
       <div class="flex-1 overflow-y-auto overscroll-contain">
         <IntroVideo />
+        <ReviewSection />
         {/* A filtered-out list is not an empty room. Saying "no comments yet" over
             a room that has them, with no way back, is the panel lying to itself. */}
         {items.length === 0 && (

@@ -11,19 +11,17 @@ import {
   tallyQuestion,
 } from '@marklayer/types';
 import { useSignal } from '@preact/signals';
-import { Check, X } from 'lucide-preact';
+import { Check } from 'lucide-preact';
 import {
   askQuestion,
   castVote,
-  panelChoice,
+  hasReviewContent,
   previewInfo,
-  reviewPanelOpen,
   reviewQuestions,
   reviewSteps,
   toggleStep,
 } from './review';
-import { compactChrome, infoPanelOpen, isReadonly } from './signals';
-import { INFO_PANEL_WIDTH } from './ViewerInfoPanel';
+import { isReadonly } from './signals';
 
 /** `#3` for a comment pin, so a step points at the thread a reviewer already knows by number. */
 function annotationLabel(id: string): string {
@@ -212,50 +210,22 @@ function QuestionComposer({ onDone }: { onDone: () => void }) {
   );
 }
 
-/** The agent's checklist and the room's polls, beside the page rather than on it: neither has a place there. */
-export function ReviewPanel() {
+/** The agent's checklist and the room's polls, at the top of the comments panel: one place for everything the room says. */
+export function ReviewSection() {
   const composing = useSignal(false);
-  if (!reviewPanelOpen.value) return null;
   const readonly = isReadonly.value;
   const steps = reviewSteps.value;
   const questions = reviewQuestions.value;
   const info = previewInfo.value;
   const doneCount = steps.filter((s) => s.done).length;
-  const empty = steps.length === 0 && questions.length === 0 && !info?.note;
+  // A guest with nothing to read gets no section; an editor always gets the question composer.
+  if (!hasReviewContent.value && readonly) return null;
   return (
-    <aside
-      aria-label="Review"
-      class={cn(
-        'fixed z-2147483645 overflow-y-auto',
-        // A phone has no top bar to clear but a bottom bar to stay above.
-        compactChrome.value
-          ? 'inset-x-3 top-3 max-h-[calc(100dvh-6rem)]'
-          : 'top-[60px] w-[300px] max-h-[calc(100vh-140px)] transition-[left] duration-200',
-        geist.surface,
-      )}
-      // The Details panel owns the left edge when open; step past it rather than cover it.
-      style={compactChrome.value ? undefined : { left: infoPanelOpen.value ? INFO_PANEL_WIDTH + 16 : 16 }}
-    >
-      <div class="flex items-center justify-between gap-2 pl-4 pr-1.5 h-10">
-        <span class="text-ui font-medium text-(--ds-gray-1000) truncate">{info?.title ?? 'Review'}</span>
-        <button
-          type="button"
-          aria-label="Close review"
-          class={cn(geist.ctlSm, geist.ctlIdle)}
-          onClick={() => (panelChoice.value = false)}
-        >
-          <X size={14} strokeWidth={1.5} aria-hidden="true" />
-        </button>
-      </div>
-      {info?.note && <p class="m-0 px-4 pb-3 text-ui leading-body text-(--ds-gray-900)">{info.note}</p>}
-      {empty && (
-        <p class="m-0 px-4 pb-2 text-ui leading-body text-(--ds-gray-900)">
-          An agent's next steps land here. Ask the room a question to take a quick vote.
-        </p>
-      )}
+    <div class="border-b border-(--ds-gray-alpha-400)">
+      {info?.note && <p class="m-0 px-4 pt-3 text-ui leading-body text-(--ds-gray-900)">{info.note}</p>}
 
       {steps.length > 0 && (
-        <section class="px-4 pb-2">
+        <section class="px-4 pt-2 pb-2">
           <div class={cn(geist.sectionLabel, 'flex justify-between pt-1')}>
             <span>Next steps</span>
             <span class="tabular-nums">
@@ -271,7 +241,7 @@ export function ReviewPanel() {
       )}
 
       {(questions.length > 0 || !readonly) && (
-        <section class="px-4 pb-3">
+        <section class="px-4 pt-2 pb-3">
           {steps.length > 0 && <div class={cn(geist.divider, '-mx-4 mb-2')} />}
           {questions.length > 0 && <div class={cn(geist.sectionLabel, 'pt-1')}>Questions</div>}
           {questions.map((question) => (
@@ -291,6 +261,6 @@ export function ReviewPanel() {
             ))}
         </section>
       )}
-    </aside>
+    </div>
   );
 }

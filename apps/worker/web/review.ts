@@ -1,4 +1,4 @@
-import { localUser, operations, patchOp, pushOp, signedBy, uiHidden } from '@ext/lib/state';
+import { localUser, operations, patchOp, pushOp, showAnnotationPanel, signedBy } from '@ext/lib/state';
 import { type Ballot, type DrawOp, orderedSteps, type QuestionOp, type StepOp } from '@marklayer/types';
 import { computed, effect, signal } from '@preact/signals';
 import { nanoid } from 'nanoid';
@@ -44,20 +44,19 @@ effect(() => {
     .catch(() => {});
 });
 
-/** Null until someone chooses: the panel then opens by itself exactly when the room has something to show. */
-export const panelChoice = signal<boolean | null>(null);
-
+/** Whether the review section has anything to show: steps, a poll, or the preview's note. */
 export const hasReviewContent = computed(
-  () =>
-    reviewSteps.value.length > 0 ||
-    reviewQuestions.value.length > 0 ||
-    Boolean(previewInfo.value?.title || previewInfo.value?.note),
+  () => reviewSteps.value.length > 0 || reviewQuestions.value.length > 0 || Boolean(previewInfo.value?.note),
 );
 
-// A phone gets the panel on request only: opened by itself it would cover the page the link was sent for.
-export const reviewPanelOpen = computed(
-  () => !uiHidden.value && (panelChoice.value ?? (hasReviewContent.value && !compactChrome.value)),
-);
+// A room that arrives with review content opens the comments panel once, not
+// whenever: closing it is a choice. A phone gets it on request only.
+let openedForReview = false;
+effect(() => {
+  if (openedForReview || !hasReviewContent.value || compactChrome.value) return;
+  openedForReview = true;
+  showAnnotationPanel.value = true;
+});
 
 /** Revoting patches your own ballot rather than adding one, so the stream does not grow per click. */
 export function castVote({ question, option, mine }: { question: QuestionOp; option: number; mine?: Ballot }) {

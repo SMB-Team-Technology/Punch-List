@@ -24,7 +24,6 @@ import {
   Heart,
   Info,
   Link,
-  ListChecks,
   MessageSquare,
   Mic,
   MicOff,
@@ -40,7 +39,7 @@ import { lazy, Suspense } from 'preact/compat';
 import { canvasFitted, canvasZoom, toggleCanvasFit } from './DeviceOverview';
 import { isUploadPath } from './docSource';
 import { PresenceMenu } from './PresenceMenu';
-import { hasReviewContent, type PreviewInfo, panelChoice, previewInfo, reviewPanelOpen } from './review';
+import { type PreviewInfo, previewInfo } from './review';
 import { SharePopover } from './SharePopover';
 import { DEVICE_ICONS, HOME_LINK_PROPS, Logo } from './shared';
 import {
@@ -410,19 +409,6 @@ function InCallControls() {
   );
 }
 
-/** The review panel's toggle. Offered to a guest only once there is something to read. */
-function ReviewButton() {
-  if (!hasReviewContent.value && isReadonly.value) return null;
-  return (
-    <BarButton
-      icon={<ListChecks size={16} strokeWidth={1.5} aria-hidden="true" />}
-      tip="Next steps and questions"
-      on={reviewPanelOpen.value}
-      onClick={() => (panelChoice.value = !reviewPanelOpen.value)}
-    />
-  );
-}
-
 /**
  * Previous and next version of a preview room, with the build it shows. Absent
  * on any room that is not part of a version chain.
@@ -542,7 +528,6 @@ export function ViewerTopBar() {
         {voiceActive.value ? <InCallControls /> : <JoinVoiceControls />}
         <ConnectionStatus />
         <PresentButton />
-        <ReviewButton />
         <BarButton
           icon={<MessageSquare size={16} strokeWidth={1.5} aria-hidden="true" />}
           tip="Annotations panel"

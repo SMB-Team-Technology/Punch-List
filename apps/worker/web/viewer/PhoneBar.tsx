@@ -5,8 +5,7 @@ import { Icon } from '@ext/lib/icons';
 import { activeTool, rootComments, selectTool, showAnnotationPanel } from '@ext/lib/state';
 import type { Tool } from '@ext/lib/types';
 import { cn } from '@marklayer/types';
-import { ListChecks, Lock } from 'lucide-preact';
-import { hasReviewContent, panelChoice, reviewPanelOpen } from '../review';
+import { Lock } from 'lucide-preact';
 import { ShareDrawer } from '../SharePopover';
 import { isReadonly, PHONE_TOOLS } from '../signals';
 
@@ -34,35 +33,11 @@ function ThreadsButton() {
     <button
       type="button"
       aria-pressed={open}
-      onClick={() => {
-        // One sheet at a time on a phone: the threads would bury the review panel under them.
-        if (!open) panelChoice.value = false;
-        showAnnotationPanel.value = !open;
-      }}
+      onClick={() => (showAnnotationPanel.value = !open)}
       class={cn(geist.ctl, open ? geist.ctlOn : geist.ctlIdle, 'w-auto gap-1.5 px-3 text-ui font-medium')}
     >
       Threads
       <span class={cn('tabular-nums', !open && 'text-(--ds-gray-700)')}>{count}</span>
-    </button>
-  );
-}
-
-/** The review panel's toggle, offered only once there is something in it: a phone has no room for an empty one. */
-function ReviewToggle() {
-  if (!hasReviewContent.value) return null;
-  const open = reviewPanelOpen.value;
-  return (
-    <button
-      type="button"
-      aria-pressed={open}
-      aria-label="Next steps and questions"
-      onClick={() => {
-        if (!open) showAnnotationPanel.value = false;
-        panelChoice.value = !open;
-      }}
-      class={cn(geist.ctl, open ? geist.ctlOn : geist.ctlIdle)}
-    >
-      <ListChecks {...GLYPH} aria-hidden="true" />
     </button>
   );
 }
@@ -94,7 +69,6 @@ export function PhoneBar() {
       )}
       <div class={geist.sep} />
       <ThreadsButton />
-      <ReviewToggle />
       {!readonly && <ShareDrawer />}
     </div>
   );
