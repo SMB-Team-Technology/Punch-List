@@ -1,5 +1,7 @@
 import {
+  folderNameRequestSchema,
   inviteRequestSchema,
+  moveLinkRequestSchema,
   resolveOwnerExpiresAt,
   signInRequestSchema,
   updateLinkSettingsSchema,
@@ -13,7 +15,7 @@ import { overRateLimit } from '../http';
 import { captureServer } from '../posthog';
 import { inviteStore, nowInSeconds } from '../store';
 import { type AuthVariables, withUser } from './middleware';
-import { authStore, ownedStore } from './store';
+import { authStore, folderStore, ownedStore } from './store';
 import { mintToken } from './tokens';
 import { type AuthEnv, normalizeEmail, SESSION_COOKIE, SESSION_TTL_SECONDS, type User } from './types';
 import { confirmPage, expiredPage, isTokenShaped } from './verify-page';
@@ -234,6 +236,45 @@ auth.patch('/links/:id', async (c) => {
     captureServer(c.env, c.executionCtx, 'link_settings_updated', { access });
   }
   return c.json({ updated }, 200);
+});
+
+auth.put('/links/:id/folder', async (c) => {
+  const body = moveLinkRequestSchema.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: 'Invalid folder.' }, 400);
+  const moved = await ownedStore(c.env.DB).moveAnnotation({
+    id: c.req.param('id'),
+    ownerId: c.get('session').id,
+    folderId: body.data.folderId,
+  });
+  return c.json({ moved }, 200);
+});
+
+auth.use('/folders', requireSession);
+auth.use('/folders/*', requireSession);
+
+auth.get('/folders', async (c) => c.json({ folders: await folderStore(c.env.DB).list(c.get('session').id) }, 200));
+
+auth.post('/folders', async (c) => {
+  const body = folderNameRequestSchema.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: 'Give the folder a name of up to 60 characters.' }, 400);
+  const folder = await folderStore(c.env.DB).create({ ownerId: c.get('session').id, name: body.data.name });
+  return c.json({ folder }, 200);
+});
+
+auth.patch('/folders/:id', async (c) => {
+  const body = folderNameRequestSchema.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: 'Give the folder a name of up to 60 characters.' }, 400);
+  const updated = await folderStore(c.env.DB).rename({
+    id: c.req.param('id'),
+    ownerId: c.get('session').id,
+    name: body.data.name,
+  });
+  return c.json({ updated }, 200);
+});
+
+auth.delete('/folders/:id', async (c) => {
+  const deleted = await folderStore(c.env.DB).remove({ id: c.req.param('id'), ownerId: c.get('session').id });
+  return c.json({ deleted }, 200);
 });
 
 auth.post('/logout', async (c) => {

@@ -23,6 +23,7 @@ import {
   mentionSegments,
   normalizeSuggestion,
   opAnchor,
+  parseOps,
   RETENTION_DAYS,
   redactSharePath,
   resolveOpStatus,
@@ -455,5 +456,14 @@ describe('opAnchor', () => {
       rect: { x: 3, y: 4, width: 10, height: 10 },
     });
     expect(opAnchor(op)).toEqual({ x: 3, y: 4 });
+  });
+});
+
+describe('parseOps', () => {
+  // A client one release behind meets every new tool this way: losing the whole room to it would be silent.
+  test('keeps the ops it can read when one is from a newer client or malformed', () => {
+    const intro = { id: 'i1', tool: 'intro', video: 'a'.repeat(21), color: '#000', lineWidth: 2, ts: 1 };
+    const stored = [comment, intro, { ...intro, id: 'i2', video: '../etc/passwd' }, { ...comment, tool: 'hologram' }];
+    expect(parseOps(stored).map((op) => op.id)).toEqual(['op1', 'i1']);
   });
 });

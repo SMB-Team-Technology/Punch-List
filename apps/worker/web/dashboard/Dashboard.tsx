@@ -7,8 +7,9 @@ import { useSignal } from '@preact/signals';
 import { Link2, Settings2, Trash2 } from 'lucide-preact';
 import { CopyControl } from '../shared';
 import { APP_MEASURE } from './AppBar';
+import { FolderBar, FolderDialog, inFilter, MoveMenu } from './Folders';
 import { LinkSettings } from './LinkSettings';
-import { links, linksLoading, releaseLink, user } from './session';
+import { folderFilter, links, linksLoading, releaseLink, user } from './session';
 
 /** Where the expiry stops being background information and starts being news. */
 const SOON_DAYS = 7;
@@ -161,6 +162,7 @@ function LinkRow({ link }: { link: OwnedLink }) {
           ) : (
             <>
               <CopyButton id={link.id} />
+              <MoveMenu link={link} class={cn(geist.ctlSm, geist.ctlIdle, ROW_CTL)} />
               <button
                 type="button"
                 aria-label="Link settings"
@@ -242,8 +244,10 @@ function Empty() {
 
 export function Dashboard() {
   const account = user.value;
-  const list = links.value;
-  const loading = linksLoading.value && list.length === 0;
+  const all = links.value;
+  const filter = folderFilter.value;
+  const list = all.filter((link) => inFilter({ link, filter }));
+  const loading = linksLoading.value && all.length === 0;
   return (
     <div class={cn(APP_MEASURE, 'py-8 sm:py-10')}>
       {/* Baselines, not centres: the count is a subtitle to the title, and the
@@ -257,17 +261,23 @@ export function Dashboard() {
             </span>
           )}
         </div>
-        {list.length > 0 && (
+        {all.length > 0 && (
           <a href="/" class={cn(submitBtn, 'no-underline')}>
             Annotate a page
           </a>
         )}
       </div>
 
+      {all.length > 0 && <FolderBar />}
+
       {loading ? (
         <Skeleton />
-      ) : list.length === 0 ? (
+      ) : all.length === 0 ? (
         <Empty />
+      ) : list.length === 0 ? (
+        <div class={cn(PANEL, 'text-meta px-6 py-12 text-center text-(--ds-gray-900)')}>
+          Nothing here yet. Use <span class="text-(--ds-gray-1000)">Move to folder</span> on a link.
+        </div>
       ) : (
         <>
           <ul class={cn(PANEL, 'divide-y divide-(--ds-gray-alpha-400)')}>
@@ -290,6 +300,7 @@ export function Dashboard() {
       {account ? (
         <p class="text-meta mt-8 truncate text-(--ds-gray-900) sm:hidden">Signed in as {account.email}</p>
       ) : null}
+      <FolderDialog />
     </div>
   );
 }

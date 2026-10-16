@@ -1,4 +1,4 @@
-import type { LinkAccess, OwnedLink } from '@marklayer/types';
+import type { Folder, LinkAccess, OwnedLink } from '@marklayer/types';
 import { nanoid } from 'nanoid';
 import { isExpired, nowInSeconds, parseLinkAccess, throttleRemaining } from '../store';
 import { hashToken } from './tokens';
@@ -124,7 +124,7 @@ export function ownedStore(db: D1Database) {
     async listAnnotations(ownerId: string): Promise<OwnedLink[]> {
       const res = await db
         .prepare(
-          'SELECT id, url, created_at, last_accessed_at, expires_at, access, owner_expires_at FROM annotations WHERE owner_id = ? ORDER BY last_accessed_at DESC LIMIT 200',
+          'SELECT id, url, created_at, last_accessed_at, expires_at, access, owner_expires_at, folder_id FROM annotations WHERE owner_id = ? ORDER BY last_accessed_at DESC LIMIT 200',
         )
         .bind(ownerId)
         .all<{
@@ -135,6 +135,7 @@ export function ownedStore(db: D1Database) {
           expires_at: number | null;
           access: string;
           owner_expires_at: number | null;
+          folder_id: string | null;
         }>();
       // Mapped here, not at the caller: snake_case is D1's shape and it should
       // stop at this boundary, the way it does in `store.ts`.
@@ -146,6 +147,7 @@ export function ownedStore(db: D1Database) {
         expiresAt: row.expires_at,
         access: parseLinkAccess(row.access),
         ownerExpiresAt: row.owner_expires_at,
+        folderId: row.folder_id,
       }));
     },
 
@@ -206,10 +208,74 @@ export function ownedStore(db: D1Database) {
     async releaseAnnotation({ id, ownerId }: { id: string; ownerId: string }): Promise<boolean> {
       const res = await db
         .prepare(
-          "UPDATE annotations SET owner_id = NULL, access = 'edit', owner_expires_at = NULL WHERE id = ? AND owner_id = ?",
+          "UPDATE annotations SET owner_id = NULL, access = 'edit', owner_expires_at = NULL, folder_id = NULL WHERE id = ? AND owner_id = ?",
         )
         .bind(id, ownerId)
         .run();
+      return (res.meta.changes ?? 0) > 0;
+    },
+
+    /**
+     * Files a link, or unfiles it with `folderId: null`. Both halves are
+     * owner-guarded in one statement: a guessed folder id must not file a link
+     * into someone else's list.
+     */
+    async moveAnnotation({
+      id,
+      ownerId,
+      folderId,
+    }: {
+      id: string;
+      ownerId: string;
+      folderId: string | null;
+    }): Promise<boolean> {
+      const res = await db
+        .prepare(
+          `UPDATE annotations SET folder_id = ? WHERE id = ? AND owner_id = ?
+           AND (? IS NULL OR EXISTS (SELECT 1 FROM folders WHERE id = ? AND owner_id = ?))`,
+        )
+        .bind(folderId, id, ownerId, folderId, folderId, ownerId)
+        .run();
+      return (res.meta.changes ?? 0) > 0;
+    },
+  };
+}
+
+/** Every statement carries `owner_id`, so a folder id alone reaches nothing. */
+export function folderStore(db: D1Database) {
+  return {
+    async list(ownerId: string): Promise<Folder[]> {
+      const res = await db
+        .prepare('SELECT id, name, created_at FROM folders WHERE owner_id = ? ORDER BY name COLLATE NOCASE')
+        .bind(ownerId)
+        .all<{ id: string; name: string; created_at: number }>();
+      return res.results.map((row) => ({ id: row.id, name: row.name, createdAt: row.created_at }));
+    },
+
+    async create({ ownerId, name }: { ownerId: string; name: string }): Promise<Folder> {
+      const folder = { id: nanoid(), name, createdAt: nowInSeconds() };
+      await db
+        .prepare('INSERT INTO folders (id, owner_id, name, created_at) VALUES (?, ?, ?, ?)')
+        .bind(folder.id, ownerId, name, folder.createdAt)
+        .run();
+      return folder;
+    },
+
+    async rename({ id, ownerId, name }: { id: string; ownerId: string; name: string }): Promise<boolean> {
+      const res = await db
+        .prepare('UPDATE folders SET name = ? WHERE id = ? AND owner_id = ?')
+        .bind(name, id, ownerId)
+        .run();
+      return (res.meta.changes ?? 0) > 0;
+    },
+
+    /** Its links fall back to unfiled; none are deleted. */
+    async remove({ id, ownerId }: { id: string; ownerId: string }): Promise<boolean> {
+      await db
+        .prepare('UPDATE annotations SET folder_id = NULL WHERE folder_id = ? AND owner_id = ?')
+        .bind(id, ownerId)
+        .run();
+      const res = await db.prepare('DELETE FROM folders WHERE id = ? AND owner_id = ?').bind(id, ownerId).run();
       return (res.meta.changes ?? 0) > 0;
     },
   };

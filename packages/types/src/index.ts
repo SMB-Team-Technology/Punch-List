@@ -659,6 +659,22 @@ export const guideOpSchema = z.object({
 });
 export type GuideOp = z.infer<typeof guideOpSchema>;
 
+/**
+ * The room's intro video: a recorded walkthrough pinned above the thread list,
+ * so a reviewer hears the ask before reading the page. Every intro op is one
+ * version and the newest is the one shown; re-recording appends, it never edits.
+ * Placed nowhere on the page, so it carries no coordinates and no anchor.
+ */
+export const introOpSchema = z.object({
+  ...baseOp,
+  tool: z.literal('intro'),
+  video: z.string().check(z.refine(isUploadId)),
+  title: z.optional(z.string().check(z.maxLength(120))),
+  ts: z.number(),
+  ...authored,
+});
+export type IntroOp = z.infer<typeof introOpSchema>;
+
 export const drawOpSchema = z.discriminatedUnion('tool', [
   freehandOpSchema,
   rectOpSchema,
@@ -670,6 +686,7 @@ export const drawOpSchema = z.discriminatedUnion('tool', [
   areaOpSchema,
   inspectOpSchema,
   guideOpSchema,
+  introOpSchema,
 ]);
 export type DrawOp = z.infer<typeof drawOpSchema>;
 
@@ -736,6 +753,7 @@ export function translateOp({ op, dx, dy }: { op: DrawOp; dx: number; dy: number
     case 'selection':
     case 'inspect':
     case 'guide':
+    case 'intro':
       return null;
     default: {
       const _exhaustive: never = op;
@@ -1105,8 +1123,22 @@ export const ownedLinkSchema = z.object({
   access: linkAccessSchema,
   /** Set by the owner in Settings; separate from `expiresAt`, which anonymous re-saves overwrite. */
   ownerExpiresAt: z.nullable(z.number()),
+  /** The owner's folder it is filed in, or null when unfiled. */
+  folderId: z.nullable(z.string()),
 });
 export type OwnedLink = z.infer<typeof ownedLinkSchema>;
+
+export const MAX_FOLDER_NAME_LENGTH = 60;
+/** What a folder is called, already trimmed — an all-space name is not one. */
+export const folderNameSchema = z.string().check(z.trim(), z.minLength(1), z.maxLength(MAX_FOLDER_NAME_LENGTH));
+export const folderSchema = z.object({ id: z.string(), name: z.string(), createdAt: z.number() });
+export type Folder = z.infer<typeof folderSchema>;
+export const createFolderResponseSchema = z.object({ folder: folderSchema });
+export const foldersResponseSchema = z.object({ folders: z.array(folderSchema) });
+/** `POST /auth/folders` and `PATCH /auth/folders/:id`. */
+export const folderNameRequestSchema = z.object({ name: folderNameSchema });
+/** `PUT /auth/links/:id/folder`; `null` takes the link out of its folder. */
+export const moveLinkRequestSchema = z.object({ folderId: z.nullable(z.string()) });
 
 /**
  * `PATCH /auth/links/:id`. Omitted fields stay as they are; `ownerExpiresIn: null`

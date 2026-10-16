@@ -37,6 +37,7 @@ const TOOL_NOUNS: Record<TallyTool, string> = {
   area: 'area',
   inspect: 'inspected element',
   guide: 'guide',
+  intro: 'intro video',
 };
 
 /**

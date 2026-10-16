@@ -46,8 +46,9 @@ import { tinykeys } from 'tinykeys';
 import { AnnotationDetail } from './AnnotationDetail';
 import { capture } from './analytics';
 import { type AnnotationItem, itemAnchor, itemLabel } from './annotationItems';
+import { IntroComposerSlot, IntroVideo, introComposerOpen, intros } from './IntroVideo';
 import { DEVICE_ICONS, DEVICE_LABELS } from './shared';
-import { fileUrl, showBoard } from './signals';
+import { fileUrl, isReadonly, showBoard } from './signals';
 
 /** What an export writes: the live page's ops, plus every other page when this is a project. */
 export interface ExportData {
@@ -341,6 +342,11 @@ function PanelMenu({
               Download Markdown
             </Menu.Item>
             <Menu.Separator className={cn(geist.divider, 'my-1 -mx-1')} />
+            {!isReadonly.value && (
+              <Menu.Item className={menuItem} onClick={() => (introComposerOpen.value = true)}>
+                {intros.value.length ? 'Record a new intro version' : 'Pin an intro video'}
+              </Menu.Item>
+            )}
             <Menu.Item
               className={menuItem}
               onClick={() => {
@@ -360,7 +366,16 @@ function PanelMenu({
   );
 }
 
-function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
+function AnnotationPanelBody(props: BodyProps) {
+  return (
+    <>
+      <IntroComposerSlot />
+      <AnnotationPanelView {...props} />
+    </>
+  );
+}
+
+function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
   const buildExport = () => {
     const data = getExportData?.() ?? { ops: operations.value };
     return buildMarkdownExport(data.ops, {
@@ -546,6 +561,7 @@ function AnnotationPanelBody({ onScrollTo, getExportData }: BodyProps) {
 
       {/* List */}
       <div class="flex-1 overflow-y-auto overscroll-contain">
+        <IntroVideo />
         {/* A filtered-out list is not an empty room. Saying "no comments yet" over
             a room that has them, with no way back, is the panel lying to itself. */}
         {items.length === 0 && (

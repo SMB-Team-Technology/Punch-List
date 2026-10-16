@@ -1,5 +1,8 @@
 import {
+  createFolderResponseSchema,
   errorResponseSchema,
+  type Folder,
+  foldersResponseSchema,
   type OwnedLink,
   ownedLinksResponseSchema,
   postJson,
@@ -23,6 +26,10 @@ export const user = signal<SessionUser | null>(null);
 export const sessionLoading = signal(true);
 export const links = signal<OwnedLink[]>([]);
 export const linksLoading = signal(false);
+export const folders = signal<Folder[]>([]);
+
+export type FolderFilter = { kind: 'all' } | { kind: 'unfiled' } | { kind: 'folder'; id: string };
+export const folderFilter = signal<FolderFilter>({ kind: 'all' });
 
 async function readJson(res: Response): Promise<unknown> {
   return res.json().catch(() => null);
@@ -38,13 +45,20 @@ async function readJson(res: Response): Promise<unknown> {
 export async function loadSession(): Promise<void> {
   sessionLoading.value = true;
   linksLoading.value = true;
-  const [me, owned] = await Promise.all([fetch('/auth/me'), fetch('/auth/links')]);
+  const [me, owned, filed] = await Promise.all([fetch('/auth/me'), fetch('/auth/links'), fetch('/auth/folders')]);
   const session = sessionResponseSchema.safeParse(await readJson(me));
   user.value = session.success ? session.data.user : null;
   sessionLoading.value = false;
   const list = ownedLinksResponseSchema.safeParse(await readJson(owned));
   links.value = user.value && list.success ? list.data.links : [];
+  const folderList = foldersResponseSchema.safeParse(await readJson(filed));
+  folders.value = user.value && folderList.success ? folderList.data.folders : [];
   linksLoading.value = false;
+}
+
+async function loadFolders(): Promise<void> {
+  const parsed = foldersResponseSchema.safeParse(await readJson(await fetch('/auth/folders')));
+  if (parsed.success) folders.value = parsed.data.folders;
 }
 
 export async function loadLinks(): Promise<void> {
@@ -83,6 +97,48 @@ export async function signOut(): Promise<void> {
   await fetch('/auth/logout', { method: 'POST' });
   user.value = null;
   links.value = [];
+  folders.value = [];
+  folderFilter.value = { kind: 'all' };
+}
+
+/** Returns an error message, or null when the folder exists. */
+export async function createFolder(name: string): Promise<string | null> {
+  const res = await postJson('/auth/folders', { name });
+  const created = createFolderResponseSchema.safeParse(res?.ok ? await readJson(res) : null);
+  if (!created.success) return errorFrom(res);
+  folders.value = [...folders.value, created.data.folder].sort((a, b) => a.name.localeCompare(b.name));
+  return null;
+}
+
+/** Returns an error message, or null when the folder was renamed. */
+export async function renameFolder({ id, name }: { id: string; name: string }): Promise<string | null> {
+  const res = await fetch(`/auth/folders/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  const error = await errorFrom(res);
+  await loadFolders();
+  return error;
+}
+
+/** Its links are unfiled by the server, not deleted, so they are reloaded rather than patched. */
+export async function deleteFolder(id: string): Promise<void> {
+  await fetch(`/auth/folders/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const current = folderFilter.value;
+  if (current.kind === 'folder' && current.id === id) folderFilter.value = { kind: 'all' };
+  await Promise.all([loadFolders(), loadLinks()]);
+}
+
+export async function moveLink({ id, folderId }: { id: string; folderId: string | null }): Promise<void> {
+  // Optimistic like releaseLink; a refused move resyncs from the server.
+  links.value = links.value.map((link) => (link.id === id ? { ...link, folderId } : link));
+  const res = await fetch(`/auth/links/${encodeURIComponent(id)}/folder`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ folderId }),
+  });
+  if (!res.ok) await loadLinks();
 }
 
 export async function claimLink(id: string): Promise<void> {

@@ -12,6 +12,7 @@ const held: OwnedLink = {
   expiresAt: null,
   access: 'edit',
   ownerExpiresAt: null,
+  folderId: null,
 };
 
 function stubServer({ patch }: { patch: Response }) {
