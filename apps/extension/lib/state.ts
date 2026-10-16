@@ -1,5 +1,13 @@
 import { buildAnnotationsPrompt, openAnnotationCount } from '@marklayer/agent-tools/prompt';
-import { applyOpPatch, isAnnotationOp, isReviewOp, isSettled, resolveOpStatus, translateOp } from '@marklayer/types';
+import {
+  applyOpPatch,
+  isAnnotationOp,
+  isReviewOp,
+  isSettled,
+  resolveOpStatus,
+  toggleReaction,
+  translateOp,
+} from '@marklayer/types';
 import { computed, effect, signal } from '@preact/signals';
 import { nanoid } from 'nanoid';
 import { tinykeys } from 'tinykeys';
@@ -1173,6 +1181,15 @@ export function patchOp({ opId, patch }: { opId: string; patch: Record<string, u
     return merged;
   });
   if (applied) emitOpUpdated({ opId, patch });
+}
+
+/** Toggle the local user's emoji on a comment or reply; the whole list ships as the patch. */
+export function toggleOpReaction({ opId, emoji }: { opId: string; emoji: string }) {
+  const op = operations.value.find((o) => o.id === opId);
+  if (!op || !isAnnotationOp(op)) return;
+  const reactions = toggleReaction({ reactions: op.reactions, emoji, by: { id: localUser.id, name: localUser.name } });
+  patchOp({ opId, patch: { reactions } });
+  track('annotation_reacted', { emoji, on: reactions.length > (op.reactions?.length ?? 0) });
 }
 
 /** Set the annotation's triage priority; undefined clears it. */

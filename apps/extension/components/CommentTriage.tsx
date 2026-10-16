@@ -2,7 +2,7 @@ import { Menu } from '@base-ui/react/menu';
 import { type CommentStatus, cn, commentStatusSchema } from '@marklayer/types';
 import { Check, ChevronDown, CircleUserRound } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useCardHold } from '../lib/card-hold';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { portalContainer } from '../lib/portal';
@@ -50,19 +50,10 @@ const itemCls = cn(
   'data-checked:text-(--ds-gray-1000)',
 );
 
-function TriageMenu({
-  trigger,
-  children,
-  onOpenChange,
-}: {
-  trigger: ComponentChildren;
-  children: ComponentChildren;
-  /** Only a pin needs this — it holds its hover card open while the menu is out.
-   *  The annotation panel has nothing to latch, so it passes nothing. */
-  onOpenChange?: (open: boolean) => void;
-}) {
+function TriageMenu({ trigger, children }: { trigger: ComponentChildren; children: ComponentChildren }) {
+  const hold = useCardHold();
   return (
-    <Menu.Root onOpenChange={onOpenChange}>
+    <Menu.Root onOpenChange={hold}>
       <Menu.Trigger className={triggerCls} onClick={(e: MouseEvent) => e.stopPropagation()}>
         {trigger}
         <ChevronDown size={12} class="text-(--ds-gray-900) shrink-0" aria-hidden="true" />
@@ -93,18 +84,9 @@ export function CheckMark() {
 }
 
 /** Status dropdown for a comment card — colored dot + label, one radio item per status. */
-function StatusPicker({
-  opId,
-  status,
-  onOpenChange,
-}: {
-  opId: string;
-  status: CommentStatus;
-  onOpenChange?: (open: boolean) => void;
-}) {
+function StatusPicker({ opId, status }: { opId: string; status: CommentStatus }) {
   return (
     <TriageMenu
-      onOpenChange={onOpenChange}
       trigger={
         <>
           <span class="w-2 h-2 rounded-full shrink-0" style={{ background: STATUS_COLORS[status] }} />
@@ -144,22 +126,13 @@ function InitialAvatar({ name, color }: { name: string; color: string }) {
 }
 
 /** Assignee dropdown — you, everyone in the room, plus the current assignee if they left. */
-function AssigneePicker({
-  opId,
-  assignee,
-  onOpenChange,
-}: {
-  opId: string;
-  assignee: string | null;
-  onOpenChange?: (open: boolean) => void;
-}) {
+function AssigneePicker({ opId, assignee }: { opId: string; assignee: string | null }) {
   const options = new Map<string, string>([[localUser.name, localUser.color]]);
   for (const [name, c] of peerRoster.value) if (!options.has(name)) options.set(name, c);
   if (assignee && !options.has(assignee)) options.set(assignee, OFFLINE_COLOR);
 
   return (
     <TriageMenu
-      onOpenChange={onOpenChange}
       trigger={
         assignee ? (
           <>
@@ -198,39 +171,16 @@ function AssigneePicker({
 const rowCls = 'flex items-center justify-between gap-3 h-8';
 const triageLabelCls = 'text-meta text-(--ds-gray-900) font-medium shrink-0';
 
-/**
- * A triage dropdown portals outside the pin, so the pointer leaving for the menu
- * would drop `:hover` and dismiss the card. Both comment pins hold the card open
- * while a menu is — the latch and its three class fragments live here, next to
- * the section that causes the problem, rather than being pasted into each pin.
- */
-export function useTriageHold() {
-  const [open, setOpen] = useState(false);
-  return {
-    onOpenChange: setOpen,
-    /** Set as `data-held` on the pin, so its layer stays lifted with the pointer on the menu. */
-    held: open,
-    /** Keep the pin above its neighbours while a menu is out. */
-    rootCls: open && 'z-50',
-    /** The card is pointer-transparent until hovered; a live menu counts as hovered. */
-    wrapCls: open && 'pointer-events-auto',
-    /** Hold the card at its hovered transform instead of letting it animate away. */
-    cardCls: open && 'opacity-100 scale-100 translate-x-0',
-  };
-}
-
 /** Status and Assignee as property rows, label left and value right, shared by every comment card. */
 export function TriageSection({
   opId,
   status,
   assignee,
-  onOpenChange,
   class: cls,
 }: {
   opId: string;
   status: CommentStatus;
   assignee: string | null;
-  onOpenChange?: (open: boolean) => void;
   /** The pins keep the grid tight inside a hover card; the panel gives it room. */
   class?: string;
 }) {
@@ -238,11 +188,11 @@ export function TriageSection({
     <div class={cn('px-3.5 py-1.5', cls)}>
       <div class={rowCls}>
         <span class={triageLabelCls}>Status</span>
-        <StatusPicker opId={opId} status={status} onOpenChange={onOpenChange} />
+        <StatusPicker opId={opId} status={status} />
       </div>
       <div class={rowCls}>
         <span class={triageLabelCls}>Assignee</span>
-        <AssigneePicker opId={opId} assignee={assignee} onOpenChange={onOpenChange} />
+        <AssigneePicker opId={opId} assignee={assignee} />
       </div>
     </div>
   );

@@ -1,15 +1,33 @@
 import { Popover } from '@base-ui/react/popover';
 import { cn, type Mention, mentionSegments } from '@marklayer/types';
-import type { ComponentProps, Ref } from 'preact';
+import type { ComponentChildren, ComponentProps, Ref } from 'preact';
 import { useRef, useState } from 'preact/hooks';
+import { matchEmoji } from '../lib/emoji';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { portalContainer } from '../lib/portal';
-import { asMention, matchRoster, type RosterEntry } from '../lib/roster';
+import { asMention, matchRoster } from '../lib/roster';
 import { Avatar } from './Avatar';
 
-/** Longest `@…` run still treated as someone's name being typed rather than prose. */
+/** Longest `@…` or `:…` run still treated as a name being typed rather than prose. */
 const MAX_QUERY = 40;
+
+/** What the caret sits in: a person's name after `@`, or an emoji shortcode after `:`, with the trigger's index. */
+interface Query {
+  kind: 'mention' | 'emoji';
+  at: number;
+  text: string;
+}
+
+/** Rows the composer's list can offer the caret. One row type, so the list and the highlight never split. */
+interface Row {
+  key: string;
+  insert: () => void;
+  node: ComponentChildren;
+}
+
+/** The `:` list is a hint, not a browser: the picker under a comment shows the whole table. */
+const MAX_EMOJI_ROWS = 8;
 
 /**
  * The mention state a composer ships with its op.
@@ -42,7 +60,7 @@ interface Props extends TextareaProps {
 }
 
 /**
- * The composer textarea, plus the `@` popover that tags someone.
+ * The composer textarea, plus the `@` popover that tags someone and the `:` popover that picks an emoji.
  *
  * A wrapper rather than a hook because the popover has to be rendered next to
  * the field, and a wrapper rather than a full composer because the submit
@@ -52,15 +70,44 @@ interface Props extends TextareaProps {
  */
 export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, onBlur, ...rest }: Props) {
   const el = useRef<HTMLTextAreaElement | null>(null);
-  /** `null` closes the popover — distinct from `''`, which is a bare `@` with everyone still eligible. */
-  const [query, setQuery] = useState<string | null>(null);
+  /** `null` closes the popover — distinct from an empty `text`, which is a bare `@` or `:` with everything still eligible. */
+  const [query, setQuery] = useState<Query | null>(null);
   const [highlighted, setHighlighted] = useState(0);
   /** Everyone inserted through the popover, by id. Not everyone still in the text. */
   const inserted = useRef(new Map<string, Mention>());
 
-  const matches = query === null ? [] : matchRoster({ query });
-  const open = matches.length > 0;
-  const active = matches[Math.min(highlighted, matches.length - 1)];
+  const rows: Row[] = !query
+    ? []
+    : query.kind === 'mention'
+      ? matchRoster({ query: query.text }).map((entry) => ({
+          key: entry.id,
+          insert: () => {
+            inserted.current.set(entry.id, asMention(entry));
+            replaceRun(query.at, `@${entry.name} `);
+          },
+          node: (
+            <>
+              <Avatar name={entry.name} color={entry.color} size="sm" dim={!entry.online} />
+              <span class="truncate">{entry.name}</span>
+              {entry.self && <span class="text-meta text-(--ds-gray-900) shrink-0">you</span>}
+            </>
+          ),
+        }))
+      : matchEmoji({ query: query.text, limit: MAX_EMOJI_ROWS }).map((entry) => ({
+          key: entry.name,
+          insert: () => replaceRun(query.at, `${entry.char} `),
+          node: (
+            <>
+              <span class="w-5 text-center text-ui-lg leading-none" aria-hidden="true">
+                {entry.char}
+              </span>
+              <span class="truncate">{entry.name}</span>
+            </>
+          ),
+        }));
+  const count = rows.length;
+  const open = count > 0;
+  const activeIndex = Math.min(highlighted, count - 1);
 
   const attach = (node: HTMLTextAreaElement | null) => {
     el.current = node;
@@ -83,21 +130,26 @@ export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, o
     onMentionsChange([...unique.values()]);
   };
 
-  /** The `@…` run the caret sits in, or null when the caret is not in one. */
-  const queryAt = (node: HTMLTextAreaElement): string | null => {
+  /** The `@…` or `:…` run the caret sits in, or null when the caret is not in one. */
+  const queryAt = (node: HTMLTextAreaElement): Query | null => {
     const caret = node.selectionStart ?? 0;
     const upto = node.value.slice(0, caret);
-    const at = upto.lastIndexOf('@');
+    const at = Math.max(upto.lastIndexOf('@'), upto.lastIndexOf(':'));
     if (at === -1) return null;
-    // A tag starts a word. Without this, `vadym@dutch.com` opens the popover.
+    // A trigger starts a word. Without this, `vadym@dutch.com` and `12:30` open the popover.
     const before = at === 0 ? '' : upto.slice(at - 1, at);
     if (before && !/[\s([]/.test(before)) return null;
     const token = upto.slice(at + 1);
     if (token.includes('\n') || token.length > MAX_QUERY) return null;
+    if (upto[at] === ':') {
+      // Two characters in, like Slack: a bare `:` or `:D` is punctuation, and Enter
+      // on it must still send the comment rather than pick 👎 or "confused".
+      return /\s/.test(token) || token.length < 2 ? null : { kind: 'emoji', at, text: token };
+    }
     // A completed tag is not a query — otherwise inserting `@Name ` immediately
     // reopens the popover on the name it just wrote.
     const done = [...inserted.current.values()].some((m) => m.name.toLowerCase() === token.trim().toLowerCase());
-    return done ? null : token;
+    return done ? null : { kind: 'mention', at, text: token };
   };
 
   const sync = (node: HTMLTextAreaElement) => {
@@ -107,21 +159,18 @@ export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, o
     report(node.value);
   };
 
-  const insert = (entry: RosterEntry) => {
+  /** Replace the run from the trigger at `at` to the caret with `text`, caret after it. */
+  function replaceRun(at: number, text: string) {
     const node = el.current;
     if (!node) return;
     const caret = node.selectionStart ?? node.value.length;
-    const at = node.value.slice(0, caret).lastIndexOf('@');
-    if (at === -1) return;
-    const tag = `@${entry.name} `;
-    node.value = node.value.slice(0, at) + tag + node.value.slice(caret);
-    const pos = at + tag.length;
+    node.value = node.value.slice(0, at) + text + node.value.slice(caret);
+    const pos = at + text.length;
     node.setSelectionRange(pos, pos);
-    inserted.current.set(entry.id, asMention(entry));
     setQuery(null);
     node.focus();
     report(node.value);
-  };
+  }
 
   return (
     <>
@@ -136,13 +185,13 @@ export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, o
           if (open) {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
               e.preventDefault();
-              const step = e.key === 'ArrowDown' ? 1 : matches.length - 1;
-              setHighlighted((i) => (Math.min(i, matches.length - 1) + step) % matches.length);
+              const step = e.key === 'ArrowDown' ? 1 : count - 1;
+              setHighlighted((i) => (Math.min(i, count - 1) + step) % count);
               return;
             }
-            if ((e.key === 'Enter' || e.key === 'Tab') && active) {
+            if (e.key === 'Enter' || e.key === 'Tab') {
               e.preventDefault();
-              insert(active);
+              rows[activeIndex]?.insert();
               return;
             }
             if (e.key === 'Escape') {
@@ -195,15 +244,15 @@ export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, o
                 glass.font,
               )}
             >
-              {matches.map((entry, i) => (
+              {rows.map((row, i) => (
                 <button
-                  key={entry.id}
+                  key={row.key}
                   type="button"
                   // Pointer-down, not click: a click fires after blur, which has
                   // already closed the popover and taken the row with it.
                   onMouseDown={(e) => {
                     e.preventDefault();
-                    insert(entry);
+                    row.insert();
                   }}
                   onMouseEnter={() => setHighlighted(i)}
                   class={cn(
@@ -211,12 +260,10 @@ export function MentionTextarea({ taRef, onMentionsChange, onKeyDown, onInput, o
                     'text-ui font-medium leading-none',
                     glass.menuItem,
                     glass.menuItemHighlight,
-                    entry === active && 'bg-(--ds-gray-alpha-100)',
+                    i === activeIndex && 'bg-(--ds-gray-alpha-100)',
                   )}
                 >
-                  <Avatar name={entry.name} color={entry.color} size="sm" dim={!entry.online} />
-                  <span class="truncate">{entry.name}</span>
-                  {entry.self && <span class="text-meta text-(--ds-gray-900) shrink-0">you</span>}
+                  {row.node}
                 </button>
               ))}
             </Popover.Popup>

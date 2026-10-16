@@ -25,6 +25,7 @@ const SWAPS = new Map([
   [join(extRoot, 'lib/origin.ts'), join(import.meta.dir, 'origin.ts')],
   [join(extRoot, 'components/CommentTriage.tsx'), join(import.meta.dir, 'lite/CommentTriage.tsx')],
   [join(extRoot, 'components/MentionTextarea.tsx'), join(import.meta.dir, 'lite/MentionTextarea.tsx')],
+  [join(extRoot, 'components/Reactions.tsx'), join(import.meta.dir, 'lite/Reactions.tsx')],
   [join(extRoot, 'components/BottomSheet.tsx'), join(import.meta.dir, 'lite/BottomSheet.tsx')],
   [join(extRoot, 'lib/icons.tsx'), join(import.meta.dir, 'lite/icons.tsx')],
   [join(extRoot, 'lib/drafts.ts'), join(import.meta.dir, 'lite/drafts.ts')],

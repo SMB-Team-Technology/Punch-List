@@ -1,18 +1,20 @@
 import { type CaptureViewport, type CommentPriority, cn, type TargetElement } from '@marklayer/types';
 import { useSignal } from '@preact/signals';
 import { nanoid } from 'nanoid';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { submitBtn, textareaBareCls } from '../lib/buttons';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { useEdgeClamp } from '../lib/popover';
 import type { RecorderKind } from '../lib/recorder';
-import { color, commentCounter, getCommentMeta, lineWidth, signedBy } from '../lib/state';
+import { color, commentCounter, getCommentMeta, lineWidth, patchOp, signedBy } from '../lib/state';
 import type { CommentOp } from '../lib/types';
 import { AttachButton, AttachmentThumbs, useAttachments } from './AttachmentPicker';
 import { ModalSheet } from './BottomSheet';
 import { MentionTextarea, useMentions } from './MentionTextarea';
 import { PriorityPicker } from './PriorityPicker';
+import { Tooltip } from './Tooltip';
 import { useVideoNote, VideoButton, VideoDraft, VideoLive } from './VideoNote';
 import { useVoiceNote, VoiceButton, VoiceDraft } from './VoiceNote';
 
@@ -91,10 +93,15 @@ function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
     const txt = taRef.current?.value.trim();
     if (save && (txt || picker.picked || voice.id.value || video.id.value)) {
       if (recording) return;
-      posting.value = picker.uploading;
+      posting.value = picker.uploading && !picker.capturing;
       const attachments = await picker.settled();
+      const id = nanoid();
+      // The screenshot lands after the comment: a Post held for a capture felt broken.
+      picker.late().then((shot) => {
+        if (shot) patchOp({ opId: id, patch: { attachments: [...attachments, shot] } });
+      });
       push({
-        id: nanoid(),
+        id,
         tool: 'comment' as const,
         num,
         text: txt ?? '',
@@ -134,90 +141,108 @@ function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
   };
 }
 
-/** The field and one toolbar; the pin's number leads the text like an avatar, so no header is needed.
- *  `hint` shows the Enter key on Post where there is a keyboard. */
-function ComposerBody({ draft, hint }: { draft: Draft; hint: boolean }) {
-  const {
-    taRef,
-    typed,
-    num,
-    priority,
-    mentionProps,
-    picker,
-    media,
-    voice,
-    video,
-    recording,
-    postable,
-    posting,
-    commit,
-  } = draft;
+/** The field, with the pin's number leading the text like an avatar, so no header is needed. */
+function ComposerField({ draft }: { draft: Draft }) {
+  const { taRef, typed, num, mentionProps, picker, media, voice, video, commit } = draft;
+  return (
+    <div class="flex items-start gap-2.5 px-3 pt-3">
+      <div
+        class="mt-px size-5 rounded-full text-white text-mini font-semibold tabular-nums grid place-items-center shrink-0"
+        style={{ background: color.value }}
+        aria-hidden="true"
+      >
+        {num}
+      </div>
+      <div class="min-w-0 flex-1">
+        <MentionTextarea
+          name="comment"
+          aria-label={`Comment ${num}`}
+          taRef={taRef}
+          {...mentionProps}
+          placeholder="Leave a comment…"
+          rows={1}
+          onInput={(e) => {
+            typed.value = e.currentTarget.value.trim() !== '';
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              commit(true);
+            }
+          }}
+          class={cn(textareaBareCls, 'block w-full min-h-[22px] max-h-60 p-0 resize-none', glass.font)}
+          style={{ fieldSizing: 'content' }}
+          onPaste={media ? (e) => picker.onPaste(e) : undefined}
+        />
+        {media && <AttachmentThumbs attachments={picker} resolveUrl={media.resolveUrl} class="mt-2" />}
+        {media?.voice && <VoiceDraft voice={voice} resolveUrl={media.resolveUrl} />}
+        {media?.video && (
+          <>
+            <VideoLive video={video} />
+            <VideoDraft video={video} resolveUrl={media.resolveUrl} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The row under the field. Each surface composes it: tools on the left, then whatever it puts on the right. */
+function ComposerRow({ children }: { children: ComponentChildren }) {
+  return <div class="flex items-center gap-0.5 px-2 pt-2 pb-2">{children}</div>;
+}
+
+/** Bare marks with tooltips, so the row never wraps into a second line. */
+function ComposerTools({ draft }: { draft: Draft }) {
+  const { priority, picker, media, voice, video } = draft;
   return (
     <>
-      <div class="flex items-start gap-2.5 px-3 pt-3">
-        <div
-          class="mt-px size-5 rounded-full text-white text-mini font-semibold tabular-nums grid place-items-center shrink-0"
-          style={{ background: color.value }}
-          aria-hidden="true"
-        >
-          {num}
-        </div>
-        <div class="min-w-0 flex-1">
-          <MentionTextarea
-            name="comment"
-            aria-label={`Comment ${num}`}
-            taRef={taRef}
-            {...mentionProps}
-            placeholder="Leave a comment…"
-            rows={1}
-            onInput={(e) => {
-              typed.value = e.currentTarget.value.trim() !== '';
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                commit(true);
-              }
-            }}
-            class={cn(textareaBareCls, 'block w-full min-h-[22px] max-h-60 p-0 resize-none', glass.font)}
-            style={{ fieldSizing: 'content' }}
-            onPaste={media ? (e) => picker.onPaste(e) : undefined}
-          />
-          {media && <AttachmentThumbs attachments={picker} resolveUrl={media.resolveUrl} class="mt-2" />}
-          {media?.voice && <VoiceDraft voice={voice} resolveUrl={media.resolveUrl} />}
-          {media?.video && (
-            <>
-              <VideoLive video={video} />
-              <VideoDraft video={video} resolveUrl={media.resolveUrl} />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-0.5 gap-y-1 px-2 pt-2 pb-2">
-        {media && <AttachButton attachments={picker} label />}
-        {media?.voice && <VoiceButton voice={voice} label />}
-        {media?.video && <VideoButton video={video} label />}
-        <PriorityPicker bare value={priority.value} onChange={(p) => (priority.value = p)} />
-        <button
-          type="button"
-          onClick={() => commit(true)}
-          disabled={!postable || posting.value || recording}
-          class={cn(
-            submitBtn,
-            'ml-auto h-7 px-2.5',
-            'disabled:pointer-events-none disabled:bg-(--ds-gray-alpha-200) disabled:text-(--ds-gray-700)',
-          )}
-        >
-          {posting.value ? 'Posting…' : 'Post'}
-          {hint && !posting.value && (
-            <span class="text-ui leading-none opacity-60" aria-hidden="true">
-              ↵
-            </span>
-          )}
-        </button>
-      </div>
+      {media && <AttachButton attachments={picker} />}
+      {media?.voice && <VoiceButton voice={voice} />}
+      {media?.video && <VideoButton video={video} />}
+      <PriorityPicker bare value={priority.value} onChange={(p) => (priority.value = p)} class="ml-1" />
     </>
+  );
+}
+
+function ComposerCancel({ draft }: { draft: Draft }) {
+  return (
+    <button
+      type="button"
+      onClick={() => draft.commit(false)}
+      class={cn(geist.ctlSm, geist.ctlIdle, 'ml-auto mr-1 w-auto px-2 text-ui font-medium')}
+    >
+      Cancel
+      <Tooltip text="Esc" />
+    </button>
+  );
+}
+
+/** `children` is what the button says: the surface with a keyboard adds the Enter glyph. */
+function ComposerSubmit({
+  draft,
+  class: cls,
+  children,
+}: {
+  draft: Draft;
+  class?: string;
+  children?: ComponentChildren;
+}) {
+  const { postable, posting, recording, commit } = draft;
+  return (
+    <button
+      type="button"
+      onClick={() => commit(true)}
+      disabled={!postable || posting.value || recording}
+      class={cn(
+        submitBtn,
+        'h-7 px-2.5',
+        'disabled:pointer-events-none disabled:bg-(--ds-gray-alpha-200) disabled:text-(--ds-gray-700)',
+        cls,
+      )}
+    >
+      {posting.value ? 'Posting…' : children}
+    </button>
   );
 }
 
@@ -233,12 +258,24 @@ export function CommentPopover({
 }) {
   const draft = useCommentDraft(props);
 
+  const { ref: panelRef, top } = useEdgeClamp({ top: anchorAt.y + 16 });
+
   useEffect(() => {
     draft.taRef.current?.focus();
+    // A press anywhere else discards the draft, as it does on every other popover. Base UI
+    // portals (priority menu, mention list) sit outside the panel, so a press on one is kept.
+    const onDown = (e: PointerEvent) => {
+      const path = e.composedPath();
+      if (panelRef.current && path.includes(panelRef.current)) return;
+      if (path.some((n) => n instanceof HTMLElement && n.matches('[role="menu"],[role="listbox"],[role="dialog"]')))
+        return;
+      draft.commit(false);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    return () => document.removeEventListener('pointerdown', onDown, true);
   }, []);
 
   const left = Math.min(anchorAt.x + 16, innerWidth - 364);
-  const { ref: panelRef, top } = useEdgeClamp({ top: anchorAt.y + 16 });
 
   return (
     <div
@@ -262,7 +299,17 @@ export function CommentPopover({
         draft.commit(false);
       }}
     >
-      <ComposerBody draft={draft} hint />
+      <ComposerField draft={draft} />
+      <ComposerRow>
+        <ComposerTools draft={draft} />
+        <ComposerCancel draft={draft} />
+        <ComposerSubmit draft={draft}>
+          Post
+          <span class="text-ui leading-none opacity-60" aria-hidden="true">
+            ↵
+          </span>
+        </ComposerSubmit>
+      </ComposerRow>
     </div>
   );
 }
@@ -278,7 +325,13 @@ export function CommentSheet(props: DraftProps) {
       label="New comment"
       initialFocus={draft.taRef}
     >
-      <ComposerBody draft={draft} hint={false} />
+      <ComposerField draft={draft} />
+      <ComposerRow>
+        <ComposerTools draft={draft} />
+        <ComposerSubmit draft={draft} class="ml-auto">
+          Post
+        </ComposerSubmit>
+      </ComposerRow>
     </ModalSheet>
   );
 }

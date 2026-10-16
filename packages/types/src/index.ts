@@ -449,6 +449,50 @@ const mentioned = {
   mentions: z.optional(z.array(mentionSchema)),
 };
 
+/** One person's emoji on a thread entry. The emoji is the grapheme itself, not a shortcode, so a renderer never needs the table. */
+export const reactionSchema = z.object({
+  emoji: z.string().check(z.minLength(1), z.maxLength(16)),
+  ...mentionSchema.shape,
+});
+export type Reaction = z.infer<typeof reactionSchema>;
+
+/** Enough for a room, not a stadium: the whole list travels in every patch. */
+export const MAX_REACTIONS = 200;
+
+/** Emoji reactions on this annotation or reply. Absent = none. */
+const reactable = {
+  reactions: z.optional(z.array(reactionSchema).check(z.maxLength(MAX_REACTIONS))),
+};
+
+/**
+ * Toggle `by`'s reaction with `emoji`: off if they already left that one, on
+ * otherwise. Pure, so the same call runs in both apps and the result is what
+ * ships in the `update_op` patch.
+ */
+export function toggleReaction({
+  reactions = [],
+  emoji,
+  by,
+}: {
+  reactions?: Reaction[];
+  emoji: string;
+  by: Mention;
+}): Reaction[] {
+  const rest = reactions.filter((r) => !(r.emoji === emoji && r.id === by.id));
+  return rest.length < reactions.length ? rest : [...reactions, { emoji, ...by }];
+}
+
+/** Reactions grouped per emoji, in first-seen order, for the pill row under a comment. */
+export function groupReactions(reactions: Reaction[] | undefined): { emoji: string; by: Mention[] }[] {
+  const groups = new Map<string, Mention[]>();
+  for (const { emoji, id, name } of reactions ?? []) {
+    const list = groups.get(emoji) ?? [];
+    list.push({ id, name });
+    groups.set(emoji, list);
+  }
+  return [...groups].map(([emoji, by]) => ({ emoji, by }));
+}
+
 /** A handful of screenshots makes the point; more than that belongs in a doc, not a reply. */
 export const MAX_ATTACHMENTS = 4;
 
@@ -528,6 +572,7 @@ export const commentOpSchema = z.object({
   ...anchorable,
   ...triageable,
   ...mentioned,
+  ...reactable,
   ...attachable,
   /**
    * Upload id of a recorded voice note. Its transcript is `text`, so an agent
@@ -575,6 +620,7 @@ export const selectionOpSchema = z.object({
   ...anchorable,
   ...triageable,
   ...mentioned,
+  ...reactable,
   tool: z.literal('selection'),
   text: z.string(),
   rects: z.array(selectionRectSchema),
@@ -614,6 +660,7 @@ export const areaOpSchema = z.object({
   ...anchorable,
   ...triageable,
   ...mentioned,
+  ...reactable,
   tool: z.literal('area'),
   startX: z.number(),
   startY: z.number(),
@@ -634,6 +681,7 @@ export const inspectOpSchema = z.object({
   ...baseOp,
   ...triageable,
   ...mentioned,
+  ...reactable,
   tool: z.literal('inspect'),
   selector: z.string(),
   tag: z.string(),

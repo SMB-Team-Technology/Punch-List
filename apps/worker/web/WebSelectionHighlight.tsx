@@ -1,7 +1,9 @@
-import { TriageSection, useTriageHold } from '@ext/components/CommentTriage';
+import { TriageSection } from '@ext/components/CommentTriage';
+import { Reactions } from '@ext/components/Reactions';
 import { SuggestionDiff } from '@ext/components/SelectionEdit';
 import { ReplyComposer, ThreadHeader, ThreadReplies, threadCard } from '@ext/components/ThreadCard';
 import { reprojectRects } from '@ext/lib/anchor';
+import { CardHold, useHoldLatch } from '@ext/lib/card-hold';
 import { geist } from '@ext/lib/geist';
 import { glass } from '@ext/lib/glass';
 import { hexToRgba } from '@ext/lib/renderer';
@@ -30,7 +32,7 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
   iframeMutationTick.value; // re-resolve anchor when iframe DOM mutates
   const status = getCommentStatus(op);
   const resolved = status === 'resolved' || status === 'dismissed';
-  const triage = useTriageHold();
+  const hold = useHoldLatch();
   // Doc-space anchoring only; `s` (viewer cssScale zoom) is applied on top of
   // the result below, never in place of it.
   const anchored = reprojectRects({
@@ -52,7 +54,7 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
   const replyAnchor = op.rects[0];
 
   return (
-    <>
+    <CardHold value={hold.report}>
       {/* Colored highlight rects */}
       {scaledRects.map((r, i) => (
         <div
@@ -74,11 +76,11 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
       {/* The marker is the interactive part, so the page underneath keeps its own
           text selection — the same trade the extension's highlights make. */}
       <div
-        class={cn('absolute pointer-events-auto hover:z-50 group/sel', triage.rootCls)}
+        class={cn('absolute pointer-events-auto hover:z-50 group/sel', hold.rootCls)}
         style={{ left: markerX, top: markerY }}
         data-anchor-drift={strategy === 'text' ? 'text' : undefined}
         data-marker
-        data-held={triage.held || undefined}
+        data-held={hold.held || undefined}
         onContextMenu={(e) =>
           openContextMenu(e, [
             {
@@ -112,7 +114,7 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
             flipV ? 'bottom-0' : 'top-0',
             flipH ? 'right-full pr-2.5' : 'left-full pl-2.5',
             'pointer-events-none group-hover/sel:pointer-events-auto',
-            triage.wrapCls,
+            hold.wrapCls,
           )}
         >
           <div
@@ -124,7 +126,7 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
               flipH ? 'translate-x-[6px]' : 'translate-x-[-6px]',
               'transition-[opacity,translate] duration-150 ease-out',
               'group-hover/sel:opacity-100 group-hover/sel:translate-x-0',
-              triage.cardCls,
+              hold.cardCls,
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -152,18 +154,14 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
                   {op.comment}
                 </p>
               )}
+              <Reactions class="mt-2" opId={op.id} reactions={op.reactions} />
             </div>
 
             <ThreadReplies replies={getReplies(op.id)} resolveUrl={fileUrl} />
 
             <div class={cn(geist.divider, 'mx-3')} />
 
-            <TriageSection
-              opId={op.id}
-              status={status}
-              assignee={op.assignee ?? null}
-              onOpenChange={triage.onOpenChange}
-            />
+            <TriageSection opId={op.id} status={status} assignee={op.assignee ?? null} />
 
             <div class={cn(geist.divider, 'mx-3')} />
 
@@ -177,6 +175,6 @@ export function WebSelectionHighlight({ op, scale: s, scrollY, frameDoc }: Props
           </div>
         </div>
       </div>
-    </>
+    </CardHold>
   );
 }

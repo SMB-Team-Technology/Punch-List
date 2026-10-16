@@ -14,6 +14,7 @@ import {
   type DrawOp,
   deletionDeadline,
   effectiveExpiresAt,
+  groupReactions,
   inspectOpSchema,
   isNewShareId,
   MAX_PAGE_ERROR_TEXT,
@@ -30,6 +31,7 @@ import {
   resolveOpStatus,
   selectionOpSchema,
   tallyQuestion,
+  toggleReaction,
   translateOp,
 } from './index';
 
@@ -505,5 +507,30 @@ describe('tallyQuestion', () => {
   test('the room rejects a poll past the option cap', () => {
     const op = { ...question, options: ['1', '2', '3', '4', '5', '6', '7'] };
     expect(clientMsgSchema.safeParse({ type: 'op', op }).success).toBe(false);
+  });
+});
+
+describe('toggleReaction', () => {
+  const me = { id: 'u1', name: 'Me' };
+  const you = { id: 'u2', name: 'You' };
+
+  test('adds, then removes only the caller’s own reaction', () => {
+    const once = toggleReaction({ emoji: '👍', by: me });
+    expect(once).toEqual([{ emoji: '👍', id: 'u1', name: 'Me' }]);
+    const theirs = toggleReaction({ reactions: once, emoji: '👍', by: you });
+    expect(theirs).toHaveLength(2);
+    expect(toggleReaction({ reactions: theirs, emoji: '👍', by: me })).toEqual([
+      { emoji: '👍', id: 'u2', name: 'You' },
+    ]);
+  });
+
+  test('the same person can leave two different emoji', () => {
+    const both = toggleReaction({ reactions: toggleReaction({ emoji: '👍', by: me }), emoji: '🎉', by: me });
+    expect(groupReactions(both).map((g) => g.emoji)).toEqual(['👍', '🎉']);
+  });
+
+  test('a reactions patch survives applyOpPatch on a comment', () => {
+    const merged = applyOpPatch({ op: comment, patch: { reactions: toggleReaction({ emoji: '🚀', by: me }) } });
+    expect(merged && 'reactions' in merged ? merged.reactions : null).toEqual([{ emoji: '🚀', id: 'u1', name: 'Me' }]);
   });
 });

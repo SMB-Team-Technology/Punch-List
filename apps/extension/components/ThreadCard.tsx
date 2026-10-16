@@ -13,6 +13,7 @@ import { AttachmentGallery, AttachmentThumbs, ComposerActions, useAttachments } 
 import { MentionText } from './MentionText';
 import { MentionTextarea, useMentions } from './MentionTextarea';
 import { PriorityBadge } from './PriorityPicker';
+import { Reactions } from './Reactions';
 
 /**
  * The parts every annotation thread card is assembled from — comment pins and
@@ -118,6 +119,7 @@ export function ThreadReplies({
             <MentionText text={reply.text} mentions={reply.mentions} />
           </p>
           {reply.attachments && <AttachmentGallery ids={reply.attachments} resolveUrl={resolveUrl} />}
+          <Reactions class="mt-1.5" opId={reply.id} reactions={reply.reactions} />
         </div>
       ))}
     </>

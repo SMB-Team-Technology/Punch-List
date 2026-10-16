@@ -1,6 +1,7 @@
 import { cn } from '@marklayer/types';
 import { Check, CheckCheck, HelpCircle, Loader2 } from 'lucide-preact';
 import { applyAnchorDelta } from '../lib/anchor';
+import { CardHold, useHoldLatch } from '../lib/card-hold';
 import { flashRing } from '../lib/checkFix';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
@@ -21,9 +22,10 @@ import {
 import type { CommentOp } from '../lib/types';
 import { AgentFixBanner } from './AgentFixBanner';
 import { CommentMedia } from './CommentMedia';
-import { TriageSection, useTriageHold } from './CommentTriage';
+import { TriageSection } from './CommentTriage';
 import { MentionText } from './MentionText';
 import { PriorityPin } from './PriorityPicker';
+import { Reactions } from './Reactions';
 import { ReplyComposer, ThreadHeader, ThreadReplies } from './ThreadCard';
 
 /**
@@ -98,7 +100,7 @@ export function CommentPin({ op }: { op: CommentOp }) {
   const inspector = parseInspectorComment(op.text);
   const resolved = status === 'resolved' || status === 'dismissed';
   const replies = getReplies(op.id);
-  const triage = useTriageHold();
+  const hold = useHoldLatch();
 
   const onContextMenu = (e: MouseEvent) =>
     openContextMenu(e, [
@@ -115,118 +117,116 @@ export function CommentPin({ op }: { op: CommentOp }) {
     ]);
 
   return (
-    <div
-      class={cn('absolute pointer-events-auto cursor-pointer hover:z-50', triage.rootCls, 'group/pin', glass.font)}
-      style={{ left, top }}
-      data-doc-x={op.x}
-      data-doc-y={op.y}
-      data-anchor-drift={strategy === 'text' ? 'text' : undefined}
-      data-marker
-      data-held={triage.held || undefined}
-      onContextMenu={onContextMenu}
-    >
-      <div class="relative -translate-x-1/2 -translate-y-1/2">
-        {/* Pin dot */}
-        <div
-          // A marker on someone else's page: flat fill, a surface-coloured ring
-          // to separate it from whatever is behind, and one tight shadow. The
-          // ring thickens on hover instead of the pin growing.
-          class="w-7 h-7 rounded-full text-white text-meta font-semibold
+    <CardHold value={hold.report}>
+      <div
+        class={cn('absolute pointer-events-auto cursor-pointer hover:z-50', hold.rootCls, 'group/pin', glass.font)}
+        style={{ left, top }}
+        data-doc-x={op.x}
+        data-doc-y={op.y}
+        data-anchor-drift={strategy === 'text' ? 'text' : undefined}
+        data-marker
+        data-held={hold.held || undefined}
+        onContextMenu={onContextMenu}
+      >
+        <div class="relative -translate-x-1/2 -translate-y-1/2">
+          {/* Pin dot */}
+          <div
+            // A marker on someone else's page: flat fill, a surface-coloured ring
+            // to separate it from whatever is behind, and one tight shadow. The
+            // ring thickens on hover instead of the pin growing.
+            class="w-7 h-7 rounded-full text-white text-meta font-semibold
                  grid place-items-center
                  shadow-[0_0_0_2px_var(--ds-background-100),0_1px_2px_oklch(0_0_0/0.25)]
                  transition-[box-shadow] duration-150 ease-out
                  group-hover/pin:shadow-[0_0_0_3px_var(--ds-background-100),0_1px_2px_oklch(0_0_0/0.3)]"
-          style={{ background: op.color, opacity: styles.pinOpacity, ...flashRing(op) }}
-        >
-          {op.num}
-          {status !== 'open' && (
-            <div
-              role="img"
-              aria-label={STATUS_LABELS[status]}
-              class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full text-white grid place-items-center [box-shadow:0_0_0_1.5px_var(--ds-background-100)]"
-              style={{ background: styles.bg }}
-            >
-              {status === 'resolved' && <Check size={9} strokeWidth={2.5} aria-hidden="true" />}
-              {status === 'approved' && <CheckCheck size={9} strokeWidth={2.5} aria-hidden="true" />}
-              {status === 'in_progress' && (
-                <Loader2 size={9} strokeWidth={2.75} class="animate-spin" aria-hidden="true" />
-              )}
-              {status === 'dismissed' && <HelpCircle size={9} strokeWidth={2.5} aria-hidden="true" />}
-            </div>
-          )}
-          {op.priority && <PriorityPin priority={op.priority} />}
-        </div>
+            style={{ background: op.color, opacity: styles.pinOpacity, ...flashRing(op) }}
+          >
+            {op.num}
+            {status !== 'open' && (
+              <div
+                role="img"
+                aria-label={STATUS_LABELS[status]}
+                class="absolute -bottom-1 -right-1 w-4 h-4 rounded-full text-white grid place-items-center [box-shadow:0_0_0_1.5px_var(--ds-background-100)]"
+                style={{ background: styles.bg }}
+              >
+                {status === 'resolved' && <Check size={9} strokeWidth={2.5} aria-hidden="true" />}
+                {status === 'approved' && <CheckCheck size={9} strokeWidth={2.5} aria-hidden="true" />}
+                {status === 'in_progress' && (
+                  <Loader2 size={9} strokeWidth={2.75} class="animate-spin" aria-hidden="true" />
+                )}
+                {status === 'dismissed' && <HelpCircle size={9} strokeWidth={2.5} aria-hidden="true" />}
+              </div>
+            )}
+            {op.priority && <PriorityPin priority={op.priority} />}
+          </div>
 
-        {/* Hover card. The pin-to-card gap is padding on this wrapper, not a
+          {/* Hover card. The pin-to-card gap is padding on this wrapper, not a
             positional offset — as dead space it drops :hover mid-crossing and the
             card vanishes before the pointer arrives. */}
-        <div
-          class={cn(
-            'absolute',
-            flipV ? 'bottom-0' : 'top-0',
-            flipH ? 'right-full pr-2.5' : 'left-full pl-2.5',
-            'pointer-events-none group-hover/pin:pointer-events-auto',
-            triage.wrapCls,
-          )}
-        >
           <div
             class={cn(
-              geist.surfaceSmall,
-              inspector ? 'w-[320px]' : 'w-[300px]',
-              'max-h-[70vh] overflow-y-auto overscroll-contain',
-              'opacity-0',
-              flipH ? 'translate-x-[6px]' : 'translate-x-[-6px]',
-              'transition-[opacity,translate] duration-150 ease-out',
-              'group-hover/pin:opacity-100 group-hover/pin:translate-x-0',
-              triage.cardCls,
+              'absolute',
+              flipV ? 'bottom-0' : 'top-0',
+              flipH ? 'right-full pr-2.5' : 'left-full pl-2.5',
+              'pointer-events-none group-hover/pin:pointer-events-auto',
+              hold.wrapCls,
             )}
-            onClick={(e) => e.stopPropagation()}
           >
-            <ThreadHeader
-              label={String(op.num)}
-              color={op.color}
-              author={op.author}
-              ts={op.ts}
-              priority={op.priority}
-              onDelete={() => deleteOp(op.id)}
-            />
-
-            <div class={cn(geist.divider, 'mx-3')} />
-
-            {/* Body */}
-            <div class="px-3.5 py-3">
-              {inspector ? (
-                <InspectorCommentBody parsed={inspector} resolved={resolved} />
-              ) : (
-                <p
-                  class="text-(--ds-gray-1000) text-ui leading-body wrap-break-word whitespace-pre-wrap m-0"
-                  style={{ textDecoration: resolved ? 'line-through' : 'none', opacity: resolved ? 0.55 : 1 }}
-                >
-                  <MentionText text={op.text} mentions={op.mentions} />
-                </p>
+            <div
+              class={cn(
+                geist.surfaceSmall,
+                inspector ? 'w-[320px]' : 'w-[300px]',
+                'max-h-[70vh] overflow-y-auto overscroll-contain',
+                'opacity-0',
+                flipH ? 'translate-x-[6px]' : 'translate-x-[-6px]',
+                'transition-[opacity,translate] duration-150 ease-out',
+                'group-hover/pin:opacity-100 group-hover/pin:translate-x-0',
+                hold.cardCls,
               )}
-              <CommentMedia op={op} resolveUrl={fileUrl} />
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ThreadHeader
+                label={String(op.num)}
+                color={op.color}
+                author={op.author}
+                ts={op.ts}
+                priority={op.priority}
+                onDelete={() => deleteOp(op.id)}
+              />
+
+              <div class={cn(geist.divider, 'mx-3')} />
+
+              {/* Body */}
+              <div class="px-3.5 py-3">
+                {inspector ? (
+                  <InspectorCommentBody parsed={inspector} resolved={resolved} />
+                ) : (
+                  <p
+                    class="text-(--ds-gray-1000) text-ui leading-body wrap-break-word whitespace-pre-wrap m-0"
+                    style={{ textDecoration: resolved ? 'line-through' : 'none', opacity: resolved ? 0.55 : 1 }}
+                  >
+                    <MentionText text={op.text} mentions={op.mentions} />
+                  </p>
+                )}
+                <CommentMedia op={op} resolveUrl={fileUrl} />
+                <Reactions class="mt-2" opId={op.id} reactions={op.reactions} />
+              </div>
+
+              <ThreadReplies replies={replies} resolveUrl={fileUrl} />
+
+              <AgentFixBanner op={op} />
+
+              <div class={cn(geist.divider, 'mx-3')} />
+
+              <TriageSection opId={op.id} status={status} assignee={op.assignee ?? null} />
+
+              <div class={cn(geist.divider, 'mx-3')} />
+
+              <ReplyComposer parent={op} upload={uploadFile} resolveUrl={fileUrl} />
             </div>
-
-            <ThreadReplies replies={replies} resolveUrl={fileUrl} />
-
-            <AgentFixBanner op={op} />
-
-            <div class={cn(geist.divider, 'mx-3')} />
-
-            <TriageSection
-              opId={op.id}
-              status={status}
-              assignee={op.assignee ?? null}
-              onOpenChange={triage.onOpenChange}
-            />
-
-            <div class={cn(geist.divider, 'mx-3')} />
-
-            <ReplyComposer parent={op} upload={uploadFile} resolveUrl={fileUrl} />
           </div>
         </div>
       </div>
-    </div>
+    </CardHold>
   );
 }

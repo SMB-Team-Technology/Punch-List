@@ -1,8 +1,11 @@
+import { Dialog } from '@base-ui/react/dialog';
 import { cn, MAX_ATTACHMENTS, UPLOAD_IMAGE_ACCEPT } from '@marklayer/types';
 import { ImagePlus, Loader2, X } from 'lucide-preact';
 import { useRef, useState } from 'preact/hooks';
+import { useCardHold } from '../lib/card-hold';
 import { geist } from '../lib/geist';
 import { compressImage } from '../lib/image';
+import { portalContainer } from '../lib/portal';
 import { Tooltip } from './Tooltip';
 
 /**
@@ -23,6 +26,8 @@ export function useAttachments({
   // Mirrors `ids` so `settled` can read the list as it is after an await, not as it was at render.
   const idsRef = useRef<string[]>([]);
   const inflight = useRef(new Set<Promise<unknown>>());
+  /** The pin's screenshot in flight. Post does not wait for it: the comment ships and the shot is patched in. */
+  const autoJob = useRef<Promise<unknown> | null>(null);
   /** The pin's screenshot, once it lands: an attachment, but not something the author wrote. */
   const [autoId, setAutoId] = useState<string | null>(null);
 
@@ -32,8 +37,8 @@ export function useAttachments({
   };
 
   /** Settles one upload into the list; the caller has already counted it in `uploading`. */
-  const watch = (job: Promise<string | null>, onId?: (id: string) => void) => {
-    const done = job
+  const watch = (job: Promise<string | null>, onId?: (id: string) => void): Promise<unknown> => {
+    const done: Promise<unknown> = job
       .catch(() => null)
       .then((id) => {
         if (id) {
@@ -44,14 +49,17 @@ export function useAttachments({
         setUploading((n) => n - 1);
       });
     inflight.current.add(done);
+    return done;
   };
 
   // Adopted in the initializer so it runs once per composer; the callbacks only fire after mount.
   const [uploading, setUploading] = useState(() => {
     if (!pending) return 0;
-    watch(pending, setAutoId);
+    autoJob.current = watch(pending, setAutoId);
     return 1;
   });
+  /** The pin's screenshot is still landing; nobody picked it, so the placeholder must say what it is. */
+  const capturing = pending !== undefined && autoId === null && uploading > 0;
 
   const track = (job: Promise<string | null>) => {
     setUploading((n) => n + 1);
@@ -71,10 +79,19 @@ export function useAttachments({
     }
   };
 
-  /** Every attachment once the uploads in flight have landed, so Post can wait rather than refuse. */
+  /** Every chosen attachment once its upload has landed, so Post can wait rather than refuse.
+   *  The pin's screenshot is not waited for; `late` hands it over once it exists. */
   const settled = async (): Promise<string[]> => {
-    while (inflight.current.size) await Promise.all(inflight.current);
+    const chosen = () => [...inflight.current].filter((j) => j !== autoJob.current);
+    while (chosen().length) await Promise.all(chosen());
     return idsRef.current;
+  };
+
+  /** The screenshot's id once it lands, if it is not in the list yet (null when it is, failed, or was removed). */
+  const late = async (): Promise<string | null> => {
+    if (!pending || autoId !== null) return null;
+    const id = await pending.catch(() => null);
+    return id && idsRef.current.includes(id) ? id : null;
   };
 
   /** Pulls image files out of a paste event, so a screenshot on the clipboard attaches the same way a picked file does. */
@@ -90,6 +107,8 @@ export function useAttachments({
     ids,
     /** Gates a composer's submit: an in-flight paste-upload has no second chance to attach once the comment is posted. */
     uploading: uploading > 0,
+    capturing,
+    late,
     /** Attachments the author chose; the pin's own screenshot alone does not make a comment. */
     picked: ids.filter((id) => id !== autoId).length,
     full: ids.length + uploading >= MAX_ATTACHMENTS,
@@ -132,8 +151,13 @@ function Thumbs({ attachments, resolveUrl }: { attachments: Attachments; resolve
         </div>
       ))}
       {attachments.uploading && (
-        <div class="h-10 w-10 rounded-md border border-(--ds-gray-alpha-400) grid place-items-center shrink-0">
+        <div
+          role="status"
+          class="h-10 rounded-md border border-dashed border-(--ds-gray-alpha-400) px-2.5 flex items-center gap-2
+                 text-meta text-(--ds-gray-900) shrink-0"
+        >
           <Loader2 size={14} class="animate-spin text-(--ds-gray-700)" aria-hidden="true" />
+          {attachments.capturing ? 'Capturing a screenshot of the page…' : 'Uploading…'}
         </div>
       )}
     </>
@@ -249,20 +273,61 @@ export function ComposerActions({
   );
 }
 
-/** A posted comment or reply's own attachments — plain thumbnails, opening full-size in a new tab. */
+/** A posted comment or reply's own attachments: thumbnails that open full-size in a lightbox,
+ *  not a new tab, so the reviewer never leaves the page they are annotating. */
 export function AttachmentGallery({ ids, resolveUrl }: { ids: string[]; resolveUrl: (id: string) => string }) {
+  const hold = useCardHold();
+  const [open, setOpen] = useState<string | null>(null);
   if (ids.length === 0) return null;
+  // A hover card would close as the lightbox portals out of it; the hold keeps it up until the lightbox is gone.
+  const show = (id: string | null) => {
+    setOpen(id);
+    hold?.(id !== null);
+  };
   return (
     <div class={STRIP}>
       {ids.map((id) => (
-        <a key={id} href={resolveUrl(id)} target="_blank" rel="noreferrer" class="shrink-0">
+        <button
+          key={id}
+          type="button"
+          onClick={() => show(id)}
+          aria-label="View screenshot"
+          class="shrink-0 p-0 border-none bg-transparent cursor-zoom-in rounded-md outline-none
+                 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-1
+                 focus-visible:outline-(--ds-focus-color)"
+        >
           <img
             src={resolveUrl(id)}
             alt="Attached screenshot"
-            class="h-14 w-14 rounded-md object-cover border border-(--ds-gray-alpha-400)"
+            class="block h-14 w-14 rounded-md object-cover border border-(--ds-gray-alpha-400)"
           />
-        </a>
+        </button>
       ))}
+      <Dialog.Root open={open !== null} onOpenChange={(next: boolean) => !next && show(null)}>
+        <Dialog.Portal container={portalContainer.value ?? undefined}>
+          <Dialog.Backdrop className="fixed inset-0 z-2147483647 bg-black/70 animate-[fadeInDown_0.15s_ease-out]" />
+          <Dialog.Popup
+            className="fixed inset-0 z-2147483647 grid place-items-center p-6 outline-none pointer-events-auto"
+            onClick={() => show(null)}
+          >
+            <Dialog.Title className="sr-only">Screenshot</Dialog.Title>
+            {open && (
+              <img
+                src={resolveUrl(open)}
+                alt="Attached screenshot"
+                class="max-w-full max-h-full rounded-lg shadow-2xl object-contain"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            <Dialog.Close
+              aria-label="Close"
+              className={cn(geist.ctlSm, geist.ctlIdle, 'absolute top-4 right-4 text-white hover:text-white')}
+            >
+              <X size={16} aria-hidden="true" />
+            </Dialog.Close>
+          </Dialog.Popup>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

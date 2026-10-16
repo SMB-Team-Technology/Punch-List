@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
 import { reprojectRects } from '../lib/anchor';
 import { submitBtn, textareaCls } from '../lib/buttons';
+import { CardHold, useHoldLatch } from '../lib/card-hold';
 import { geist } from '../lib/geist';
 import { glass } from '../lib/glass';
 import { MARKER_LAYER, useEdgeClamp, useSelectionDismiss } from '../lib/popover';
@@ -29,10 +30,11 @@ import {
 } from '../lib/state';
 import type { SelectionOp, SelectionRect } from '../lib/types';
 import { CancelButton } from './CancelButton';
-import { TriageSection, useTriageHold } from './CommentTriage';
+import { TriageSection } from './CommentTriage';
 import { MentionText } from './MentionText';
 import { MentionTextarea, useMentions } from './MentionTextarea';
 import { PriorityPicker } from './PriorityPicker';
+import { Reactions } from './Reactions';
 import { SelectionEdit, SuggestionDiff } from './SelectionEdit';
 import { ReplyComposer, ThreadHeader, ThreadReplies } from './ThreadCard';
 
@@ -51,7 +53,7 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
   hostMutationTick.value; // re-resolve anchor on SPA route / DOM reflow
   const status = getCommentStatus(op);
   const resolved = status === 'resolved' || status === 'dismissed';
-  const triage = useTriageHold();
+  const hold = useHoldLatch();
   // Re-anchor against the captured element's CURRENT top-left when possible.
   // The offset was recorded relative to the first rect at capture time, so
   // shifting every rect by the same delta — and scaling each rect's offset
@@ -74,7 +76,7 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
   const replyAnchor = op.rects[0];
 
   return (
-    <>
+    <CardHold value={hold.report}>
       {rects.map((r, i) => (
         <div
           key={`${op.id}-${i}`}
@@ -96,11 +98,11 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
           pointer-transparent so an annotated paragraph on someone else's page
           keeps its own links and text selection. */}
       <div
-        class={cn('absolute pointer-events-auto hover:z-50 group/sel', triage.rootCls)}
+        class={cn('absolute pointer-events-auto hover:z-50 group/sel', hold.rootCls)}
         style={{ left: markerX, top: markerY }}
         data-anchor-drift={strategy === 'text' ? 'text' : undefined}
         data-marker
-        data-held={triage.held || undefined}
+        data-held={hold.held || undefined}
         onContextMenu={(e) =>
           openContextMenu(e, [
             {
@@ -138,7 +140,7 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
             flipV ? 'bottom-0' : 'top-0',
             flipH ? 'right-full pr-2.5' : 'left-full pl-2.5',
             'pointer-events-none group-hover/sel:pointer-events-auto',
-            triage.wrapCls,
+            hold.wrapCls,
           )}
         >
           <div
@@ -150,7 +152,7 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
               flipH ? 'translate-x-[6px]' : 'translate-x-[-6px]',
               'transition-[opacity,translate] duration-150 ease-out',
               'group-hover/sel:opacity-100 group-hover/sel:translate-x-0',
-              triage.cardCls,
+              hold.cardCls,
             )}
             onClick={(e) => e.stopPropagation()}
           >
@@ -179,18 +181,14 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
                   <MentionText text={op.comment} mentions={op.mentions} />
                 </p>
               )}
+              <Reactions class="mt-2" opId={op.id} reactions={op.reactions} />
             </div>
 
             <ThreadReplies replies={getReplies(op.id)} resolveUrl={fileUrl} />
 
             <div class={cn(geist.divider, 'mx-3')} />
 
-            <TriageSection
-              opId={op.id}
-              status={status}
-              assignee={op.assignee ?? null}
-              onOpenChange={triage.onOpenChange}
-            />
+            <TriageSection opId={op.id} status={status} assignee={op.assignee ?? null} />
 
             <div class={cn(geist.divider, 'mx-3')} />
 
@@ -204,7 +202,7 @@ function SelectionHighlight({ op }: { op: SelectionOp }) {
           </div>
         </div>
       </div>
-    </>
+    </CardHold>
   );
 }
 
