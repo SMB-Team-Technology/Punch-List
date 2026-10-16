@@ -6,11 +6,13 @@ import { geist } from '@ext/lib/geist';
 import { color, deleteOp, lineWidth, operations, pushOp, signedBy } from '@ext/lib/state';
 import { timeAgo } from '@ext/lib/time';
 import { cn, type IntroOp } from '@marklayer/types';
-import { computed, signal } from '@preact/signals';
+import { computed, signal, useSignal } from '@preact/signals';
 import { ChevronDown, Ellipsis } from 'lucide-preact';
 import { nanoid } from 'nanoid';
+import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import { capture } from './analytics';
+import { menuItem } from './shared';
 import { fileUrl, isReadonly, uploadVideo } from './signals';
 
 /** In the room's append order, not by `ts`: a peer's skewed clock must not demote the take they just pinned. */
@@ -21,78 +23,87 @@ export const introComposerOpen = signal(false);
 /** The version picked from the menu; null follows the newest, so a fresh take shows without a click. */
 const pickedId = signal<string | null>(null);
 
-const menuItem = cn(
-  'flex items-center gap-2 h-8 px-2 rounded-md cursor-pointer border-none bg-transparent outline-none',
-  'text-ui text-(--ds-gray-1000) transition-colors duration-150',
-  'data-highlighted:bg-(--ds-gray-alpha-100)',
-);
+/** The open composer; a read-only viewer never gets one, whatever the flag says. */
+const composing = computed(() => introComposerOpen.value && !isReadonly.value);
 
-function VersionMenu({ list, shown }: { list: IntroOp[]; shown: IntroOp }) {
+/** The trigger plus the popup scaffold both intro menus share. */
+function IntroMenu({
+  trigger,
+  children,
+}: {
+  trigger: { 'aria-label': string; title?: string; className: string; children: ComponentChildren };
+  children: ComponentChildren;
+}) {
   return (
     <Menu.Root>
-      <Menu.Trigger
-        aria-label="Choose a version"
-        className={cn(geist.ctlXs, geist.ctlIdle, geist.ctlLabel, 'tabular-nums')}
-      >
-        V{list.indexOf(shown) + 1}
-        <ChevronDown size={12} strokeWidth={1.75} aria-hidden="true" />
-      </Menu.Trigger>
+      <Menu.Trigger {...trigger} />
       <Menu.Portal>
         <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-2147483647">
-          <Menu.Popup className={cn(geist.surface, 'min-w-48 p-1 flex flex-col gap-px')}>
-            {list
-              .map((op, i) => ({ op, n: i + 1 }))
-              .reverse()
-              .map(({ op, n }) => (
-                <Menu.Item
-                  key={op.id}
-                  className={cn(menuItem, op.id === shown.id && 'font-semibold')}
-                  onClick={() => (pickedId.value = op.id === list.at(-1)?.id ? null : op.id)}
-                >
-                  <span class="tabular-nums w-6">V{n}</span>
-                  <span class="flex-1 truncate">{op.author || 'Anonymous'}</span>
-                  <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
-                </Menu.Item>
-              ))}
-          </Menu.Popup>
+          <Menu.Popup className={cn(geist.surface, 'min-w-48 p-1 flex flex-col gap-px')}>{children}</Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
     </Menu.Root>
   );
 }
 
-function IntroActions({ shown }: { shown: IntroOp }) {
+function VersionMenu({ list, shown }: { list: IntroOp[]; shown: IntroOp }) {
+  const trigger = {
+    'aria-label': 'Choose a version',
+    className: cn(geist.ctlXs, geist.ctlIdle, geist.ctlLabel, 'tabular-nums'),
+    children: (
+      <>
+        V{list.indexOf(shown) + 1}
+        <ChevronDown size={12} strokeWidth={1.75} aria-hidden="true" />
+      </>
+    ),
+  };
   return (
-    <Menu.Root>
-      <Menu.Trigger aria-label="Intro video actions" title="More" className={cn(geist.ctlXs, geist.ctlIdle)}>
-        <Ellipsis size={14} strokeWidth={1.5} aria-hidden="true" />
-      </Menu.Trigger>
-      <Menu.Portal>
-        <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-2147483647">
-          <Menu.Popup className={cn(geist.surface, 'min-w-44 p-1 flex flex-col gap-px')}>
-            <Menu.Item className={menuItem} onClick={() => (introComposerOpen.value = true)}>
-              Record a new version
-            </Menu.Item>
-            <Menu.Item
-              className={cn(menuItem, 'data-highlighted:text-(--ds-red-700)')}
-              onClick={() => {
-                // deleteOp has no undo, and the take may be someone else's.
-                if (!window.confirm('Delete this version of the intro video?')) return;
-                pickedId.value = null;
-                deleteOp(shown.id);
-              }}
-            >
-              Delete this version
-            </Menu.Item>
-          </Menu.Popup>
-        </Menu.Positioner>
-      </Menu.Portal>
-    </Menu.Root>
+    <IntroMenu trigger={trigger}>
+      {[...list].reverse().map((op, i) => (
+        <Menu.Item
+          key={op.id}
+          className={cn(menuItem, op.id === shown.id && 'font-semibold')}
+          onClick={() => (pickedId.value = i === 0 ? null : op.id)}
+        >
+          <span class="tabular-nums w-6">V{list.length - i}</span>
+          <span class="flex-1 truncate">{op.author || 'Anonymous'}</span>
+          <span class="text-meta text-(--ds-gray-900) tabular-nums">{timeAgo(op.ts)}</span>
+        </Menu.Item>
+      ))}
+    </IntroMenu>
+  );
+}
+
+function IntroActions({ shown }: { shown: IntroOp }) {
+  const trigger = {
+    'aria-label': 'Intro video actions',
+    title: 'More',
+    className: cn(geist.ctlXs, geist.ctlIdle),
+    children: <Ellipsis size={14} strokeWidth={1.5} aria-hidden="true" />,
+  };
+  return (
+    <IntroMenu trigger={trigger}>
+      <Menu.Item className={menuItem} onClick={() => (introComposerOpen.value = true)}>
+        Record a new version
+      </Menu.Item>
+      <Menu.Item
+        className={cn(menuItem, 'data-highlighted:text-(--ds-red-700)')}
+        onClick={() => {
+          // deleteOp has no undo, and the take may be someone else's.
+          if (!window.confirm('Delete this version of the intro video?')) return;
+          pickedId.value = null;
+          deleteOp(shown.id);
+        }}
+      >
+        Delete this version
+      </Menu.Item>
+    </IntroMenu>
   );
 }
 
 function IntroComposer() {
   const video = useVideoNote({ upload: uploadVideo });
+  const title = useSignal('');
   const status = video.status.value;
   const id = video.id.value;
   // Closing the panel ends the take (the recorder releases the device on unmount), so it ends the composer too.
@@ -109,13 +120,11 @@ function IntroComposer() {
   const save = (e: SubmitEvent) => {
     e.preventDefault();
     if (!id) return;
-    const field = e.currentTarget instanceof HTMLFormElement ? e.currentTarget.elements.namedItem('title') : null;
-    const title = field instanceof HTMLInputElement ? field.value.trim() : '';
     pushOp({
       id: nanoid(),
       tool: 'intro',
       video: id,
-      title: title || undefined,
+      title: title.value.trim() || undefined,
       color: color.value,
       lineWidth: lineWidth.value,
       ts: Date.now(),
@@ -136,15 +145,17 @@ function IntroComposer() {
       <VideoLive video={video} />
       <VideoDraft video={video} resolveUrl={fileUrl} />
       {id && (
-        <input
-          name="title"
-          type="text"
-          maxLength={120}
-          placeholder="Title (optional)"
-          aria-label="Intro title"
-          class="mt-2 block w-full h-8 px-2 rounded-md text-ui text-(--ds-gray-1000) bg-(--ds-background-100)
-                 border border-(--ds-gray-alpha-400) outline-none focus:border-(--ds-gray-700)"
-        />
+        <div class={cn(geist.field, 'mt-2 flex items-center px-2')}>
+          <input
+            type="text"
+            maxLength={120}
+            placeholder="Title (optional)"
+            aria-label="Intro title"
+            value={title.value}
+            onInput={(e) => (title.value = e.currentTarget.value)}
+            class={cn(geist.input, 'w-full h-full')}
+          />
+        </div>
       )}
       <div class="mt-2 flex items-center gap-1.5">
         {idle && <VideoButton video={video} label />}
@@ -169,12 +180,12 @@ function IntroComposer() {
 
 /** Mounted above the panel's list/detail switch, so opening a thread mid-take does not discard the recording. */
 export function IntroComposerSlot() {
-  return introComposerOpen.value && !isReadonly.value ? <IntroComposer /> : null;
+  return composing.value ? <IntroComposer /> : null;
 }
 
 /** The room's pinned walkthrough at the head of the annotation list, with its version history. */
 export function IntroVideo() {
-  if (introComposerOpen.value) return null;
+  if (composing.value) return null;
   const list = intros.value;
   const latest = list.at(-1);
   if (!latest) return null;

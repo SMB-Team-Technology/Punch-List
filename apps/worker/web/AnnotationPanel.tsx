@@ -47,7 +47,7 @@ import { AnnotationDetail } from './AnnotationDetail';
 import { capture } from './analytics';
 import { type AnnotationItem, itemAnchor, itemLabel } from './annotationItems';
 import { IntroComposerSlot, IntroVideo, introComposerOpen, intros } from './IntroVideo';
-import { DEVICE_ICONS, DEVICE_LABELS } from './shared';
+import { DEVICE_ICONS, DEVICE_LABELS, menuItem } from './shared';
 import { fileUrl, isReadonly, showBoard } from './signals';
 
 /** What an export writes: the live page's ops, plus every other page when this is a project. */
@@ -303,12 +303,6 @@ function StatusFilterMenu({
     </Menu.Root>
   );
 }
-
-const menuItem = cn(
-  'flex items-center gap-2 h-8 px-2 rounded-md cursor-pointer border-none bg-transparent outline-none',
-  'text-ui text-(--ds-gray-1000) transition-colors duration-150',
-  'data-highlighted:bg-(--ds-gray-alpha-100) data-disabled:opacity-40 data-disabled:cursor-default',
-);
 
 /**
  * Every export and the board, behind one control. Four bare glyphs in a row

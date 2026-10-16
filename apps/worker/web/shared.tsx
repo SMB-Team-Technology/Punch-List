@@ -7,6 +7,13 @@ import { useEffect, useRef } from 'preact/hooks';
 import { siGithub } from 'simple-icons';
 import { MARK_PATHS, MARK_TRANSFORM } from '../src/brand';
 
+/** Item of a panel's Base UI menu. */
+export const menuItem = cn(
+  'flex items-center gap-2 h-8 px-2 rounded-md cursor-pointer border-none bg-transparent outline-none',
+  'text-ui text-(--ds-gray-1000) transition-colors duration-150',
+  'data-highlighted:bg-(--ds-gray-alpha-100) data-disabled:opacity-40 data-disabled:cursor-default',
+);
+
 /** One glyph per viewport, so the switcher and the op badge can never disagree. */
 export const DEVICE_ICONS = { desktop: Monitor, tablet: Tablet, mobile: Smartphone } as const;
 export const DEVICE_LABELS: Record<DeviceMode, string> = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' };
