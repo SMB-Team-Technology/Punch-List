@@ -44,7 +44,7 @@ const clients: RoomClient[] = [];
 
 async function connect(init: Record<string, unknown>): Promise<RoomClient> {
   onOpen = (ws) => ws.send(JSON.stringify({ type: 'init', canEdit: true, ...init }));
-  const client = new RoomClient(`http://127.0.0.1:${server.port}`, 'room-1', AGENT);
+  const client = new RoomClient({ apiBase: `http://127.0.0.1:${server.port}`, roomId: 'room-1', agentId: AGENT });
   clients.push(client);
   await client.connect({ initTimeoutMs: 2000 });
   return client;

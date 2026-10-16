@@ -2,12 +2,14 @@ import { cn } from '@marklayer/types';
 import { useSignalEffect } from '@preact/signals';
 import { useCallback, useState } from 'preact/hooks';
 import { applyAnchorDelta } from '../lib/anchor';
+import { shootViewport } from '../lib/capture';
 import { checkRequest, flashAnnotation } from '../lib/checkFix';
+import { snapshotPin } from '../lib/pin-shot';
 import { MARKER_LAYER } from '../lib/popover';
 import { scrollPageTo } from '../lib/scroller';
 import { captureTarget, pickElementAtPoint } from '../lib/selector';
 import { fileUrl, transcribeFile, uploadFile } from '../lib/share';
-import { activeTool, pushOp, rootComments } from '../lib/state';
+import { activeTool, color, pushOp, rootComments } from '../lib/state';
 import { CommentPin } from './CommentPin';
 import { CommentPopover } from './CommentPopover';
 
@@ -15,6 +17,8 @@ interface PopoverState {
   x: number;
   y: number;
   el: Element | null;
+  /** The screenshot around the pin, taken at the click so it shows what was clicked. */
+  snapshot: Promise<string | null>;
 }
 
 export function CommentLayer() {
@@ -37,7 +41,15 @@ export function CommentLayer() {
     if (activeTool.value !== 'comment') return;
     const x = e.clientX + scrollX;
     const y = e.clientY + scrollY;
-    setPopover({ x, y, el: pickElementAtPoint(e.clientX, e.clientY) });
+    const el = pickElementAtPoint(e.clientX, e.clientY);
+    const snapshot = snapshotPin({
+      shoot: shootViewport,
+      pin: { x: e.clientX, y: e.clientY },
+      viewport: { x: 0, y: 0, width: innerWidth, height: innerHeight },
+      color: color.value,
+      upload: uploadFile,
+    });
+    setPopover({ x, y, el, snapshot });
   }, []);
 
   return (
@@ -71,7 +83,12 @@ export function CommentLayer() {
             })}
             push={pushOp}
             onClose={() => setPopover(null)}
-            media={{ upload: uploadFile, resolveUrl: fileUrl, voice: { transcribe: transcribeFile } }}
+            media={{
+              upload: uploadFile,
+              resolveUrl: fileUrl,
+              voice: { transcribe: transcribeFile },
+              snapshot: popover.snapshot,
+            }}
           />
         )}
       </div>

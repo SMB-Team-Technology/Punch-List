@@ -1,4 +1,4 @@
-import { type AnnotationOp, applyOpPatch, isAgentPeer, isAnnotationOp } from '@marklayer/types';
+import { type AnnotationOp, applyOpPatch, isAgentPeer, isAnnotationOp, ROOM_LOCKED_CLOSE_CODE } from '@marklayer/types';
 import { type ReadonlySignal, type Signal, signal } from '@preact/signals';
 import { nanoid } from 'nanoid';
 import type { AnalyticsProps } from './analytics';
@@ -204,6 +204,8 @@ export interface ConnectRoomHooks {
   capture?: CaptureFn;
   /** Folds an agent's presence into the local ask-for-support record (apps/worker/web/support.ts) — web viewer only. */
   noteSupportSignal?: (signal: 'mcp') => void;
+  /** The room refused this session for want of its password, or a password change ended it. */
+  onLocked?: () => void;
 }
 
 export interface ConnectRoomOptions {
@@ -522,11 +524,17 @@ export function connectRoom({ roomId, origin, hooks }: ConnectRoomOptions): () =
       }
     };
 
-    socket.onclose = () => {
+    socket.onclose = (event) => {
       if (pingTimer) clearInterval(pingTimer);
       if (pongTimeout) clearTimeout(pongTimeout);
       connected.value = false;
       ws = null;
+      // Password-protected and this session is not (or no longer) unlocked: retrying cannot help.
+      if (event.code === ROOM_LOCKED_CLOSE_CODE) {
+        connectionStatus.value = 'disconnected';
+        hooks.onLocked?.();
+        return;
+      }
       if (!destroyed) {
         connectionStatus.value = 'connecting';
         const delay = Math.min(1000 * 2 ** retries, 10000);

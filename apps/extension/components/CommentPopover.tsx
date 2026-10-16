@@ -37,7 +37,11 @@ interface DraftProps {
      *  under the host site's permissions and dies on navigation. */
     video?: {
       upload: (file: File | Blob) => Promise<string | null>;
+      /** Transcribes a clip from the audio track recorded beside it. */
+      transcribe?: (clip: { id: string; audio: Blob }) => Promise<string | null>;
     };
+    /** The upload id of a screenshot taken around the pin, already in flight when the composer opens. */
+    snapshot?: Promise<string | null>;
   };
 }
 
@@ -53,30 +57,42 @@ function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
   const num = commentCounter.value + 1;
   const priority = useSignal<CommentPriority | undefined>(undefined);
   const { mentionProps, mentions } = useMentions();
-  const picker = useAttachments(media?.upload ?? noUpload);
+  const picker = useAttachments({ upload: media?.upload ?? noUpload, pending: media?.snapshot });
   const slot = useSignal<RecorderKind | null>(null);
+  // A transcript is a draft: it lands in the box to be edited, after anything already typed.
+  const onText = (text: string) => {
+    const ta = taRef.current;
+    if (!ta || !text) return;
+    ta.value = ta.value.trim() ? `${ta.value.trim()} ${text}` : text;
+    typed.value = true;
+    ta.focus();
+  };
   const voice = useVoiceNote({
     slot,
     upload: media?.upload ?? noUpload,
     transcribe: media?.voice?.transcribe ?? noUpload,
     constraint: media?.voice?.constraint,
-    // The transcript is a draft: it lands in the box to be edited, after anything already typed.
-    onText: (text) => {
-      const ta = taRef.current;
-      if (!ta || !text) return;
-      ta.value = ta.value.trim() ? `${ta.value.trim()} ${text}` : text;
-      typed.value = true;
-      ta.focus();
-    },
+    onText,
   });
-  const video = useVideoNote({ slot, upload: media?.video?.upload ?? noUpload });
+  const video = useVideoNote({
+    slot,
+    upload: media?.video?.upload ?? noUpload,
+    transcribe: media?.video?.transcribe,
+    onText,
+  });
   const recording = slot.value !== null;
-  const postable = typed.value || picker.ids.length > 0 || voice.id.value !== null || video.id.value !== null;
+  const postable = typed.value || picker.picked > 0 || voice.id.value !== null || video.id.value !== null;
+  /** Post was pressed while an upload was still landing; the comment goes up the moment it does. */
+  const posting = useSignal(false);
 
-  const commit = (save: boolean) => {
+  const commit = async (save: boolean) => {
+    // Once Post is pressed the comment is on its way; a stray Escape must not drop it.
+    if (posting.value) return;
     const txt = taRef.current?.value.trim();
-    if (save && (txt || picker.ids.length || voice.id.value || video.id.value)) {
-      if (picker.uploading || recording) return;
+    if (save && (txt || picker.picked || voice.id.value || video.id.value)) {
+      if (recording) return;
+      posting.value = picker.uploading;
+      const attachments = await picker.settled();
       push({
         id: nanoid(),
         tool: 'comment' as const,
@@ -91,7 +107,7 @@ function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
         status: 'open',
         priority: priority.value,
         mentions: mentions(),
-        attachments: picker.ids.length ? picker.ids : undefined,
+        attachments: attachments.length ? attachments : undefined,
         voice: voice.id.value ?? undefined,
         video: video.id.value ?? undefined,
         meta: getCommentMeta(),
@@ -101,13 +117,41 @@ function useCommentDraft({ at, capture, push, onClose, media }: DraftProps) {
     onClose();
   };
 
-  return { taRef, typed, num, priority, mentionProps, picker, media, voice, video, recording, postable, commit };
+  return {
+    taRef,
+    typed,
+    num,
+    priority,
+    mentionProps,
+    picker,
+    media,
+    voice,
+    video,
+    recording,
+    postable,
+    posting,
+    commit,
+  };
 }
 
 /** The field and one toolbar; the pin's number leads the text like an avatar, so no header is needed.
  *  `hint` shows the Enter key on Post where there is a keyboard. */
 function ComposerBody({ draft, hint }: { draft: Draft; hint: boolean }) {
-  const { taRef, typed, num, priority, mentionProps, picker, media, voice, video, recording, postable, commit } = draft;
+  const {
+    taRef,
+    typed,
+    num,
+    priority,
+    mentionProps,
+    picker,
+    media,
+    voice,
+    video,
+    recording,
+    postable,
+    posting,
+    commit,
+  } = draft;
   return (
     <>
       <div class="flex items-start gap-2.5 px-3 pt-3">
@@ -158,15 +202,15 @@ function ComposerBody({ draft, hint }: { draft: Draft; hint: boolean }) {
         <button
           type="button"
           onClick={() => commit(true)}
-          disabled={!postable || picker.uploading || recording}
+          disabled={!postable || posting.value || recording}
           class={cn(
             submitBtn,
             'ml-auto h-7 px-2.5',
             'disabled:pointer-events-none disabled:bg-(--ds-gray-alpha-200) disabled:text-(--ds-gray-700)',
           )}
         >
-          Post
-          {hint && (
+          {posting.value ? 'Posting…' : 'Post'}
+          {hint && !posting.value && (
             <span class="text-ui leading-none opacity-60" aria-hidden="true">
               ↵
             </span>

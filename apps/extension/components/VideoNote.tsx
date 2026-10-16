@@ -9,6 +9,7 @@ import { type OpenedStream, type RecorderSlot, useRecorder } from '../lib/record
 import { toast } from '../lib/state';
 import { clock } from './MediaNote';
 import { Tooltip } from './Tooltip';
+import { AUDIO_MIME_CANDIDATES } from './VoiceNote';
 
 /** H.264 in MP4 where the browser records it (Safari, recent Chrome), else VP9/VP8 in WebM. */
 const MIME_CANDIDATES = [
@@ -60,11 +61,15 @@ async function openStream(source: VideoSource): Promise<OpenedStream | null> {
 interface VideoNoteOptions {
   /** Uploads with `kind=video`; the plain attachment upload would store the clip as audio. */
   upload: (file: File | Blob) => Promise<string | null>;
+  /** The clip's transcript, from the audio track recorded beside it; null when the model was unavailable. */
+  transcribe?: (clip: { id: string; audio: Blob }) => Promise<string | null>;
+  /** Called with the transcript once it lands, so the composer can put it in the text box. */
+  onText?: (text: string) => void;
   slot?: RecorderSlot;
 }
 
-/** One composer's clip, from the camera or a shared screen, ending in an upload id. */
-export function useVideoNote({ upload, slot }: VideoNoteOptions) {
+/** One composer's clip, from the camera or a shared screen, ending in an upload id and, if it had sound, a transcript. */
+export function useVideoNote({ upload, transcribe, onText, slot }: VideoNoteOptions) {
   const source = useSignal<VideoSource>('camera');
   const recorder = useRecorder({
     kind: 'video',
@@ -73,6 +78,15 @@ export function useVideoNote({ upload, slot }: VideoNoteOptions) {
     maxSeconds: MAX_VIDEO_SECONDS,
     bitrates: { videoBitsPerSecond: 1_000_000, audioBitsPerSecond: 64_000 },
     upload,
+    // 64kbps over MAX_VIDEO_SECONDS stays well inside MAX_VOICE_BYTES, the cap the server holds it to.
+    audioTrack: transcribe ? { mimeTypes: AUDIO_MIME_CANDIDATES, bitsPerSecond: 64_000 } : undefined,
+    onUploaded: async ({ id, audio }) => {
+      // A silent screen recording has nothing to transcribe, and nothing to apologise for.
+      if (!audio || !transcribe) return;
+      const text = await transcribe({ id, audio });
+      if (text) onText?.(text);
+      else toast('No transcript. The video is still attached');
+    },
   });
   return {
     ...recorder,

@@ -22,7 +22,7 @@ export const INFO_PANEL_WIDTH = 300;
  * with a plain `s`. Keyed exhaustively over the op union (plus `arrow`, a `line`
  * that carries one) so a new tool is a type error, not a raw identifier.
  */
-type TallyTool = Exclude<DrawOp['tool'], 'eraser'> | 'arrow';
+type TallyTool = Exclude<DrawOp['tool'], 'eraser' | 'vote'> | 'arrow';
 
 const TOOL_NOUNS: Record<TallyTool, string> = {
   pen: 'pen stroke',
@@ -38,6 +38,8 @@ const TOOL_NOUNS: Record<TallyTool, string> = {
   inspect: 'inspected element',
   guide: 'guide',
   intro: 'intro video',
+  question: 'question',
+  step: 'next step',
 };
 
 /**
@@ -221,7 +223,7 @@ function TallyRow() {
   if (ops.length === 0) return null;
   const counts = new Map<TallyTool, number>();
   for (const op of ops) {
-    if (op.tool === 'eraser') continue;
+    if (op.tool === 'eraser' || op.tool === 'vote') continue;
     const t: TallyTool = op.tool === 'line' && op.arrow ? 'arrow' : op.tool;
     counts.set(t, (counts.get(t) || 0) + 1);
   }

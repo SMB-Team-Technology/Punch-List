@@ -149,7 +149,7 @@ export function ReplyComposer({
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLTextAreaElement | null>(null);
   const { mentionProps, mentions } = useMentions();
-  const attachments = useAttachments(upload);
+  const attachments = useAttachments({ upload });
 
   // Focus from the ref callback rather than an effect: the textarea only exists
   // once `open` flips, so there is nothing to focus at the click that opens it.

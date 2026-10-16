@@ -8,13 +8,17 @@ import {
   effectiveExpiresAt,
   type LinkAccess,
   parseOps,
+  ROOM_LOCKED_CLOSE_CODE,
   RTC_MESSAGE_TYPES,
   type RtcMessageType,
 } from '@marklayer/types';
 import { userFromCookieHeader } from './auth';
 import { STUN_ONLY, stripPort53 } from './ice';
 import { deliver, parseIntegrations } from './integrations/deliver';
+import { isSlackOp } from './integrations/slack-app';
+import { postBatchToSlack } from './integrations/slack-sync';
 import { type Notifiable, notifiableFrom } from './integrations/types';
+import { lockedSocket, ROOM_GEN_HEADER } from './lock/gate';
 import { isAgentPeer, type PeerInfo, readPeerInfo, sanitizeColor, sanitizeName, sanitizeUid } from './peers';
 import { captureServer } from './posthog';
 import { annotationStore } from './store';
@@ -25,6 +29,8 @@ interface Env {
   TURN_KEY_TOKEN?: string;
   POSTHOG_KEY?: string;
   POSTHOG_HOST?: string;
+  /** Unset means the Slack app is off, and the room never reads its install. */
+  SLACK_TOKEN_KEY?: string;
 }
 
 // TURN creds are tied to the worker's key (not per-room), so a module-level
@@ -85,6 +91,10 @@ const READ_ONLY_SAFE_TYPES = new Set<ClientMsg['type']>(['ping', 'cursor', 'ripp
  */
 const AGENT_PRESENCE_TTL_MS = 15 * 60_000;
 
+/** Stored ops are unparsed JSON; this reads an id without trusting the shape. */
+const opIdOf = (o: unknown) =>
+  typeof o === 'object' && o !== null && 'id' in o && typeof o.id === 'string' ? o.id : undefined;
+
 /** What the remote MCP endpoint needs to answer any tool call, in one round trip. */
 export interface AgentSnapshot {
   /** Parsed here rather than at the caller: RPC will not carry `unknown`, and a
@@ -141,6 +151,13 @@ export class AnnotationRoom extends DurableObject<Env> {
    * relay uses.
    */
   private deliveryFailures = 0;
+  /**
+   * Ops bound for the room's Slack app install, if it has one. Ops rather than
+   * `Notifiable`s: threading needs the id and the parent. Ops that came from
+   * Slack never enter, which is what stops a Slack reply echoing back to Slack.
+   */
+  private pendingSlack: DrawOp[] = [];
+  private slackFailures = 0;
   /** Public origin of the request that opened this room, for the "open the room" link. */
   private origin: string | null = null;
 
@@ -313,20 +330,30 @@ export class AnnotationRoom extends DurableObject<Env> {
     };
   }
 
-  /** Append one op. `false` means the link is view-only — never that the write failed silently. */
+  /**
+   * Append one op. `false` means the link is view-only — never that the write failed silently.
+   * An id already present is a redelivery (Slack retries an event it thinks timed out), so it is a no-op success.
+   */
   async agentPushOp(id: string, op: DrawOp): Promise<boolean> {
     const ops = await this.getOps(id);
     await this.refreshAccess(id);
     if (!this.canEditFor(undefined)) return false;
+    if (ops.some((o) => opIdOf(o) === op.id)) return true;
     ops.push(op);
     this.sessionOps++;
     this.sessionTools.set(op.tool, (this.sessionTools.get(op.tool) ?? 0) + 1);
     this.broadcast(JSON.stringify({ type: 'op', op }));
     this.wakeWatchers([op]);
-    const notifiable = notifiableFrom(op);
-    if (notifiable) this.pendingNotifications.push(notifiable);
+    this.queueOutbound(op);
     await this.scheduleFlush();
     return true;
+  }
+
+  private queueOutbound(op: DrawOp): void {
+    const notifiable = notifiableFrom(op);
+    if (!notifiable) return;
+    this.pendingNotifications.push(notifiable);
+    if (this.env.SLACK_TOKEN_KEY && !isSlackOp(op)) this.pendingSlack.push(op);
   }
 
   /** Patch an op. `false` is view-only or no such op; the caller tells those apart from the snapshot. */
@@ -334,7 +361,7 @@ export class AnnotationRoom extends DurableObject<Env> {
     const ops = await this.getOps(id);
     await this.refreshAccess(id);
     if (!this.canEditFor(undefined)) return false;
-    const idx = ops.findIndex((o) => typeof o === 'object' && o !== null && 'id' in o && o.id === opId);
+    const idx = ops.findIndex((o) => opIdOf(o) === opId);
     if (idx === -1) return false;
     const current = ops[idx];
     if (!current) return false;
@@ -343,6 +370,21 @@ export class AnnotationRoom extends DurableObject<Env> {
     ops[idx] = merged;
     this.sessionUpdates++;
     this.broadcast(JSON.stringify({ type: 'update_op', opId, patch }));
+    await this.scheduleFlush();
+    return true;
+  }
+
+  /** Remove ops by id, broadcast as `undo` so open viewers drop them too. `false` is view-only. */
+  async agentRemoveOps(id: string, opIds: string[]): Promise<boolean> {
+    const ops = await this.getOps(id);
+    await this.refreshAccess(id);
+    if (!this.canEditFor(undefined)) return false;
+    const doomed = new Set(opIds);
+    const kept = ops.filter((o) => !doomed.has(opIdOf(o) ?? ''));
+    if (kept.length === ops.length) return true;
+    // In place: `this.ops` is the array every other path holds.
+    ops.splice(0, ops.length, ...kept);
+    for (const opId of doomed) this.broadcast(JSON.stringify({ type: 'undo', opId }));
     await this.scheduleFlush();
     return true;
   }
@@ -419,6 +461,35 @@ export class AnnotationRoom extends DurableObject<Env> {
   }
 
   /**
+   * Lowest password generation a new socket may arrive with. In memory only:
+   * it closes the milliseconds between the Worker's check and this room hearing
+   * of a change, and a room cold enough to lose it has no such race in flight.
+   */
+  private minGen = 0;
+
+  /**
+   * Ends every session admitted under an older password: sockets close with
+   * the code that sends a browser back to the prompt, and parked agent watches
+   * return empty, so nothing that arrives after the change reaches them.
+   */
+  private revoke(gen: number): void {
+    if (Number.isInteger(gen)) this.minGen = Math.max(this.minGen, gen);
+    for (const ws of this.ctx.getWebSockets()) {
+      // The owner skips the prompt anyway; closing their tab would only reload the panel they changed it from.
+      const userId = this.getPeerInfo(ws)?.userId;
+      if (userId !== undefined && userId === this.ownerId) continue;
+      // Teardown still runs on the close that follows, so the owner sees each one leave.
+      try {
+        ws.close(ROOM_LOCKED_CLOSE_CODE, 'password changed');
+      } catch {
+        // Already closing on the client's side; nothing left to end.
+      }
+    }
+    this.httpAgents.clear();
+    this.wakeWatchers([]);
+  }
+
+  /**
    * The owner changed who may edit while this room may be warm. `loadOps` runs
    * once per isolate, so without this a flip to view-only would bite only after
    * the next eviction — and the owner's own tab keeps the room resident.
@@ -453,6 +524,16 @@ export class AnnotationRoom extends DurableObject<Env> {
       await this.clearOps({ id });
       return new Response(null, { status: 204 });
     }
+    // The owner set, changed or removed the password.
+    if (request.method === 'POST' && url.pathname === '/revoke') {
+      this.revoke(Number(url.searchParams.get('gen')));
+      return new Response(null, { status: 204 });
+    }
+
+    // The Worker admitted this socket against a generation; one older than a
+    // revoke already seen lost a race with the change and is refused here.
+    const admittedGen = Number(request.headers.get(ROOM_GEN_HEADER));
+    if (!Number.isInteger(admittedGen) || admittedGen < this.minGen) return lockedSocket();
 
     this.origin = url.origin;
 
@@ -595,16 +676,13 @@ export class AnnotationRoom extends DurableObject<Env> {
         this.sessionTools.set(msg.op.tool, (this.sessionTools.get(msg.op.tool) ?? 0) + 1);
         this.broadcast(JSON.stringify({ type: 'op', op: msg.op }), ws);
         this.wakeWatchers([msg.op]);
-        const notifiable = notifiableFrom(msg.op);
-        if (notifiable) this.pendingNotifications.push(notifiable);
+        this.queueOutbound(msg.op);
         await this.scheduleFlush();
         return;
       }
       case 'update_op': {
         const ops = await this.getOps(id!);
-        const idx = ops.findIndex(
-          (o) => typeof o === 'object' && o !== null && 'id' in o && (o as { id: unknown }).id === msg.opId,
-        );
+        const idx = ops.findIndex((o) => opIdOf(o) === msg.opId);
         if (idx === -1) return;
         const current = ops[idx];
         if (!current) return;
@@ -620,9 +698,7 @@ export class AnnotationRoom extends DurableObject<Env> {
       }
       case 'undo': {
         const ops = await this.getOps(id!);
-        const idx = ops.findIndex(
-          (o) => typeof o === 'object' && o !== null && 'id' in o && (o as { id: unknown }).id === msg.opId,
-        );
+        const idx = ops.findIndex((o) => opIdOf(o) === msg.opId);
         if (idx === -1) return;
         ops.splice(idx, 1);
         this.broadcast(JSON.stringify({ type: 'undo', opId: msg.opId }), ws);
@@ -725,7 +801,11 @@ export class AnnotationRoom extends DurableObject<Env> {
     if (this.closed.has(ws)) return;
     this.closed.add(ws);
     const info = this.getPeerInfo(ws);
-    ws.close();
+    try {
+      ws.close();
+    } catch {
+      // `revoke` closed it first, with the code that matters; a second close has nothing to add.
+    }
     if (!info) return;
 
     this.broadcast(JSON.stringify({ type: 'peer_leave', peerId: info.id }));
@@ -819,7 +899,7 @@ export class AnnotationRoom extends DurableObject<Env> {
     // Cleared up front so an op landing mid-write keeps the room dirty.
     const write = this.dirty && this.ops ? annotationStore(this.env.DB).putOps({ id, ops: this.ops }) : null;
     if (write) this.dirty = false;
-    const [persisted] = await Promise.allSettled([write, this.flushNotifications(id)]);
+    const [persisted] = await Promise.allSettled([write, this.flushNotifications(id), this.flushSlack(id)]);
     if (persisted.status === 'rejected') {
       // Thrown so the runtime retries the alarm; swallowed, the ops since the last good flush were gone.
       this.dirty = true;
@@ -855,5 +935,27 @@ export class AnnotationRoom extends DurableObject<Env> {
     });
     // One destination succeeding is enough to say the room is still wired up.
     this.deliveryFailures = sent > 0 ? 0 : this.deliveryFailures + 1;
+  }
+
+  /** The Slack app's half of the flush: same drain-first rule and breaker as above, its own counter. */
+  private async flushSlack(id: string) {
+    if (this.pendingSlack.length === 0) return;
+    const items = this.pendingSlack;
+    this.pendingSlack = [];
+    const tokenKey = this.env.SLACK_TOKEN_KEY;
+    if (!tokenKey || this.slackFailures >= 3) return;
+
+    const origin = this.origin ?? 'https://marklayer.app';
+    const result = await postBatchToSlack({
+      db: this.env.DB,
+      tokenKey,
+      roomId: id,
+      items,
+      ops: () => parseOps(this.ops ?? []),
+      roomUrl: `${origin}/s/${id}`,
+      origin,
+    });
+    if (!result) return;
+    this.slackFailures = result.sent > 0 || result.failed === 0 ? 0 : this.slackFailures + 1;
   }
 }

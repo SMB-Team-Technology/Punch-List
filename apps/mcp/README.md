@@ -64,6 +64,11 @@ The agent will call `marklayer_watch_annotations` in a loop and process incoming
 | `marklayer_reply` | Post a reply without changing status (e.g. clarifying questions). |
 | `marklayer_create_annotation` | Leave a new comment yourself — proactive feedback rather than a response. |
 | `marklayer_suggest_edit` | Propose an exact copy/grammar fix for a piece of text, as a diff the human can accept. |
+| `marklayer_share_preview` | Open a new review room on a URL you built and connect to it. Same `repo` + `branch` as the room you are in (or `previous`) makes it the next version. |
+| `marklayer_set_next_steps` | Publish an ordered checklist, each step linked to annotation ids. Replaces the previous list. |
+| `marklayer_complete_next_step` | Tick a step off; reviewers see it live. |
+| `marklayer_ask` | Put a 2-6 option poll to the room. One vote per reviewer, revotable. |
+| `marklayer_get_feedback` | One read: annotation counts by status, open annotations, checklist progress, poll tallies. |
 
 ## Options
 
@@ -96,5 +101,7 @@ curl -X POST https://marklayer.app/api/$ID \
   -d '{"ops":[],"url":"https://example.com/page-1","width":1440,"expires_in":2592000}'
 # Share link: https://marklayer.app/s/$ID
 ```
+
+For a review room on a preview build, `POST /api/$ID/preview` takes `{ url, title, repo?, branch?, sha?, note?, questions?, previous? }` and never overwrites an existing id. Versions chain only through `previous`, a room you already hold: two rooms are never linked by repo and branch alone, because the version switcher shows each room's neighbours. `marklayer_share_preview` calls this route over stdio; over HTTP (`/s/:id/mcp`) it creates the room in the Worker, chains from the room in the URL, and returns an `mcpUrl` to reconnect to, since that endpoint stays bound to its own room.
 
 `$ID` is caller-supplied (use `nanoid` / `crypto.randomUUID()` — it's the access token). No auth, no SDK. Full details: https://marklayer.app/llms-full.txt

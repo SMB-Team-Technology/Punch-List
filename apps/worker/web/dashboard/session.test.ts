@@ -13,6 +13,7 @@ const held: OwnedLink = {
   access: 'edit',
   ownerExpiresAt: null,
   folderId: null,
+  passwordProtected: false,
 };
 
 function stubServer({ patch }: { patch: Response }) {

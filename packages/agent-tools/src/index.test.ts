@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import type { AnnotationOp, CommentOp } from '@marklayer/types';
-import { callRoomTool, classifyOp, describedSchema, type RoomOps } from './index';
+import { callCreateTool, callRoomTool, classifyOp, describedSchema, type RoomOps } from './index';
 
 const comment = (over: Partial<CommentOp> = {}): CommentOp => ({
   id: 'op-1',
@@ -45,6 +45,16 @@ function fakeRoom(over: Partial<RoomOps> = {}): RoomOps & { calls: string[] } {
     readPage: async () => null,
     create: () => ({ id: 'new-1' }),
     suggestEdit: () => ({ id: 'new-2' }),
+    listOps: () => [comment()],
+    setNextSteps: (steps) => {
+      calls.push(`steps:${steps.length}`);
+      return { ids: steps.map((_, i) => `step-${i}`) };
+    },
+    setStepDone: ({ id, done }) => {
+      calls.push(`step:${id}:${done}`);
+      return true;
+    },
+    ask: () => ({ id: 'q-1' }),
   };
   return { ...base, ...over, calls };
 }
@@ -220,5 +230,56 @@ describe('marklayer_read_page', () => {
   test('reports an unreadable page instead of returning nothing', async () => {
     const room = fakeRoom({ readPage: async () => null });
     expect((await run('marklayer_read_page', {}, room))?.isError).toBe(true);
+  });
+
+  // A step linked to an id that is not there renders a link to nothing in front of the reviewers.
+  test('refuses next steps that point at annotations the room does not have', async () => {
+    const room = fakeRoom();
+    const result = await run(
+      'marklayer_set_next_steps',
+      { steps: [{ text: 'Fix it', annotationIds: ['ghost'] }] },
+      room,
+    );
+    expect(body(result).error).toContain('ghost');
+    expect(room.calls).toEqual([]);
+  });
+
+  test('says a step is missing rather than patching nothing', async () => {
+    const room = fakeRoom();
+    expect((await run('marklayer_complete_next_step', { id: 'nope' }, room))?.isError).toBe(true);
+    expect(room.calls).toEqual([]);
+  });
+});
+
+describe('callCreateTool', () => {
+  const create = (args: unknown) => {
+    const asked: unknown[] = [];
+    const result = callCreateTool({
+      name: 'marklayer_share_preview',
+      args,
+      apiBase: 'https://marklayer.app',
+      createPreview: async (request) => {
+        asked.push(request);
+        return { id: 'r1', link: 'https://marklayer.app/s/r1', version: 1, previousId: null };
+      },
+    });
+    return { result, asked };
+  };
+
+  // The URL is framed for every reviewer who opens the link; only a web page belongs there.
+  test('refuses a preview url that is not http(s)', async () => {
+    const { result, asked } = create({ url: 'javascript:alert(1)', title: 'x' });
+    expect((await result)?.isError).toBe(true);
+    expect(asked).toEqual([]);
+  });
+
+  test('refuses a poll with a single option', async () => {
+    const { result, asked } = create({
+      url: 'https://preview.example.com',
+      title: 'x',
+      questions: [{ prompt: 'Ship?', options: ['yes'] }],
+    });
+    expect((await result)?.isError).toBe(true);
+    expect(asked).toEqual([]);
   });
 });

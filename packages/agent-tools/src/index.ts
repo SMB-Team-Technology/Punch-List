@@ -4,15 +4,24 @@ import type {
   CommentPriority,
   CommentStatus,
   DrawOp,
+  QuestionOp,
   SelectionRect,
+  StepOp,
   TargetElement,
 } from '@marklayer/types';
 import {
+  agentColor,
   COMMENT_PRIORITIES,
   commentPrioritySchema,
-  isAnnotationOp,
+  MAX_NEXT_STEPS,
+  MAX_QUESTION_OPTIONS,
+  MAX_QUESTION_TEXT,
+  MAX_STEP_TEXT,
+  MIN_QUESTION_OPTIONS,
+  orderedSteps,
   resolveOpStatus,
   selectionRectSchema,
+  tallyQuestion,
   uploadPath,
 } from '@marklayer/types';
 import { z } from 'zod/mini';
@@ -80,7 +89,8 @@ export function projectAnnotation(op: AnnotationOp, apiBase: string) {
       attachments: attachmentUrls(op.attachments, apiBase),
       // The recording behind `text`, which is its transcript and may be empty if transcription failed.
       voice: op.voice ? attachmentUrls([op.voice], apiBase)[0] : null,
-      // A recorded camera or screen clip, with no transcript: `text` is only what was typed beside it.
+      // A recorded camera or screen clip. Like `voice`, its narration is transcribed into `text`;
+      // a silent clip leaves `text` as only what was typed beside it.
       video: op.video ? attachmentUrls([op.video], apiBase)[0] : null,
     };
   }
@@ -136,7 +146,7 @@ export const StatusFilter = z.enum(STATUS_FILTERS);
 /** The annotation id every per-annotation tool takes, spread the way `targetParts` below is. */
 const idPart = { id: z.string().check(z.minLength(1)) };
 
-export const ConnectInput = z.object({ room: z.string().check(z.minLength(1)) });
+export const ConnectInput = z.object({ room: z.string().check(z.minLength(1)), password: z.optional(z.string()) });
 export const ListInput = z.object({ status: z.optional(StatusFilter) });
 export const IdInput = z.object({ ...idPart });
 /**
@@ -230,6 +240,56 @@ export const SuggestInput = z
     ),
   );
 
+const MAX_PREVIEW_TEXT = 200;
+const MAX_PREVIEW_NOTE = 2000;
+/** More than a handful of polls on one preview is a survey, not a review. */
+export const MAX_PREVIEW_QUESTIONS = 5;
+
+const shortText = (max: number) => z.string().check(z.minLength(1), z.maxLength(max));
+
+export const QuestionInput = z.object({
+  prompt: shortText(MAX_QUESTION_TEXT),
+  options: z
+    .array(shortText(MAX_QUESTION_TEXT))
+    .check(z.minLength(MIN_QUESTION_OPTIONS), z.maxLength(MAX_QUESTION_OPTIONS)),
+});
+export type QuestionRequest = z.infer<typeof QuestionInput>;
+
+const isHttpUrl = (value: string): boolean => {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+export const SharePreviewInput = z.object({
+  url: z.string().check(z.refine(isHttpUrl, 'url must be an absolute http(s) URL')),
+  title: shortText(MAX_PREVIEW_TEXT),
+  repo: z.optional(shortText(MAX_PREVIEW_TEXT)),
+  branch: z.optional(shortText(MAX_PREVIEW_TEXT)),
+  sha: z.optional(shortText(MAX_PREVIEW_TEXT)),
+  note: z.optional(shortText(MAX_PREVIEW_NOTE)),
+  questions: z.optional(z.array(QuestionInput).check(z.maxLength(MAX_PREVIEW_QUESTIONS))),
+  previous: z.optional(shortText(MAX_PREVIEW_TEXT)),
+});
+export type PreviewRequest = z.infer<typeof SharePreviewInput>;
+
+export const SetStepsInput = z.object({
+  steps: z
+    .array(
+      z.object({
+        text: shortText(MAX_STEP_TEXT),
+        annotationIds: z.optional(z.array(z.string().check(z.minLength(1))).check(z.maxLength(MAX_NEXT_STEPS))),
+      }),
+    )
+    .check(z.minLength(1), z.maxLength(MAX_NEXT_STEPS)),
+});
+export type StepRequest = z.infer<typeof SetStepsInput>['steps'][number];
+
+export const CompleteStepInput = z.object({ ...idPart, done: z.optional(z.boolean()) });
+
 /**
  * A mutator returned false. It has two causes worth telling apart: the room
  * refuses this peer's writes, or the id genuinely is not there. Reporting the
@@ -273,6 +333,10 @@ export const TOOLS: ToolSpec[] = [
         room: {
           type: 'string',
           description: 'Room URL like https://marklayer.app/s/abc123 or a bare room id like abc123.',
+        },
+        password: {
+          type: 'string',
+          description: 'Only for a password-protected room: the password its owner shared.',
         },
       },
     },
@@ -461,6 +525,128 @@ export const TOOLS: ToolSpec[] = [
       },
     },
   },
+  {
+    name: 'marklayer_share_preview',
+    description:
+      'Open a new review room on a page you built — a preview deploy, a staging URL — and get back the link to hand ' +
+      'to a human. Call this when you have something for someone to look at, rather than asking them to open a URL ' +
+      'and describe what they see. The page is framed live and reviewers annotate it directly; their feedback then ' +
+      'reaches you through the other tools. Pass `repo` + `branch` (and `sha`) when the page comes from a branch: ' +
+      'a later preview of the same repo and branch becomes the next version of this one, and reviewers can step ' +
+      'between versions. Over stdio this also connects you to the new room. Over HTTP the endpoint stays bound to ' +
+      'the room in its URL, so reconnect to the returned `mcpUrl` to work the new room.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['url', 'title'],
+      properties: {
+        url: { type: 'string', description: 'Absolute http(s) URL of the page to review.' },
+        title: { type: 'string', description: 'What this is, in a few words — shown to reviewers.' },
+        repo: { type: 'string', description: 'Repository, e.g. "acme/web". With `branch`, chains versions.' },
+        branch: { type: 'string', description: 'Branch the preview was built from.' },
+        sha: { type: 'string', description: 'Commit the preview was built from; shown beside the version.' },
+        note: { type: 'string', description: 'What changed and what to look at, for the reviewers.' },
+        questions: {
+          type: 'array',
+          maxItems: MAX_PREVIEW_QUESTIONS,
+          description: 'Polls to open the room with — a decision you want the reviewers to make.',
+          items: {
+            type: 'object',
+            required: ['prompt', 'options'],
+            properties: {
+              prompt: { type: 'string' },
+              options: {
+                type: 'array',
+                minItems: MIN_QUESTION_OPTIONS,
+                maxItems: MAX_QUESTION_OPTIONS,
+                items: { type: 'string' },
+              },
+            },
+          },
+        },
+        previous: {
+          type: 'string',
+          description:
+            'The room this is a new version of, as a link or id. Defaults to the room you are connected to. ' +
+            'Linked only when that room has the same repo and branch.',
+        },
+      },
+    },
+  },
+  {
+    name: 'marklayer_set_next_steps',
+    description:
+      'Publish your plan as a short ordered checklist the reviewers see live in the room, distilled from their ' +
+      'feedback — one step per change you will make, each naming the annotation ids it answers. Replaces any list ' +
+      'you set before. Tick steps off with marklayer_complete_next_step as you finish them, so the humans can watch ' +
+      'the work land instead of asking where it is.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['steps'],
+      properties: {
+        steps: {
+          type: 'array',
+          minItems: 1,
+          maxItems: MAX_NEXT_STEPS,
+          items: {
+            type: 'object',
+            required: ['text'],
+            properties: {
+              text: { type: 'string', description: 'The step, as an imperative: "Rename the CTA to Start trial".' },
+              annotationIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Ids of the annotations this step addresses.',
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  {
+    name: 'marklayer_complete_next_step',
+    description: 'Tick a step of the checklist off (or back on with done: false). Reviewers see it change live.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['id'],
+      properties: {
+        id: { type: 'string', description: 'Step id, from marklayer_set_next_steps or marklayer_get_feedback.' },
+        done: { type: 'boolean', description: 'Defaults to true.' },
+      },
+    },
+  },
+  {
+    name: 'marklayer_ask',
+    description:
+      'Put a multiple-choice question to the room — "Which hero variant?", "Ship with the banner?" — when you need ' +
+      'a decision rather than open-ended feedback. Each reviewer gets one vote and may change it. Read the tally ' +
+      'with marklayer_get_feedback.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['prompt', 'options'],
+      properties: {
+        prompt: { type: 'string' },
+        options: {
+          type: 'array',
+          minItems: MIN_QUESTION_OPTIONS,
+          maxItems: MAX_QUESTION_OPTIONS,
+          items: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    name: 'marklayer_get_feedback',
+    description:
+      'Everything the room has told you, in one read: annotation counts by status with the open ones in full, the ' +
+      'next-steps checklist and how far along it is, and every poll with its current tally. Use it to decide what ' +
+      'to do next; use marklayer_watch_annotations to wait for more.',
+    inputSchema: { type: 'object', additionalProperties: false, properties: {} },
+  },
 ];
 
 /**
@@ -585,6 +771,12 @@ export interface RoomOps {
     priority?: CommentPriority;
     target?: TargetElement;
   }): Awaitable<{ id: string } | null>;
+  /** Every op the room holds, for the reads that are not about annotations: steps, polls, votes. */
+  listOps(): readonly DrawOp[];
+  /** Replace the checklist. Null when the room refused the write. */
+  setNextSteps(steps: StepRequest[]): Awaitable<{ ids: string[] } | null>;
+  setStepDone(a: { id: string; done: boolean }): Awaitable<boolean>;
+  ask(question: QuestionRequest): Awaitable<{ id: string } | null>;
 }
 
 /** Tools that wait on or write to the room, so a dead socket has to fail them rather than hang or no-op. */
@@ -596,6 +788,9 @@ const NEEDS_LIVE_ROOM = new Set([
   'marklayer_reply',
   'marklayer_create_annotation',
   'marklayer_suggest_edit',
+  'marklayer_set_next_steps',
+  'marklayer_complete_next_step',
+  'marklayer_ask',
 ]);
 
 /**
@@ -730,6 +925,38 @@ export async function callRoomTool({
       return ok({ id: created.id, status: 'open' });
     }
 
+    case 'marklayer_set_next_steps': {
+      const parsed = SetStepsInput.safeParse(args);
+      if (!parsed.success) return fail(parsed.error);
+      // A step pointing at no annotation would render a link to nothing.
+      const known = new Set(room.listAnnotations().map((op) => op.id));
+      const unknown = parsed.data.steps.flatMap((step) => (step.annotationIds ?? []).filter((id) => !known.has(id)));
+      if (unknown.length) return err(`unknown annotation ids: ${unknown.join(', ')}`);
+      const written = await room.setNextSteps(parsed.data.steps);
+      if (!written) return err(createFailure({ room, what: 'checklist' }));
+      return ok({ steps: written.ids.map((id, i) => ({ id, text: parsed.data.steps[i]?.text ?? '', done: false })) });
+    }
+
+    case 'marklayer_complete_next_step': {
+      const parsed = CompleteStepInput.safeParse(args);
+      if (!parsed.success) return fail(parsed.error);
+      const { id, done = true } = parsed.data;
+      if (!room.listOps().some((op) => op.tool === 'step' && op.id === id)) return err(`step not found: ${id}`);
+      if (!(await room.setStepDone({ id, done }))) return mutationErr({ room, id });
+      return ok({ id, done });
+    }
+
+    case 'marklayer_ask': {
+      const parsed = QuestionInput.safeParse(args);
+      if (!parsed.success) return fail(parsed.error);
+      const created = await room.ask(parsed.data);
+      if (!created) return err(createFailure({ room, what: 'question' }));
+      return ok({ id: created.id, prompt: parsed.data.prompt, options: parsed.data.options });
+    }
+
+    case 'marklayer_get_feedback':
+      return ok(feedbackSummary({ ops: room.listOps(), apiBase }));
+
     default:
       return null;
   }
@@ -775,4 +1002,145 @@ export function classifyOp({
   const named = (reply.mentions ?? []).some((mention) => mention.id === agentId);
   const mine = parent.author === agentId || parent.assignedAgent === agentId || parent.assignee === agentId;
   return named || mine ? { kind: 'handoff', op: parent, reply } : null;
+}
+
+/** A poll as an agent reads it: each option with its votes, and who cast them. */
+export function projectQuestion({ question, ops }: { question: QuestionOp; ops: readonly DrawOp[] }) {
+  const tally = tallyQuestion({ question, ops });
+  const ballots = [...tally.ballots.values()];
+  return {
+    id: question.id,
+    prompt: question.prompt,
+    author: question.author ?? null,
+    total: tally.total,
+    options: question.options.map((label, i) => ({
+      label,
+      votes: tally.counts[i] ?? 0,
+      voters: ballots.filter((b) => b.option === i).map((b) => b.name),
+    })),
+  };
+}
+
+export const projectStep = (step: StepOp) => ({
+  id: step.id,
+  text: step.text,
+  done: step.done ?? false,
+  doneBy: step.doneBy ?? null,
+  annotationIds: step.annotationIds ?? [],
+});
+
+/** `marklayer_get_feedback`: the room's state an agent plans from, in one answer. */
+export function feedbackSummary({ ops, apiBase }: { ops: readonly DrawOp[]; apiBase: string }) {
+  const annotations = ops.filter(isWatchableOp);
+  const byStatus: Record<CommentStatus, number> = { open: 0, in_progress: 0, resolved: 0, approved: 0, dismissed: 0 };
+  for (const op of annotations) byStatus[resolveOpStatus(op)] += 1;
+  const steps = orderedSteps(ops);
+  return {
+    annotations: {
+      total: annotations.length,
+      byStatus,
+      open: annotations.filter((op) => resolveOpStatus(op) === 'open').map((op) => projectAnnotation(op, apiBase)),
+    },
+    nextSteps: { done: steps.filter((s) => s.done).length, total: steps.length, steps: steps.map(projectStep) },
+    questions: ops
+      .filter((op): op is QuestionOp => op.tool === 'question')
+      .map((question) => projectQuestion({ question, ops })),
+  };
+}
+
+/** What every op an agent writes carries: its brand colour and its name as author. */
+export function agentSignature(agentId: string) {
+  return { color: agentColor(agentId), lineWidth: 2, author: agentId, authorId: agentId };
+}
+
+/** Built here so the HTTP room, the stdio room and the share API mint identical ops. */
+export function agentQuestionOp({
+  id,
+  question,
+  agentId,
+}: {
+  id: string;
+  question: QuestionRequest;
+  agentId: string;
+}): QuestionOp {
+  return { ...agentSignature(agentId), id, tool: 'question', ts: Date.now(), ...question };
+}
+
+export function agentStepOps({
+  newId,
+  steps,
+  agentId,
+}: {
+  newId: () => string;
+  steps: StepRequest[];
+  agentId: string;
+}): StepOp[] {
+  const ts = Date.now();
+  return steps.map((step, order) => ({
+    ...agentSignature(agentId),
+    id: newId(),
+    tool: 'step',
+    text: step.text,
+    order,
+    ts,
+    ...(step.annotationIds?.length ? { annotationIds: step.annotationIds } : {}),
+  }));
+}
+
+/** What a transport hands back once it has made a preview room. */
+export interface PreviewCreated {
+  id: string;
+  /** The share link for humans. */
+  link: string;
+  version: number | null;
+  /** The room this one follows, when it was linked as a new version. */
+  previousId: string | null;
+}
+
+/**
+ * The tool that makes a room rather than working one, so it needs no room: the
+ * stdio server answers it before anything is connected. Null for any other name.
+ */
+export async function callCreateTool({
+  name,
+  args,
+  createPreview,
+  apiBase,
+}: {
+  name: string;
+  args: unknown;
+  createPreview: (request: PreviewRequest) => Promise<PreviewCreated | { error: string }>;
+  apiBase: string;
+}): Promise<ToolContent | null> {
+  if (name !== 'marklayer_share_preview') return null;
+  const parsed = SharePreviewInput.safeParse(args);
+  if (!parsed.success) return fail(parsed.error);
+  const created = await createPreview(parsed.data);
+  if ('error' in created) return err(created.error);
+  return ok({
+    id: created.id,
+    url: created.link,
+    mcpUrl: `${apiBase}/s/${created.id}/mcp`,
+    version: created.version,
+    previous: created.previousId,
+  });
+}
+
+/**
+ * A room reference — a share URL or a bare id — reduced to the id. Throws with
+ * the reason, since every caller reports it straight back to the agent.
+ */
+export function parseRoomRef(input: string): string {
+  const trimmed = input.trim();
+  if (!trimmed) throw new Error('empty room reference');
+  if (!trimmed.includes('/')) return trimmed;
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    throw new Error(`invalid room reference: ${input}`);
+  }
+  const match = parsed.pathname.match(/\/s\/([^/]+)/);
+  if (match?.[1]) return match[1];
+  throw new Error(`could not extract room id from URL: ${input}`);
 }

@@ -122,9 +122,11 @@ describe('GET /health — the bindings, not a hardcoded ok', () => {
 
 describe('POST /{id} on a view-only link', () => {
   const viewOnly = { access: 'view', owner_id: 'u1', owner_expires_at: null };
+  // The password gate reads first; this link has none.
+  const open = { password_hash: null, password_gen: 0, owner_id: 'u1' };
 
   test('is 403 for a stranger and 200 for its owner', async () => {
-    const stranger = fakeDb({ firstQueue: [viewOnly] });
+    const stranger = fakeDb({ firstQueue: [open, viewOnly] });
     const denied = await post({ id: ID, body: { ops: [] }, db: stranger });
     expect(denied.status).toBe(403);
     // The room was not written.
@@ -132,7 +134,7 @@ describe('POST /{id} on a view-only link', () => {
 
     const now = Math.floor(Date.now() / 1000);
     const session = { id: 'u1', email: 'o@x', last_seen_at: now, expires_at: now + 1000 };
-    const owner = fakeDb({ firstQueue: [viewOnly, session] });
+    const owner = fakeDb({ firstQueue: [open, viewOnly, session] });
     const allowed = await post({ id: ID, body: { ops: [] }, db: owner, cookie: 'ml_session=tok' });
     expect(allowed.status).toBe(200);
   });

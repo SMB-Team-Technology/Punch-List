@@ -2,7 +2,7 @@ import { Menu } from '@base-ui/react/menu';
 import { PanelSection } from '@ext/components/PanelSection';
 import { geist } from '@ext/lib/geist';
 import { toast } from '@ext/lib/state';
-import { cn, MAX_INTEGRATIONS_PER_ROOM } from '@marklayer/types';
+import { cn, MAX_INTEGRATIONS_PER_ROOM, slackAppStatusSchema } from '@marklayer/types';
 import { Check, Ellipsis, Send } from 'lucide-preact';
 import { useEffect, useState } from 'preact/hooks';
 import { capture } from './analytics';
@@ -14,7 +14,9 @@ import {
   loadIntegrations,
   type ProviderInfo,
   providerCatalogue,
+  SLACK_BASE,
   saveSecrets,
+  slackApp,
   stringField,
 } from './integrations';
 import { API_BASE } from './signals';
@@ -146,6 +148,7 @@ export function IntegrationsSection({ id }: { id: string }) {
             <section key={group.trigger} aria-label={group.label} class="flex flex-col">
               <h3 class={cn(geist.sectionLabel, 'm-0 mb-1')}>{group.label}</h3>
               <ul class="m-0 flex list-none flex-col p-0">
+                {group.trigger === 'auto' && slackApp.value.enabled && <SlackAppRow id={id} />}
                 {rows.map((provider) => (
                   <ProviderRow
                     key={provider.id}
@@ -330,5 +333,96 @@ function SetupForm({
       ))}
       <div class="flex justify-end">{button('bg-(--ds-gray-alpha-100)')}</div>
     </div>
+  );
+}
+
+/**
+ * The two-way Slack app. Not a catalogue row: it installs through Slack's OAuth
+ * screen, which also picks the channel, so "Set up" is a navigation, not a form.
+ */
+function SlackAppRow({ id }: { id: string }) {
+  const connection = slackApp.value.connection;
+  const [busy, setBusy] = useState(false);
+  const installUrl = `${SLACK_BASE}/install?room=${encodeURIComponent(id)}`;
+
+  const disconnect = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`${SLACK_BASE}?room=${encodeURIComponent(id)}`, { method: 'DELETE' });
+      const parsed = slackAppStatusSchema.safeParse(await res.json().catch(() => null));
+      if (!res.ok || !parsed.success) {
+        toast('Could not disconnect Slack', { type: 'error', duration: 4500 });
+        return;
+      }
+      slackApp.value = parsed.data;
+      capture('integration_removed', { provider: 'slack_app' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const where = connection?.channel ? `#${connection.channel.replace(/^#/, '')}` : connection?.team;
+  return (
+    <li class="flex flex-col border-b border-(--ds-gray-alpha-400) py-2 last:border-b-0">
+      <div class="flex items-center gap-2">
+        <div class="flex min-w-0 flex-1 flex-col">
+          <span class="truncate text-ui font-medium text-(--ds-gray-1000)">Slack, two-way</span>
+          {connection ? (
+            <span class="flex min-w-0 items-center gap-1 text-meta text-(--ds-green-900)">
+              <Check size={12} strokeWidth={2} aria-hidden="true" class="shrink-0" />
+              <span class="truncate">
+                Connected
+                {where && <span class="text-(--ds-gray-900)"> · {where}</span>}
+              </span>
+            </span>
+          ) : (
+            <span class="text-meta leading-snug text-(--ds-gray-900)">
+              A thread per comment. Replies sync both ways.
+            </span>
+          )}
+        </div>
+
+        {connection ? (
+          <Menu.Root>
+            <Menu.Trigger
+              aria-label="Slack options"
+              disabled={busy}
+              className={cn(
+                geist.actionBtn,
+                'mx-0 shrink-0 px-1 text-(--ds-gray-900) hover:bg-(--ds-gray-alpha-100) hover:text-(--ds-gray-1000) data-popup-open:bg-(--ds-gray-alpha-100)',
+              )}
+            >
+              <Ellipsis size={16} strokeWidth={1.5} aria-hidden="true" />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner side="bottom" align="end" sideOffset={4} className="z-2147483647">
+                <Menu.Popup className={cn(geist.surface, 'min-w-40 p-1 text-(--ds-gray-1000)')}>
+                  <Menu.Item className={menuItem} onClick={() => window.location.assign(installUrl)}>
+                    Change channel
+                  </Menu.Item>
+                  <Menu.Item
+                    className={cn(menuItem, 'data-highlighted:text-(--ds-red-700)')}
+                    onClick={() => void disconnect()}
+                  >
+                    Disconnect
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        ) : (
+          <a
+            href={installUrl}
+            onClick={() => capture('integration_added', { provider: 'slack_app' })}
+            class={cn(
+              geist.actionBtn,
+              'mx-0 shrink-0 bg-(--ds-gray-alpha-100) px-2 text-(--ds-gray-1000) no-underline hover:bg-(--ds-gray-alpha-200)',
+            )}
+          >
+            Set up
+          </a>
+        )}
+      </div>
+    </li>
   );
 }

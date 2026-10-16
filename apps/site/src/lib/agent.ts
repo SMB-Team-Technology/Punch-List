@@ -75,6 +75,11 @@ export const MCP_SERVER_CARD = {
     'marklayer_reply',
     'marklayer_create_annotation',
     'marklayer_suggest_edit',
+    'marklayer_share_preview',
+    'marklayer_set_next_steps',
+    'marklayer_complete_next_step',
+    'marklayer_ask',
+    'marklayer_get_feedback',
   ],
   documentation: 'https://github.com/thevrus/MarkLayer/tree/main/apps/mcp',
 };

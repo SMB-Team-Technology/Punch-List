@@ -5,6 +5,8 @@ import {
   destinationListSchema,
   type ProviderInfo,
   providerCatalogueSchema,
+  type SlackAppStatus,
+  slackAppStatusSchema,
 } from '@marklayer/types';
 import { computed, signal } from '@preact/signals';
 import { API_BASE } from './signals';
@@ -26,6 +28,11 @@ export { destinationListSchema };
 
 export const providerCatalogue = signal<ProviderInfo[]>([]);
 export const destinations = signal<DestinationSummary[]>([]);
+/** The Slack app is separate from the catalogue: it installs through OAuth, not a form. */
+export const slackApp = signal<SlackAppStatus>({ enabled: false, connection: null });
+
+/** Where the Slack app's routes live; same origin as the web app. */
+export const SLACK_BASE = '/integrations/slack';
 
 /**
  * Where a single annotation can actually be filed: connected to this room, and
@@ -57,14 +64,17 @@ export async function loadIntegrations({ id, force = false }: { id: string; forc
   if (loadedFor === id && !force) return;
   loadedFor = id;
   try {
-    const [catalogue, mine] = await Promise.all([
+    const [catalogue, mine, slack] = await Promise.all([
       fetch(`${API_BASE}providers`).then((r) => (r.ok ? r.json() : null)),
       fetch(`${API_BASE}${id}/integrations`).then((r) => (r.ok ? r.json() : null)),
+      fetch(`${SLACK_BASE}/status?room=${encodeURIComponent(id)}`).then((r) => (r.ok ? r.json() : null)),
     ]);
     const parsedCatalogue = providerCatalogueSchema.safeParse(catalogue);
     const parsedMine = destinationListSchema.safeParse(mine);
+    const parsedSlack = slackAppStatusSchema.safeParse(slack);
     if (parsedCatalogue.success) providerCatalogue.value = parsedCatalogue.data.providers;
     if (parsedMine.success) destinations.value = parsedMine.data.integrations;
+    if (parsedSlack.success) slackApp.value = parsedSlack.data;
   } catch {
     // Offline. Leave the signals as they are and let both surfaces stay quiet.
     loadedFor = null;

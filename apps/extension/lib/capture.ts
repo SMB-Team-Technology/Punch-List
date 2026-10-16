@@ -52,6 +52,28 @@ async function requestElementCapture(crop: Crop): Promise<string> {
   throw new Error('Tab capture failed');
 }
 
+/** Captures in flight; the overlay comes back only when the last one is done. */
+let hiding = 0;
+
+/**
+ * Part of the viewport, with MarkLayer's own overlay faded out of it for the length of
+ * the capture. Opacity rather than visibility, so a composer opening underneath can
+ * still take focus; the host is the one element every layer of ours renders inside.
+ */
+export async function shootViewport(crop: Omit<Crop, 'viewportWidth'>): Promise<ImageBitmap> {
+  const host = document.querySelector('mark-layer');
+  const overlay = host instanceof HTMLElement ? host : null;
+  hiding++;
+  overlay?.style.setProperty('opacity', '0');
+  try {
+    await nextPaint();
+    const dataUrl = await requestElementCapture({ ...crop, viewportWidth: window.innerWidth });
+    return await createImageBitmap(await (await fetch(dataUrl)).blob());
+  } finally {
+    if (--hiding === 0) overlay?.style.removeProperty('opacity');
+  }
+}
+
 /**
  * Copy an element as screenshot + markdown in one clipboard write, so a paste
  * target picks whichever it understands (agent chats take the image, editors the text).

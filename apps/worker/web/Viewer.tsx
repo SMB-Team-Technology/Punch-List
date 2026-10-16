@@ -47,6 +47,7 @@ import type { ExportData } from './AnnotationPanel';
 import { capture } from './analytics';
 import { frameViewport, isElementNode, sameOriginWindow } from './iframeOverlay';
 import { ProjectTabs } from './ProjectTabs';
+import { ReviewPanel } from './ReviewPanel';
 import { SupportDialog } from './SupportDialog';
 import {
   API_BASE,
@@ -1147,6 +1148,7 @@ export default function Viewer() {
         <VideoBubbles />
         <AudioUnblockPrompt />
         <FollowIndicator />
+        {!chromeHidden && <ReviewPanel />}
         {/* Above the toasts in the tree so a status change made on the board still
             announces itself over it. */}
         <Suspense fallback={null}>

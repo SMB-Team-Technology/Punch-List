@@ -1,4 +1,4 @@
-import type { ConfigFieldInfo, DrawOp, IntegrationProvider } from '@marklayer/types';
+import { type ConfigFieldInfo, type DrawOp, type IntegrationProvider, uploadPath } from '@marklayer/types';
 
 /** One annotation, reduced to the line a destination should show for it. */
 export interface Notifiable {
@@ -6,6 +6,19 @@ export interface Notifiable {
   author: string;
   text: string;
   priority?: string | null;
+  /** Upload ids of the images on it, the pin's own screenshot included; see `attachmentLinks`. */
+  attachments?: string[];
+}
+
+/**
+ * An item's images as URLs a destination can fetch, served from the room's own
+ * origin. Absent rather than empty when there are none, so a payload only grows a
+ * key when it has something in it.
+ */
+export function attachmentLinks({ item, roomUrl }: { item: Notifiable; roomUrl: string }): string[] | undefined {
+  if (!item.attachments?.length) return undefined;
+  const origin = new URL(roomUrl).origin;
+  return item.attachments.map((id) => `${origin}${uploadPath(id)}`);
 }
 
 /** Every event tag, for the callers that need to try each in turn. */
@@ -122,7 +135,13 @@ export function notifiableFrom(op: DrawOp): Notifiable | null {
   const priority = 'priority' in op ? op.priority : null;
   if (op.tool === 'comment') {
     if (!op.text.trim()) return null;
-    return { kind: op.parentId ? 'Reply' : 'Comment', author, text: op.text, priority };
+    return {
+      kind: op.parentId ? 'Reply' : 'Comment',
+      author,
+      text: op.text,
+      priority,
+      ...(op.attachments?.length && { attachments: op.attachments }),
+    };
   }
   if (op.tool === 'area') {
     if (!op.comment?.trim()) return null;

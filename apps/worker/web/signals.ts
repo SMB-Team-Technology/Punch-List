@@ -36,6 +36,7 @@ export {
   projectPages,
   saveProject,
   transcribeFile,
+  transcribeVideo,
   uploadFile,
   uploadVideo,
   withScheme,
@@ -125,7 +126,8 @@ effect(() => {
 
 /** True while an embedded room holds most of the screen, so the host page's own toolbar can step aside. */
 export const embedInView = signal(false);
-export const commentPopover = signal<{ x: number; y: number } | null>(null);
+/** Where a comment is being placed, with the screenshot started the moment it was. */
+export const commentPopover = signal<{ x: number; y: number; snapshot?: Promise<string | null> } | null>(null);
 export const textInput = signal<{ x: number; y: number } | null>(null);
 export const selectionPopover = signal<{
   text: string;

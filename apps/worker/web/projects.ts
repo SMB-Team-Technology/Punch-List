@@ -94,6 +94,14 @@ export async function transcribeFile(id: string): Promise<string | null> {
   return parsed.success ? parsed.data.text : null;
 }
 
+/** A video note's transcript, cut from the audio track recorded beside it, which goes up in the call itself. */
+export async function transcribeVideo({ id, audio }: { id: string; audio: Blob }): Promise<string | null> {
+  const res = await postBody(`${uploadPath(id)}/transcribe`, audio, audio.type || 'application/octet-stream');
+  if (!res?.ok) return null;
+  const parsed = transcribeResponseSchema.safeParse(await res.json());
+  return parsed.success ? parsed.data.text : null;
+}
+
 /** Where `uploadFile`'s id serves back from — relative, since the web app already runs on that origin. */
 export function fileUrl(id: string): string {
   return uploadPath(id);

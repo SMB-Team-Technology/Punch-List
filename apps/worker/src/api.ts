@@ -1,4 +1,5 @@
 import { createRoute, OpenAPIHono, z } from '@hono/zod-openapi';
+import { SharePreviewInput } from '@marklayer/agent-tools';
 import {
   canEditLink,
   drawOpSchema,
@@ -8,6 +9,7 @@ import {
   MIN_SHARE_ID_LENGTH,
   opsArraySchema,
 } from '@marklayer/types';
+import type { Context } from 'hono';
 import { cors } from 'hono/cors';
 import { userFromCookieHeader } from './auth';
 import { dayCached, once } from './http';
@@ -22,7 +24,9 @@ import {
 } from './integrations/deliver';
 import { providerById, providerList } from './integrations/providers';
 import { notifiableFrom } from './integrations/types';
+import { lockedError, lockedPages, roomAccess } from './lock/gate';
 import { captureServer } from './posthog';
+import { createPreviewRoom } from './preview';
 import { annotationStore, isExpired, projectStore } from './store';
 
 const api = new OpenAPIHono<Env>();
@@ -81,7 +85,7 @@ const openApiJson = once(() =>
         title: 'MarkLayer Share API',
         version: '1.0.0',
         description:
-          'Anonymous, no-auth API for creating and reading MarkLayer annotation share links. Pick an unguessable id (nanoid/uuid) — the id is the access token. Share links open at https://marklayer.app/s/{id} (or /p/{id} for project bundles).',
+          'Anonymous, no-auth API for creating and reading MarkLayer annotation share links. Pick an unguessable id (nanoid/uuid) — the id is the access token. Share links open at https://marklayer.app/s/{id} (or /p/{id} for project bundles). A link its owner protected with a password answers 401 to every /{id} route unless the request sends `Authorization: Bearer <password>` (or `X-MarkLayer-Password`); ten wrong guesses in 15 minutes answer 429.',
         license: { name: 'MIT', url: 'https://github.com/thevrus/MarkLayer/blob/main/LICENSE' },
       },
       servers: [{ url: 'https://marklayer.app/api' }],
@@ -106,6 +110,27 @@ const jsonRes = <S extends z.ZodType>(schema: S, description: string) => ({
   description,
   content: { 'application/json': { schema } },
 });
+
+/**
+ * The share API's half of the password gate: every `/{id}` route reads or
+ * changes the room, so each asks before touching it. Null means go ahead.
+ */
+async function refuseLocked({
+  c,
+  id,
+}: {
+  c: Context<Env>;
+  id: string;
+}): Promise<{ status: 401 | 429; error: string } | null> {
+  const access = await roomAccess({ db: c.env.DB, id, headers: c.req.raw.headers });
+  return access.open ? null : lockedError(access);
+}
+
+/** Declared on every gated route, so the spec says what a protected link answers. */
+const LOCKED_RESPONSES = {
+  401: jsonRes(ErrorResponse, 'Password-protected link: send `Authorization: Bearer <password>`'),
+  429: jsonRes(ErrorResponse, 'Too many wrong passwords for this link from this client'),
+};
 
 // Seconds-from-now → absolute unix expiry, or null when unset / non-positive.
 function expiresAtFrom(expiresIn: number | undefined): number | null {
@@ -244,6 +269,7 @@ const storeAnnotation = createRoute({
     body: { required: true, content: { 'application/json': { schema: StoreAnnotationBody } } },
   },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(OkResponse, 'Stored'),
     400: jsonRes(ErrorResponse, 'Invalid operations data'),
     403: jsonRes(ErrorResponse, 'Link is view-only'),
@@ -252,6 +278,9 @@ const storeAnnotation = createRoute({
 
 api.openapi(storeAnnotation, async (c) => {
   const { id } = c.req.valid('param');
+  // Writes too: replacing a protected room's ops is as much a breach as reading them.
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const body = c.req.valid('json');
 
   let ops: unknown;
@@ -313,6 +342,7 @@ const getAnnotation = createRoute({
   summary: 'Retrieve a share link',
   request: { params: IdParam },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(AnnotationResponse, 'Annotation payload'),
     404: jsonRes(ErrorResponse, 'Not found'),
     410: jsonRes(ErrorResponse, 'Expired'),
@@ -321,6 +351,8 @@ const getAnnotation = createRoute({
 
 api.openapi(getAnnotation, async (c) => {
   const { id } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const store = annotationStore(c.env.DB);
   const row = await store.get(id);
 
@@ -333,6 +365,113 @@ api.openapi(getAnnotation, async (c) => {
 
   c.executionCtx.waitUntil(store.touch(id));
   return c.json({ ops: row.ops, url: row.url, width: row.width }, 200);
+});
+
+// ---------- Preview rooms + versions ----------
+
+/** Documents the request; `SharePreviewInput` from agent-tools is what validates it, shared with the MCP tool. */
+const PreviewBody = z
+  .object({
+    url: z.string().openapi({ format: 'uri', description: 'Absolute http(s) URL of the page to review' }),
+    title: z.string().openapi({ description: 'What this is, shown to reviewers' }),
+    repo: z.string().optional(),
+    branch: z.string().optional(),
+    sha: z.string().optional(),
+    note: z.string().optional().openapi({ description: 'What changed and what to look at' }),
+    questions: z
+      .array(z.object({ prompt: z.string(), options: z.array(z.string()) }))
+      .optional()
+      .openapi({ description: 'Polls to open the room with: 2–6 options each, at most 5' }),
+    previous: z.string().optional().openapi({
+      description:
+        'A room you hold (link or id). With the same repo and branch, the new room becomes its next version. Naming it is the proof you hold it: rooms are never chained by repo and branch alone.',
+    }),
+    agent: z.string().optional().openapi({ description: 'Who is asking, shown as the author of any polls' }),
+  })
+  .openapi('CreatePreview');
+
+const PreviewCreatedResponse = z
+  .object({
+    id: z.string(),
+    url: z.string(),
+    version: z.number().nullable(),
+    previous: z.string().nullable(),
+  })
+  .openapi('PreviewCreated');
+
+const createPreview = createRoute({
+  method: 'post',
+  path: '/{id}/preview',
+  summary: 'Open a review room on a preview build',
+  description:
+    'What the marklayer_share_preview tool calls. Creates the room at the id you chose and never overwrites one.',
+  request: {
+    params: NewIdParam,
+    body: { required: true, content: { 'application/json': { schema: PreviewBody } } },
+  },
+  responses: {
+    200: jsonRes(PreviewCreatedResponse, 'Created'),
+    400: jsonRes(ErrorResponse, 'Invalid preview'),
+    409: jsonRes(ErrorResponse, 'Id already taken'),
+  },
+});
+
+api.openapi(createPreview, async (c) => {
+  const { id } = c.req.valid('param');
+  const body = c.req.valid('json');
+  const parsed = SharePreviewInput.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; ') }, 400);
+  }
+  const created = await createPreviewRoom({
+    db: c.env.DB,
+    request: parsed.data,
+    agentId: body.agent?.trim().slice(0, 64) || 'agent',
+    origin: new URL(c.req.url).origin,
+    headers: c.req.raw.headers,
+    id,
+  });
+  if ('error' in created) return c.json({ error: created.error }, created.taken ? 409 : 400);
+  captureServer(c.env, c.executionCtx, 'preview_shared', { versioned: created.previousId !== null });
+  return c.json({ id: created.id, url: created.link, version: created.version, previous: created.previousId }, 200);
+});
+
+const VersionRefSchema = z
+  .object({ id: z.string(), version: z.number().nullable(), sha: z.string().nullable() })
+  .nullable();
+
+const VersionsResponse = z
+  .object({
+    title: z.string().nullable(),
+    note: z.string().nullable(),
+    repo: z.string().nullable(),
+    branch: z.string().nullable(),
+    sha: z.string().nullable(),
+    version: z.number().nullable(),
+    previous: VersionRefSchema,
+    next: VersionRefSchema,
+  })
+  .openapi('Versions');
+
+const getVersions = createRoute({
+  method: 'get',
+  path: '/{id}/versions',
+  summary: "A preview room's version and its neighbours",
+  request: { params: IdParam },
+  responses: {
+    200: jsonRes(VersionsResponse, 'Version info'),
+    404: jsonRes(ErrorResponse, 'Not found'),
+    ...LOCKED_RESPONSES,
+  },
+});
+
+api.openapi(getVersions, async (c) => {
+  const { id } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
+  const info = await annotationStore(c.env.DB).getVersions(id);
+  if (!info) return c.json({ error: 'not found' }, 404);
+  return c.json(info, 200);
 });
 
 // ---------- Integrations ----------
@@ -373,6 +512,7 @@ const getIntegrations = createRoute({
     'Reports which destinations are configured, never their configuration: the room id is its own access token, so returning a webhook URL would hand out a credential.',
   request: { params: IdParam },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(IntegrationsResponse, 'Configured destinations'),
     404: jsonRes(ErrorResponse, 'Not found'),
   },
@@ -380,6 +520,8 @@ const getIntegrations = createRoute({
 
 api.openapi(getIntegrations, async (c) => {
   const { id } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const row = await annotationStore(c.env.DB).getIntegrations(id);
   if (!row) return c.json({ error: 'not found' }, 404);
   return c.json({ integrations: parseIntegrations(row.integrations).map(summarizeIntegration) }, 200);
@@ -415,6 +557,7 @@ const addIntegration = createRoute({
     },
   },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(IntegrationsResponse, 'Stored'),
     400: jsonRes(ErrorResponse, 'Destination rejected'),
     404: jsonRes(ErrorResponse, 'Not found'),
@@ -423,6 +566,8 @@ const addIntegration = createRoute({
 
 api.openapi(addIntegration, async (c) => {
   const { id } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const incoming = c.req.valid('json');
 
   // Refuse where somebody can see it, rather than silently never delivering.
@@ -454,6 +599,7 @@ const removeIntegration = createRoute({
   summary: 'Remove a destination from a room',
   request: { params: IdParam.extend({ provider: z.string() }) },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(IntegrationsResponse, 'Removed'),
     404: jsonRes(ErrorResponse, 'Not found'),
   },
@@ -461,6 +607,8 @@ const removeIntegration = createRoute({
 
 api.openapi(removeIntegration, async (c) => {
   const { id, provider } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const store = annotationStore(c.env.DB);
   const row = await store.getIntegrations(id);
   if (!row) return c.json({ error: 'not found' }, 404);
@@ -508,6 +656,7 @@ const pushAnnotation = createRoute({
     body: { required: true, content: { 'application/json': { schema: PushBody } } },
   },
   responses: {
+    ...LOCKED_RESPONSES,
     200: jsonRes(PushResponse, 'Filed'),
     400: jsonRes(ErrorResponse, 'Could not be filed'),
     404: jsonRes(ErrorResponse, 'Not found'),
@@ -517,6 +666,8 @@ const pushAnnotation = createRoute({
 
 api.openapi(pushAnnotation, async (c) => {
   const { id, opId } = c.req.valid('param');
+  const locked = await refuseLocked({ c, id });
+  if (locked) return c.json({ error: locked.error }, locked.status);
   const { provider: providerId, secrets } = c.req.valid('json');
 
   // Resolved before any I/O, because it reads nothing but the static manifest:
@@ -650,9 +801,17 @@ api.openapi(getProject, async (c) => {
   c.executionCtx.waitUntil(projects.touch(id));
   const { pageIds, createdAt, expiresAt } = row;
   if (!pageIds.length) return c.json({ pageIds: [], pages: [], createdAt, expiresAt }, 200);
-  const byId = await annotationStore(c.env.DB).getMany(pageIds);
-  // Preserve original order; missing rows become empty placeholders
-  const pages = pageIds.map((pid) => byId.get(pid) ?? { id: pid, ops: [], url: null, width: null });
+  const [byId, locked] = await Promise.all([
+    annotationStore(c.env.DB).getMany(pageIds),
+    lockedPages({ db: c.env.DB, pageIds, headers: c.req.raw.headers }),
+  ]);
+  // Preserve original order; missing rows, and pages this caller has not unlocked, become empty placeholders.
+  // Anyone may bundle any id into a project, so this is the route a protected page would otherwise leak through.
+  const pages = pageIds.map((pid) =>
+    locked.includes(pid)
+      ? { id: pid, ops: [], url: null, width: null }
+      : (byId.get(pid) ?? { id: pid, ops: [], url: null, width: null }),
+  );
   return c.json({ pageIds, pages, createdAt, expiresAt }, 200);
 });
 

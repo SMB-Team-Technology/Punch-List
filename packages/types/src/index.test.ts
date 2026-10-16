@@ -24,10 +24,12 @@ import {
   normalizeSuggestion,
   opAnchor,
   parseOps,
+  type QuestionOp,
   RETENTION_DAYS,
   redactSharePath,
   resolveOpStatus,
   selectionOpSchema,
+  tallyQuestion,
   translateOp,
 } from './index';
 
@@ -465,5 +467,43 @@ describe('parseOps', () => {
     const intro = { id: 'i1', tool: 'intro', video: 'a'.repeat(21), color: '#000', lineWidth: 2, ts: 1 };
     const stored = [comment, intro, { ...intro, id: 'i2', video: '../etc/passwd' }, { ...comment, tool: 'hologram' }];
     expect(parseOps(stored).map((op) => op.id)).toEqual(['op1', 'i1']);
+  });
+});
+
+describe('tallyQuestion', () => {
+  const question: QuestionOp = {
+    id: 'q1',
+    tool: 'question',
+    prompt: 'Which hero?',
+    options: ['A', 'B'],
+    ts: 1,
+    color: '#000',
+    lineWidth: 1,
+  };
+  const vote = (voter: string, option: number, ts: number): DrawOp => ({
+    id: `v-${voter}-${ts}`,
+    tool: 'vote',
+    questionId: 'q1',
+    voter,
+    option,
+    ts,
+    color: '#000',
+    lineWidth: 1,
+  });
+
+  // Two ballots from one voter is a revote; counting both would let anyone stuff the poll.
+  test('counts only the latest ballot per voter', () => {
+    const tally = tallyQuestion({ question, ops: [vote('ada', 0, 1), vote('ada', 1, 2), vote('bo', 0, 3)] });
+    expect(tally.counts).toEqual([1, 1]);
+    expect(tally.total).toBe(2);
+  });
+
+  test('ignores a ballot for an option the question does not have', () => {
+    expect(tallyQuestion({ question, ops: [vote('ada', 4, 1)] }).total).toBe(0);
+  });
+
+  test('the room rejects a poll past the option cap', () => {
+    const op = { ...question, options: ['1', '2', '3', '4', '5', '6', '7'] };
+    expect(clientMsgSchema.safeParse({ type: 'op', op }).success).toBe(false);
   });
 });

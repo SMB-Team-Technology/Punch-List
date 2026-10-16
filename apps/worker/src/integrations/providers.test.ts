@@ -259,6 +259,43 @@ describe('webhook', () => {
   });
 });
 
+// The pin's screenshot rides `attachments`; dropped anywhere on the way, a destination just gets text.
+describe('screenshots', () => {
+  const comment: DrawOp = {
+    ...base,
+    tool: 'comment',
+    num: 1,
+    text: 'Contrast fails',
+    x: 0,
+    y: 0,
+    ts: 0,
+    attachments: ['shot1234567'],
+  };
+  const shotUrl = 'https://marklayer.app/f/shot1234567';
+
+  test('reach a webhook as URLs on the room origin', () => {
+    const shot = notifiableFrom(comment);
+    if (!shot) throw new Error('comment was not notifiable');
+    const rendered = PROVIDERS.webhook.render({
+      event: { type: 'annotations.created', items: [shot] },
+      config: { url: 'https://example.com/hook' },
+      ...args,
+    });
+    expect(JSON.parse(rendered?.body ?? '{}').items[0].attachments).toEqual([shotUrl]);
+  });
+
+  test('are linked from a filed issue', () => {
+    const shot = notifiableFrom(comment);
+    if (!shot) throw new Error('comment was not notifiable');
+    const rendered = PROVIDERS.github.render({
+      event: { type: 'annotation.pushed', items: [shot] },
+      config: configs.github,
+      ...args,
+    });
+    expect(rendered?.body).toContain(shotUrl);
+  });
+});
+
 describe('trello', () => {
   const body = (b: unknown) => PROVIDERS.trello.parseResult?.(b);
 

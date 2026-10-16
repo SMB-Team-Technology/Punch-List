@@ -1,9 +1,19 @@
 import { Toggle } from '@base-ui/react/toggle';
 import { ToggleGroup } from '@base-ui/react/toggle-group';
+import { submitBtn } from '@ext/lib/buttons';
 import { geist } from '@ext/lib/geist';
-import { DAY_SECONDS, type LinkAccess, MAX_EXPIRES_IN_SECONDS, type OwnedLink } from '@marklayer/types';
+import {
+  cn,
+  DAY_SECONDS,
+  LINK_PASSWORD_MAX,
+  LINK_PASSWORD_MIN,
+  type LinkAccess,
+  MAX_EXPIRES_IN_SECONDS,
+  type OwnedLink,
+} from '@marklayer/types';
 import type { ComponentChildren } from 'preact';
-import { updateLinkSettings } from './session';
+import { useState } from 'preact/hooks';
+import { setLinkPassword, updateLinkSettings } from './session';
 
 /** The owner-expiry presets the settings panel offers. `seconds: null` is "Never". */
 const EXPIRY_OPTIONS: { key: string; label: string; seconds: number | null }[] = [
@@ -42,6 +52,79 @@ function SettingsToggleRow({ label, children }: { label: string; children: Compo
     <div class="flex flex-wrap items-center justify-between gap-2">
       <span class="text-meta text-(--ds-gray-900)">{label}</span>
       {children}
+    </div>
+  );
+}
+
+/**
+ * Optional password. One field for set and change, so a protected link never
+ * shows a masked stand-in for a password the server does not keep.
+ */
+function LinkPassword({ link }: { link: OwnedLink }) {
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  const save = async (password: string | null) => {
+    if (busy) return;
+    setBusy(true);
+    const error = await setLinkPassword({ id: link.id, password });
+    setBusy(false);
+    if (error) {
+      setNote(error);
+      return;
+    }
+    setValue('');
+    setNote(
+      password === null ? 'Password removed. Open sessions were ended.' : 'Password saved. Open sessions were ended.',
+    );
+  };
+
+  return (
+    <div class="flex flex-col gap-1.5">
+      <form
+        class="flex items-center gap-1.5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (value.length >= LINK_PASSWORD_MIN) void save(value);
+        }}
+      >
+        <div class={cn(geist.field, 'flex flex-1 items-center px-2.5')}>
+          <input
+            type="password"
+            autocomplete="new-password"
+            aria-label={link.passwordProtected ? 'New password' : 'Password'}
+            placeholder={link.passwordProtected ? 'New password' : 'Add a password'}
+            minLength={LINK_PASSWORD_MIN}
+            maxLength={LINK_PASSWORD_MAX}
+            value={value}
+            disabled={busy}
+            class={cn(geist.input, 'h-full w-full')}
+            onInput={(e) => {
+              setValue(e.currentTarget.value);
+              if (note) setNote(null);
+            }}
+          />
+        </div>
+        <button type="submit" class={cn(submitBtn, 'shrink-0')} disabled={busy || value.length < LINK_PASSWORD_MIN}>
+          {link.passwordProtected ? 'Change' : 'Set'}
+        </button>
+        {link.passwordProtected && (
+          <button
+            type="button"
+            class={cn(geist.ctlXs, geist.ctlLabel, geist.ctlIdle, 'h-8')}
+            disabled={busy}
+            onClick={() => void save(null)}
+          >
+            Remove
+          </button>
+        )}
+      </form>
+      {note && (
+        <p class="text-meta leading-body m-0 text-(--ds-gray-900)" role="status">
+          {note}
+        </p>
+      )}
     </div>
   );
 }
@@ -89,6 +172,10 @@ export function LinkSettings({ link }: { link: OwnedLink }) {
           ))}
         </ToggleGroup>
       </SettingsToggleRow>
+      <SettingsToggleRow label="Password">
+        <span class="text-meta text-(--ds-gray-1000)">{link.passwordProtected ? 'On' : 'Off'}</span>
+      </SettingsToggleRow>
+      <LinkPassword link={link} />
     </div>
   );
 }

@@ -1,7 +1,15 @@
 import type { IntegrationProvider } from '@marklayer/types';
 import { z } from 'zod/mini';
 import { base64Utf8 } from '../http';
-import { type ConfigField, type Notifiable, oneLine, type Provider, type RenderArgs, summarize } from './types';
+import {
+  attachmentLinks,
+  type ConfigField,
+  type Notifiable,
+  oneLine,
+  type Provider,
+  type RenderArgs,
+  summarize,
+} from './types';
 
 const json = { 'Content-Type': 'application/json' };
 
@@ -216,7 +224,11 @@ function renderJson({ event, config, roomUrl, pageUrl }: RenderArgs) {
       type: event.type,
       room: roomUrl,
       page: pageUrl,
-      items: event.items.map((i) => ({ ...i, text: oneLine(i.text) })),
+      items: event.items.map((i) => ({
+        ...i,
+        text: oneLine(i.text),
+        attachments: attachmentLinks({ item: i, roomUrl }),
+      })),
     }),
   };
 }
@@ -287,7 +299,9 @@ function issueContent({ event, roomUrl, pageUrl }: RenderArgs): { title: string;
     ? `${item.kind} by ${item.author} · priority ${item.priority}`
     : `${item.kind} by ${item.author}`;
 
-  const body = [text, '', attribution, pageUrl ? `Page: ${pageUrl}` : null, `Annotations: ${roomUrl}`]
+  // Bare URLs, not markdown images: Jira and Trello would print `![…](…)` literally.
+  const images = (attachmentLinks({ item, roomUrl }) ?? []).map((url) => `Screenshot: ${url}`);
+  const body = [text, '', attribution, pageUrl ? `Page: ${pageUrl}` : null, `Annotations: ${roomUrl}`, ...images]
     .filter((l) => l !== null)
     .join('\n');
 

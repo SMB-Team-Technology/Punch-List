@@ -21,12 +21,24 @@ interface RecorderOptions {
   maxSeconds: number;
   bitrates?: Pick<MediaRecorderOptions, 'audioBitsPerSecond' | 'videoBitsPerSecond'>;
   upload: (file: Blob) => Promise<string | null>;
-  /** Runs once the upload has an id, while the control still shows as working. */
-  onUploaded?: (id: string) => Promise<void>;
+  /** Also record the stream's audio alone: the server cannot cut a clip's sound out to transcribe it. */
+  audioTrack?: { mimeTypes: readonly string[]; bitsPerSecond: number };
+  /** Runs once the upload has an id, while the control still shows as working. `audio` is the
+   *  `audioTrack` take, null when not asked for or the stream had no sound. */
+  onUploaded?: (done: { id: string; audio: Blob | null }) => Promise<void>;
 }
 
 /** One composer's recording: idle, opening the device, recording, then uploading, ending in an upload id. */
-export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, upload, onUploaded }: RecorderOptions) {
+export function useRecorder({
+  kind,
+  slot,
+  mimeTypes,
+  maxSeconds,
+  bitrates,
+  upload,
+  audioTrack,
+  onUploaded,
+}: RecorderOptions) {
   const ownSlot = useSignal<RecorderKind | null>(null);
   const claim = slot ?? ownSlot;
   const status = useSignal<RecorderStatus>('idle');
@@ -38,6 +50,7 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
   const clip = useSignal<string | null>(null);
   const blocked = useComputed(() => claim.value !== null && claim.value !== kind);
   const recorder = useRef<MediaRecorder | null>(null);
+  const sidecar = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const closed = useRef(false);
@@ -51,6 +64,8 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
   const release = () => {
     if (timer.current) clearInterval(timer.current);
     timer.current = null;
+    if (sidecar.current?.state === 'recording') sidecar.current.stop();
+    sidecar.current = null;
     for (const track of stream.current?.getTracks() ?? []) track.stop();
     stream.current = null;
     live.value = null;
@@ -61,7 +76,32 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
     clip.value = null;
   };
 
-  const finish = async (blob: Blob) => {
+  /** The stream's sound on its own, resolving once stopped; null when there is none to take. */
+  const recordAudioAlone = (source: MediaStream): Promise<Blob | null> => {
+    const tracks = source.getAudioTracks();
+    if (!audioTrack || tracks.length === 0) return Promise.resolve(null);
+    try {
+      const mimeType = audioTrack.mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
+      const rec = new MediaRecorder(new MediaStream(tracks), {
+        mimeType,
+        audioBitsPerSecond: audioTrack.bitsPerSecond,
+      });
+      const chunks: Blob[] = [];
+      const done = new Promise<Blob | null>((resolve) => {
+        rec.ondataavailable = (e) => chunks.push(e.data);
+        rec.onstop = () => resolve(chunks.length ? new Blob(chunks, { type: rec.mimeType }) : null);
+        rec.onerror = () => resolve(null);
+      });
+      rec.start();
+      sidecar.current = rec;
+      return done;
+    } catch {
+      // The transcript is a bonus; the clip still records without it.
+      return Promise.resolve(null);
+    }
+  };
+
+  const finish = async ({ blob, audio }: { blob: Blob; audio: Promise<Blob | null> }) => {
     setStatus('working');
     dropClip();
     clip.value = URL.createObjectURL(blob);
@@ -74,7 +114,7 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
       return;
     }
     id.value = uploaded;
-    await onUploaded?.(uploaded);
+    await onUploaded?.({ id: uploaded, audio: await audio });
     if (!closed.current) setStatus('idle');
   };
 
@@ -99,6 +139,7 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
     stream.current = opened.stream;
     const mimeType = mimeTypes.find((type) => MediaRecorder.isTypeSupported(type));
     const chunks: Blob[] = [];
+    let audio: Promise<Blob | null> = Promise.resolve(null);
     let rec: MediaRecorder;
     // Both can throw (no supported type, a track that ended at the picker), and the tracks are already live.
     try {
@@ -108,9 +149,10 @@ export function useRecorder({ kind, slot, mimeTypes, maxSeconds, bitrates, uploa
         release();
         recorder.current = null;
         if (closed.current) return;
-        void finish(new Blob(chunks, { type: rec.mimeType }));
+        void finish({ blob: new Blob(chunks, { type: rec.mimeType }), audio });
       };
       rec.start();
+      audio = recordAudioAlone(opened.stream);
     } catch {
       release();
       setStatus('idle');

@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, mock, test } from 'bun:test';
-import type { DrawOp } from '@marklayer/types';
+import { type DrawOp, ROOM_LOCKED_CLOSE_CODE } from '@marklayer/types';
+import { ROOM_GEN_HEADER } from './lock/gate';
 import { asDb, fakeDb } from './test-d1';
 
 // The runtime module only exists inside workerd; the room needs nothing of it but a base class.
@@ -162,3 +163,51 @@ describe('AnnotationRoom view-only enforcement', () => {
     expect(alarms).toEqual([]);
   });
 });
+
+describe('AnnotationRoom password revoke', () => {
+  /** The real close carries the code the client acts on, which `fakeSocket` drops. */
+  function closingSocket(attachment: unknown) {
+    const socket = fakeSocket(attachment);
+    const codes: number[] = [];
+    return Object.assign(socket, { codes, close: (code?: number) => void codes.push(code ?? 1000) });
+  }
+
+  test('a password change closes every session but the owner, and refuses a socket admitted before it', async () => {
+    const db = fakeDb({ first: { access: 'edit', owner_id: 'owner', owner_expires_at: null } });
+    const guest = closingSocket({ id: 'g', name: 'G', color: '#8b5cf6', userId: 'someone-else' });
+    const anon = closingSocket({ id: 'a', name: 'A', color: '#8b5cf6' });
+    const owner = closingSocket({ id: 'o', name: 'O', color: '#8b5cf6', userId: 'owner' });
+    const { room } = makeRoom({ db, sockets: [guest, anon, owner] });
+    await room.fetch(new Request(`https://room/refresh-access?id=${ID}`, { method: 'POST' }));
+
+    const parked = room.agentWatch(ID, { timeoutMs: 60_000 });
+    // Let the watch finish loading the room and park before the change lands.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const res = await room.fetch(new Request(`https://room/revoke?id=${ID}&gen=2`, { method: 'POST' }));
+    expect(res.status).toBe(204);
+    expect(guest.codes).toEqual([ROOM_LOCKED_CLOSE_CODE]);
+    expect(anon.codes).toEqual([ROOM_LOCKED_CLOSE_CODE]);
+    expect(owner.codes).toEqual([]);
+    // A watching agent wakes empty-handed rather than receiving what lands after the change.
+    expect(await parked).toEqual([]);
+
+    // Admitted by the Worker at generation 1, just before the change reached the room. The
+    // ctx has no `acceptWebSocket`, so letting it in would throw rather than return.
+    const hadPairClass = Reflect.get(globalThis, 'WebSocketPair');
+    Reflect.set(globalThis, 'WebSocketPair', fakePairClass());
+    try {
+      const late = await room.fetch(new Request(`https://room/?id=${ID}`, { headers: { [ROOM_GEN_HEADER]: '1' } }));
+      expect(late.status).toBe(101);
+    } finally {
+      Reflect.set(globalThis, 'WebSocketPair', hadPairClass);
+    }
+  });
+});
+
+function fakePairClass() {
+  const end = () => ({ accept() {}, close() {} });
+  return class {
+    0 = end();
+    1 = end();
+  };
+}

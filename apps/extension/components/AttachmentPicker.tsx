@@ -11,9 +11,52 @@ import { Tooltip } from './Tooltip';
  * through different origins (absolute vs. relative) — same split as every other
  * network call shared between the two (see `share.ts` vs. `projects.ts`).
  */
-export function useAttachments(upload: (file: File | Blob) => Promise<string | null>) {
+export function useAttachments({
+  upload,
+  pending,
+}: {
+  upload: (file: File | Blob) => Promise<string | null>;
+  /** An upload begun before the composer opened (the pin's screenshot); it queues like a picked file. */
+  pending?: Promise<string | null>;
+}) {
   const [ids, setIds] = useState<string[]>([]);
-  const [uploading, setUploading] = useState(0);
+  // Mirrors `ids` so `settled` can read the list as it is after an await, not as it was at render.
+  const idsRef = useRef<string[]>([]);
+  const inflight = useRef(new Set<Promise<unknown>>());
+  /** The pin's screenshot, once it lands: an attachment, but not something the author wrote. */
+  const [autoId, setAutoId] = useState<string | null>(null);
+
+  const updateIds = (next: (prev: string[]) => string[]) => {
+    idsRef.current = next(idsRef.current);
+    setIds(idsRef.current);
+  };
+
+  /** Settles one upload into the list; the caller has already counted it in `uploading`. */
+  const watch = (job: Promise<string | null>, onId?: (id: string) => void) => {
+    const done = job
+      .catch(() => null)
+      .then((id) => {
+        if (id) {
+          updateIds((prev) => [...prev, id]);
+          onId?.(id);
+        }
+        inflight.current.delete(done);
+        setUploading((n) => n - 1);
+      });
+    inflight.current.add(done);
+  };
+
+  // Adopted in the initializer so it runs once per composer; the callbacks only fire after mount.
+  const [uploading, setUploading] = useState(() => {
+    if (!pending) return 0;
+    watch(pending, setAutoId);
+    return 1;
+  });
+
+  const track = (job: Promise<string | null>) => {
+    setUploading((n) => n + 1);
+    watch(job);
+  };
 
   const addFiles = (files: Iterable<File>) => {
     let slots = MAX_ATTACHMENTS - ids.length - uploading;
@@ -21,20 +64,17 @@ export function useAttachments(upload: (file: File | Blob) => Promise<string | n
       if (slots <= 0) break;
       if (!file.type.startsWith('image/')) continue;
       slots--;
-      setUploading((n) => n + 1);
-      void (async () => {
-        try {
-          // A canvas re-encode would flatten a GIF to its first frame, so those
-          // upload as-is; every other format gets downscaled and recompressed —
-          // the anonymous endpoint has no auth to gate volume by otherwise.
-          const blob = file.type === 'image/gif' ? file : await compressImage(file);
-          const id = await upload(blob);
-          if (id) setIds((prev) => [...prev, id]);
-        } finally {
-          setUploading((n) => n - 1);
-        }
-      })();
+      // A canvas re-encode would flatten a GIF to its first frame, so those
+      // upload as-is; every other format gets downscaled and recompressed —
+      // the anonymous endpoint has no auth to gate volume by otherwise.
+      track((file.type === 'image/gif' ? Promise.resolve(file) : compressImage(file)).then(upload));
     }
+  };
+
+  /** Every attachment once the uploads in flight have landed, so Post can wait rather than refuse. */
+  const settled = async (): Promise<string[]> => {
+    while (inflight.current.size) await Promise.all(inflight.current);
+    return idsRef.current;
   };
 
   /** Pulls image files out of a paste event, so a screenshot on the clipboard attaches the same way a picked file does. */
@@ -50,11 +90,14 @@ export function useAttachments(upload: (file: File | Blob) => Promise<string | n
     ids,
     /** Gates a composer's submit: an in-flight paste-upload has no second chance to attach once the comment is posted. */
     uploading: uploading > 0,
+    /** Attachments the author chose; the pin's own screenshot alone does not make a comment. */
+    picked: ids.filter((id) => id !== autoId).length,
     full: ids.length + uploading >= MAX_ATTACHMENTS,
     addFiles,
     onPaste,
-    remove: (id: string) => setIds((prev) => prev.filter((x) => x !== id)),
-    reset: () => setIds([]),
+    settled,
+    remove: (id: string) => updateIds((prev) => prev.filter((x) => x !== id)),
+    reset: () => updateIds(() => []),
   };
 }
 

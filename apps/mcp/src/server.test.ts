@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { parseRoomRef } from './server';
+import { parseRoomRef } from '@marklayer/agent-tools';
 
 describe('parseRoomRef', () => {
   test('passes a bare room id through untouched', () => {

@@ -1,11 +1,16 @@
 import type { PageReading } from '@marklayer/agent-tools';
 import {
+  agentQuestionOp,
+  agentStepOps,
+  callCreateTool,
   callRoomTool,
   classifyOp,
   describedSchema,
   isWatchableOp as isWatchable,
+  type QuestionRequest,
   type RoomMeta,
   type RoomOps,
+  type StepRequest,
   TOOLS,
   type ToolContent,
   WATCH_DEFAULT_SECONDS,
@@ -30,6 +35,7 @@ import { nanoid } from 'nanoid';
 import type { AnnotationRoom } from './annotation-room';
 import { outlinePage } from './page-outline';
 import { captureServer } from './posthog';
+import { createPreviewRoom } from './preview';
 import { fetchPage } from './proxy';
 
 /**
@@ -61,6 +67,38 @@ export async function readRoomPage({
   const page = await fetchPage({ url: target, env });
   if (!page.stream || page.status >= 400 || !page.contentType.includes('html')) return null;
   return outlinePage({ html: await new Response(page.stream).text(), url: page.finalUrl });
+}
+
+/** Replies are numbered off root threads only, or one would take a real comment's number. */
+const nextCommentNum = (ops: DrawOp[]) => ops.filter((o) => o.tool === 'comment' && !o.parentId).length + 1;
+
+/**
+ * A reply op under `parent`, as the `reply` tool writes it. Shared with the
+ * Slack app, so a reply typed in a Slack thread lands exactly where an agent's would.
+ */
+export function replyOp({
+  id,
+  parent,
+  ops,
+  text,
+  signature,
+}: {
+  id: string;
+  parent: AnnotationOp;
+  ops: DrawOp[];
+  text: string;
+  signature: { color: string; ts: number; author: string; authorId?: string; assignedAgent?: string };
+}): CommentOp {
+  return {
+    ...signature,
+    id,
+    tool: 'comment',
+    num: nextCommentNum(ops),
+    text,
+    ...opAnchor(parent),
+    lineWidth: parent.lineWidth,
+    parentId: parent.id,
+  };
 }
 
 export class WorkerRoom implements RoomOps {
@@ -163,16 +201,7 @@ export class WorkerRoom implements RoomOps {
   async reply(id: string, text: string): Promise<boolean> {
     const parent = this.ops.find((o): o is AnnotationOp => isWatchable(o) && o.id === id);
     if (!parent) return false;
-    return this.push({
-      ...this.signature(),
-      id: nanoid(),
-      tool: 'comment',
-      num: this.nextNum(),
-      text,
-      ...opAnchor(parent),
-      lineWidth: parent.lineWidth,
-      parentId: id,
-    });
+    return this.push(replyOp({ id: nanoid(), parent, ops: this.ops, text, signature: this.signature() }));
   }
 
   async create({
@@ -235,6 +264,28 @@ export class WorkerRoom implements RoomOps {
     return (await this.push(op)) ? { id: op.id } : null;
   }
 
+  listOps(): readonly DrawOp[] {
+    return this.ops;
+  }
+
+  async setNextSteps(steps: StepRequest[]): Promise<{ ids: string[] } | null> {
+    const stale = this.ops.filter((op) => op.tool === 'step').map((op) => op.id);
+    if (stale.length && !(await this.stub.agentRemoveOps(this.roomId, stale))) return null;
+    this.ops = this.ops.filter((op) => op.tool !== 'step');
+    const ops = agentStepOps({ newId: nanoid, steps, agentId: this.agentId });
+    for (const op of ops) if (!(await this.push(op))) return null;
+    return { ids: ops.map((op) => op.id) };
+  }
+
+  setStepDone({ id, done }: { id: string; done: boolean }): Promise<boolean> {
+    return this.patch(id, { done, doneBy: done ? this.agentId : null });
+  }
+
+  async ask(question: QuestionRequest): Promise<{ id: string } | null> {
+    const op = agentQuestionOp({ id: nanoid(), question, agentId: this.agentId });
+    return (await this.push(op)) ? { id: op.id } : null;
+  }
+
   /** Every op this agent writes is signed and coloured the same way. */
   private signature() {
     return {
@@ -248,9 +299,8 @@ export class WorkerRoom implements RoomOps {
     };
   }
 
-  /** Replies are numbered off root threads only, or one would take a real comment's number. */
   private nextNum(): number {
-    return this.ops.filter((o) => o.tool === 'comment' && !o.parentId).length + 1;
+    return nextCommentNum(this.ops);
   }
 
   private async push(op: DrawOp): Promise<boolean> {
@@ -267,10 +317,12 @@ export class WorkerRoom implements RoomOps {
 function buildServer({
   room,
   apiBase,
+  createPreview,
   onToolCall,
 }: {
   room: WorkerRoom;
   apiBase: string;
+  createPreview: Parameters<typeof callCreateTool>[0]['createPreview'];
   onToolCall: (call: { tool: string; ok: boolean; duration_ms: number }) => void;
 }): McpServer {
   const server = new McpServer({ name: 'marklayer', version: '1.0.0' });
@@ -287,7 +339,9 @@ function buildServer({
         const started = Date.now();
         let answered: ToolContent | null = null;
         try {
-          answered = await callRoomTool({ name: tool.name, args, room, apiBase });
+          answered =
+            (await callCreateTool({ name: tool.name, args, createPreview, apiBase })) ??
+            (await callRoomTool({ name: tool.name, args, room, apiBase }));
         } finally {
           onToolCall({
             tool: tool.name,
@@ -316,7 +370,7 @@ export async function handleMcpRequest({
   roomId: string;
   apiBase: string;
   agentId: string;
-  env: Parameters<typeof fetchPage>[0]['env'];
+  env: Parameters<typeof fetchPage>[0]['env'] & { DB: D1Database };
   ctx: { waitUntil(promise: Promise<unknown>): void };
 }): Promise<Response> {
   const room = new WorkerRoom(stub, roomId, agentId, env);
@@ -324,6 +378,17 @@ export async function handleMcpRequest({
   const server = buildServer({
     room,
     apiBase,
+    // The endpoint stays bound to this room, so a new preview is opened beside it
+    // and chained to it when repo and branch match.
+    createPreview: (req) =>
+      createPreviewRoom({
+        db: env.DB,
+        request: req,
+        agentId,
+        origin: apiBase,
+        headers: request.headers,
+        fallbackPrevious: roomId,
+      }),
     // Name, outcome and time only: arguments and results carry room ids, page URLs and comment text.
     onToolCall: (call) => captureServer(env, ctx, 'mcp_tool_called', call),
   });

@@ -1,6 +1,7 @@
 import { CommentPopover, CommentSheet } from '@ext/components/CommentPopover';
 import { PanLayer } from '@ext/components/PanLayer';
 import { pageErrors } from '@ext/lib/page-errors';
+import { snapshotPin } from '@ext/lib/pin-shot';
 import {
   activeTool,
   annotationPanelOpen,
@@ -23,7 +24,8 @@ import { CursorLayer } from './CursorLayer';
 import { DeviceOverview } from './DeviceOverview';
 import { audioConstraint } from './devicePrefs';
 import { frameSrc, isUploadPath, liveRoomUrl, stillFrame } from './docSource';
-import { captureAnchors, frameViewport, useFrameRectTracker } from './iframeOverlay';
+import { shootFrame } from './frameShot';
+import { captureAnchors, frameViewport, sameOriginWindow, useFrameRectTracker } from './iframeOverlay';
 import { HOME_LINK_PROPS, Logo, TextInputOverlay } from './shared';
 import {
   annotationId,
@@ -46,6 +48,7 @@ import {
   selectionPopover,
   textInput,
   transcribeFile,
+  transcribeVideo,
   uploadFile,
   uploadVideo,
 } from './signals';
@@ -416,7 +419,8 @@ function PageSurface() {
             showAnnotationPanel.value = false;
             return;
           }
-          commentPopover.value = canvasCoords(e);
+          const at = canvasCoords(e);
+          commentPopover.value = { ...at, snapshot: shootPin({ frame: frameRef.current, at }) };
         }}
       >
         {deviceComments.value.map((c) => (
@@ -432,6 +436,19 @@ function PageSurface() {
       <PanLayer class="absolute inset-0 z-20" />
     </div>
   );
+}
+
+/** Starts the screenshot around a new pin, of what is on screen in the frame right now. */
+function shootPin({ frame, at }: { frame: HTMLIFrameElement | null; at: { x: number; y: number } }) {
+  // `clientWidth`, not `innerWidth`: the shot is cut from the root's own box, which stops short of the scrollbar.
+  const width = frame?.contentDocument?.documentElement.clientWidth ?? 0;
+  return snapshotPin({
+    shoot: (crop) => shootFrame({ frame, crop }),
+    pin: at,
+    viewport: { x: 0, y: iframeScrollY.value, width, height: sameOriginWindow(frame)?.innerHeight ?? 0 },
+    color: color.value,
+    upload: uploadFile,
+  });
 }
 
 /** The comment being written, if any. Its own component so the placement point
@@ -453,7 +470,8 @@ function PendingComment({ frameRef }: { frameRef: { current: HTMLIFrameElement |
       upload: uploadFile,
       resolveUrl: fileUrl,
       voice: { transcribe: transcribeFile, constraint: audioConstraint },
-      video: { upload: uploadVideo },
+      video: { upload: uploadVideo, transcribe: transcribeVideo },
+      snapshot: at.snapshot,
     },
   };
   if (compactChrome.value) return <CommentSheet {...draft} />;

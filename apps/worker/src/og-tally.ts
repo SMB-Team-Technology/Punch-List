@@ -19,8 +19,8 @@ export interface OpTally {
 /**
  * Which line of the card's stat row an op counts toward. Exhaustive over the op
  * union on purpose: a tool added to `drawOpSchema` is a type error here rather
- * than an annotation that silently counts as nothing. `eraser`, `guide` and
- * `intro` are `none` because none of them is a thing someone said about the page.
+ * than an annotation that silently counts as nothing. `eraser`, `guide`, `intro` and
+ * the review ops are `none` because none of them is a thing someone said about the page.
  */
 const TOOL_TALLY: Record<DrawOp['tool'], keyof OpTally | 'none'> = {
   comment: 'comments',
@@ -36,6 +36,10 @@ const TOOL_TALLY: Record<DrawOp['tool'], keyof OpTally | 'none'> = {
   eraser: 'none',
   guide: 'none',
   intro: 'none',
+  // A poll and the agent's checklist are about the review, not marks on the page.
+  question: 'none',
+  vote: 'none',
+  step: 'none',
 };
 
 const isTallyTool = (tool: string): tool is DrawOp['tool'] => tool in TOOL_TALLY;

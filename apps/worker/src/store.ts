@@ -57,6 +57,51 @@ export function parseLinkAccess(raw: unknown): LinkAccess {
   return parsed.success ? parsed.data : 'edit';
 }
 
+/** What an agent says about a preview room when it opens one. Null where it said nothing. */
+export interface PreviewFields {
+  url: string;
+  title: string;
+  note: string | null;
+  repo: string | null;
+  branch: string | null;
+  sha: string | null;
+}
+
+export interface VersionRef {
+  id: string;
+  version: number | null;
+  sha: string | null;
+}
+
+/** `GET /api/:id/versions`. All null but the neighbours' absence on an ordinary room. */
+export interface PreviewInfo {
+  title: string | null;
+  note: string | null;
+  repo: string | null;
+  branch: string | null;
+  sha: string | null;
+  version: number | null;
+  previous: VersionRef | null;
+  next: VersionRef | null;
+}
+
+/** A room's password state. `passwordHash` null is an open link. */
+export interface RoomLock {
+  passwordHash: string | null;
+  passwordGen: number;
+  ownerId: string | null;
+}
+
+interface LockRow {
+  password_hash: string | null;
+  password_gen: number | null;
+  owner_id: string | null;
+}
+
+function lockFromRow(row: LockRow): RoomLock {
+  return { passwordHash: row.password_hash, passwordGen: row.password_gen ?? 0, ownerId: row.owner_id };
+}
+
 export interface StoredProject {
   pageIds: string[];
   createdAt: number | null;
@@ -150,6 +195,33 @@ export function annotationStore(db: D1Database) {
       return row
         ? { access: parseLinkAccess(row.access), ownerId: row.owner_id, ownerExpiresAt: row.owner_expires_at }
         : null;
+    },
+
+    /**
+     * What every content gate reads: the password record, its generation, and who
+     * owns the link (the owner skips the prompt). Null when there is no such room.
+     */
+    async getLock(id: string): Promise<RoomLock | null> {
+      const row = await db
+        .prepare('SELECT password_hash, password_gen, owner_id FROM annotations WHERE id = ?')
+        .bind(id)
+        .first<LockRow>();
+      return row ? lockFromRow(row) : null;
+    },
+
+    /** Locks for a project's pages, protected ones only: an absent id is an open (or missing) page. */
+    async getLocks(ids: string[]): Promise<Map<string, RoomLock>> {
+      const found = new Map<string, RoomLock>();
+      if (ids.length === 0) return found;
+      const placeholders = ids.map(() => '?').join(',');
+      const rows = await db
+        .prepare(
+          `SELECT id, password_hash, password_gen, owner_id FROM annotations WHERE password_hash IS NOT NULL AND id IN (${placeholders})`,
+        )
+        .bind(...ids)
+        .all<LockRow & { id: string }>();
+      for (const r of rows.results) found.set(r.id, lockFromRow(r));
+      return found;
     },
 
     /** Just the annotated page's URL — the only column the OG routes need. */
@@ -265,6 +337,113 @@ export function annotationStore(db: D1Database) {
         .bind(id)
         .first<{ integrations: string | null }>();
       return row ?? null;
+    },
+
+    /**
+     * Mint a review room for a preview build. Never overwrites: a taken id is
+     * someone else's room. It becomes the next version of `previousId` only when
+     * that room has the same repo and branch — the caller proves it holds the
+     * earlier room by naming it, so a stranger who guesses a repo and branch
+     * cannot splice into someone's chain and read its ids off the switcher.
+     */
+    async createPreview({
+      id,
+      ops,
+      preview,
+      previousId,
+    }: {
+      id: string;
+      ops: unknown[];
+      preview: PreviewFields;
+      previousId: string | null;
+    }): Promise<
+      | { created: false; reason: 'weak_id' | 'taken' }
+      | { created: true; version: number | null; previousId: string | null }
+    > {
+      if (!isNewShareId(id)) return { created: false, reason: 'weak_id' };
+      const { url, title, note, repo, branch, sha } = preview;
+      const chained = repo !== null && branch !== null;
+      const prev =
+        chained && previousId
+          ? await db
+              .prepare('SELECT repo, branch, version, owner_id, password_hash FROM annotations WHERE id = ?')
+              .bind(previousId)
+              .first<{
+                repo: string | null;
+                branch: string | null;
+                version: number | null;
+                owner_id: string | null;
+                password_hash: string | null;
+              }>()
+          : null;
+      const linked = prev !== null && prev.repo === repo && prev.branch === branch;
+      const version = linked ? (prev.version ?? 1) + 1 : chained ? 1 : null;
+      const prevId = linked ? previousId : null;
+      // A new build of a protected room is protected the same way; the owner comes along so the lock stays manageable.
+      const lock = linked && prev.password_hash ? { owner: prev.owner_id, hash: prev.password_hash } : null;
+      const res = await db
+        .prepare(
+          `INSERT INTO annotations (id, ops, url, title, note, repo, branch, sha, version, prev_id, owner_id, password_hash)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
+        )
+        .bind(
+          id,
+          JSON.stringify(ops),
+          url,
+          title,
+          note,
+          repo,
+          branch,
+          sha,
+          version,
+          prevId,
+          lock?.owner ?? null,
+          lock?.hash ?? null,
+        )
+        .run();
+      if (!wroteRow(res)) return { created: false, reason: 'taken' };
+      return { created: true, version, previousId: prevId };
+    },
+
+    /** The preview fields and the neighbouring versions, or null for no such room. */
+    async getVersions(id: string): Promise<PreviewInfo | null> {
+      const [row, next] = await Promise.all([
+        db
+          .prepare(
+            `SELECT a.title, a.note, a.repo, a.branch, a.sha, a.version,
+                    p.id AS prev_id, p.version AS prev_version, p.sha AS prev_sha
+             FROM annotations a LEFT JOIN annotations p ON p.id = a.prev_id
+             WHERE a.id = ?`,
+          )
+          .bind(id)
+          .first<{
+            title: string | null;
+            note: string | null;
+            repo: string | null;
+            branch: string | null;
+            sha: string | null;
+            version: number | null;
+            prev_id: string | null;
+            prev_version: number | null;
+            prev_sha: string | null;
+          }>(),
+        // Two previews chained off one room is a fork; the newest is the one to step to.
+        db
+          .prepare('SELECT id, version, sha FROM annotations WHERE prev_id = ? ORDER BY created_at DESC LIMIT 1')
+          .bind(id)
+          .first<VersionRef>(),
+      ]);
+      if (!row) return null;
+      return {
+        title: row.title,
+        note: row.note,
+        repo: row.repo,
+        branch: row.branch,
+        sha: row.sha,
+        version: row.version,
+        previous: row.prev_id ? { id: row.prev_id, version: row.prev_version, sha: row.prev_sha } : null,
+        next: next ?? null,
+      };
     },
 
     /** Push back the retention clock. Callers decide whether to await it. */
@@ -393,6 +572,47 @@ export function uploadStore(db: D1Database) {
         .bind(unusedSince, nowInSeconds())
         .all<{ id: string }>();
       return deleted.results.map((r) => r.id);
+    },
+  };
+}
+
+/** Wrong-password counts per (room, client). See migration 0010 for why this is a table. */
+export function unlockFailureStore(db: D1Database) {
+  return {
+    /** Failures inside a window still open at `since`. */
+    async count({ roomId, client, since }: { roomId: string; client: string; since: number }): Promise<number> {
+      const row = await db
+        .prepare('SELECT failures FROM unlock_failures WHERE room_id = ? AND client = ? AND window_start >= ?')
+        .bind(roomId, client, since)
+        .first<{ failures: number }>();
+      return row?.failures ?? 0;
+    },
+
+    /** One upsert: a window older than `since` restarts at one rather than accumulating forever. */
+    async record({
+      roomId,
+      client,
+      now,
+      since,
+    }: {
+      roomId: string;
+      client: string;
+      now: number;
+      since: number;
+    }): Promise<void> {
+      await db
+        .prepare(
+          `INSERT INTO unlock_failures (room_id, client, window_start, failures) VALUES (?, ?, ?, 1)
+           ON CONFLICT(room_id, client) DO UPDATE SET
+             failures = CASE WHEN window_start < ? THEN 1 ELSE failures + 1 END,
+             window_start = CASE WHEN window_start < ? THEN excluded.window_start ELSE window_start END`,
+        )
+        .bind(roomId, client, now, since, since)
+        .run();
+    },
+
+    sweep(before: number): Promise<unknown> {
+      return db.prepare('DELETE FROM unlock_failures WHERE window_start < ?').bind(before).run();
     },
   };
 }

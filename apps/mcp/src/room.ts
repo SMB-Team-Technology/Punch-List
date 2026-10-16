@@ -1,5 +1,11 @@
-import type { PageReading, RoomMeta, WatchEvent } from '@marklayer/agent-tools';
-import { classifyOp, isWatchableOp as isWatchable, WATCH_DEFAULT_SECONDS } from '@marklayer/agent-tools';
+import type { PageReading, QuestionRequest, RoomMeta, StepRequest, WatchEvent } from '@marklayer/agent-tools';
+import {
+  agentQuestionOp,
+  agentStepOps,
+  classifyOp,
+  isWatchableOp as isWatchable,
+  WATCH_DEFAULT_SECONDS,
+} from '@marklayer/agent-tools';
 import {
   type AnnotationOp,
   agentColor,
@@ -12,6 +18,7 @@ import {
   normalizeSuggestion,
   opAnchor,
   parseOps,
+  ROOM_LOCKED_CLOSE_CODE,
   resolveOpStatus,
   type SelectionOp,
   type SelectionRect,
@@ -68,11 +75,27 @@ export class RoomClient {
     return { author: this.agentId, authorId: this.agentId, assignedAgent: this.agentId };
   }
 
-  constructor(
-    private readonly apiBase: string,
-    public readonly roomId: string,
-    private readonly agentId: string,
-  ) {
+  private readonly apiBase: string;
+  public readonly roomId: string;
+  private readonly agentId: string;
+  /** For a password-protected link. Sent as a header on every request, never in a URL a log could keep. */
+  private readonly password: string | null;
+
+  constructor({
+    apiBase,
+    roomId,
+    agentId,
+    password = null,
+  }: {
+    apiBase: string;
+    roomId: string;
+    agentId: string;
+    password?: string | null;
+  }) {
+    this.apiBase = apiBase;
+    this.roomId = roomId;
+    this.agentId = agentId;
+    this.password = password;
     this.color = agentColor(agentId);
     this.initPromise = new Promise((resolve, reject) => {
       this.initResolve = resolve;
@@ -91,7 +114,7 @@ export class RoomClient {
    */
   async connect({ initTimeoutMs = 15_000 }: { initTimeoutMs?: number } = {}): Promise<void> {
     const wsUrl = this.toWebSocketUrl();
-    this.ws = new WebSocket(wsUrl);
+    this.ws = new WebSocket(wsUrl, { headers: this.authHeaders() });
 
     this.ws.on('message', (data) => {
       try {
@@ -108,8 +131,14 @@ export class RoomClient {
     });
 
     this.ws.on('close', (code) => {
-      this.markClosed(`socket closed (code ${code})`);
-      this.initReject?.(new Error(`room ${this.roomId}: socket closed before init (code ${code})`));
+      this.markClosed(
+        code === ROOM_LOCKED_CLOSE_CODE
+          ? this.password
+            ? 'the room refused the password (wrong, or changed since): set MARKLAYER_PASSWORD or pass `password` to marklayer_connect_room'
+            : 'this room is password protected: set MARKLAYER_PASSWORD or pass `password` to marklayer_connect_room'
+          : `socket closed (code ${code})`,
+      );
+      this.initReject?.(new Error(`room ${this.roomId}: ${this.closedReason ?? `socket closed (code ${code})`}`));
       if (this.pending) this.pending.reject(new Error(`room ${this.roomId}: socket closed (code ${code})`));
     });
 
@@ -158,7 +187,9 @@ export class RoomClient {
 
   /** The Worker owns the fetch — see `RoomOps.readPage` for why it is not done here. */
   async readPage(): Promise<PageReading | null> {
-    const res = await fetch(`${this.apiBase}/s/${this.roomId}/page.json`).catch(() => null);
+    const res = await fetch(`${this.apiBase}/s/${this.roomId}/page.json`, { headers: this.authHeaders() }).catch(
+      () => null,
+    );
     if (!res?.ok) return null;
     const body = await res.json().catch(() => null);
     return body && typeof body === 'object' && 'entries' in body ? (body as PageReading) : null;
@@ -320,6 +351,34 @@ export class RoomClient {
       ...(target ? { target } : {}),
     };
     return this.commit(op) ? { id: op.id } : null;
+  }
+
+  listOps(): readonly DrawOp[] {
+    return this.ops;
+  }
+
+  /** Old steps go out as `undo`, the same message a person deleting an op sends. */
+  setNextSteps(steps: StepRequest[]): { ids: string[] } | null {
+    for (const op of this.ops.filter((o) => o.tool === 'step')) {
+      if (!this.send({ type: 'undo', opId: op.id })) return null;
+    }
+    this.ops = this.ops.filter((o) => o.tool !== 'step');
+    const ops = agentStepOps({ newId: nanoid, steps, agentId: this.agentId });
+    for (const op of ops) if (!this.commit(op)) return null;
+    return { ids: ops.map((op) => op.id) };
+  }
+
+  setStepDone({ id, done }: { id: string; done: boolean }): boolean {
+    return this.update(id, { done, doneBy: done ? this.agentId : null });
+  }
+
+  ask(question: QuestionRequest): { id: string } | null {
+    const op = agentQuestionOp({ id: nanoid(), question, agentId: this.agentId });
+    return this.commit(op) ? { id: op.id } : null;
+  }
+
+  private authHeaders(): Record<string, string> {
+    return this.password ? { Authorization: `Bearer ${this.password}` } : {};
   }
 
   private toWebSocketUrl(): string {

@@ -124,7 +124,7 @@ export function ownedStore(db: D1Database) {
     async listAnnotations(ownerId: string): Promise<OwnedLink[]> {
       const res = await db
         .prepare(
-          'SELECT id, url, created_at, last_accessed_at, expires_at, access, owner_expires_at, folder_id FROM annotations WHERE owner_id = ? ORDER BY last_accessed_at DESC LIMIT 200',
+          'SELECT id, url, created_at, last_accessed_at, expires_at, access, owner_expires_at, folder_id, password_hash IS NOT NULL AS password_protected FROM annotations WHERE owner_id = ? ORDER BY last_accessed_at DESC LIMIT 200',
         )
         .bind(ownerId)
         .all<{
@@ -136,6 +136,7 @@ export function ownedStore(db: D1Database) {
           access: string;
           owner_expires_at: number | null;
           folder_id: string | null;
+          password_protected: number | null;
         }>();
       // Mapped here, not at the caller: snake_case is D1's shape and it should
       // stop at this boundary, the way it does in `store.ts`.
@@ -148,7 +149,32 @@ export function ownedStore(db: D1Database) {
         access: parseLinkAccess(row.access),
         ownerExpiresAt: row.owner_expires_at,
         folderId: row.folder_id,
+        // SQLite answers the IS NOT NULL as 0/1.
+        passwordProtected: row.password_protected === 1,
       }));
+    },
+
+    /**
+     * Sets, replaces or (with `hash: null`) removes the password, bumping the
+     * generation every time so each unlock cookie issued before it stops working.
+     * Returns the new generation, or null when this session does not own the link.
+     */
+    async setPassword({
+      id,
+      ownerId,
+      hash,
+    }: {
+      id: string;
+      ownerId: string;
+      hash: string | null;
+    }): Promise<number | null> {
+      const row = await db
+        .prepare(
+          'UPDATE annotations SET password_hash = ?, password_gen = password_gen + 1 WHERE id = ? AND owner_id = ? RETURNING password_gen',
+        )
+        .bind(hash, id, ownerId)
+        .first<{ password_gen: number }>();
+      return row?.password_gen ?? null;
     },
 
     /** A claimed link's settings, or null when this session does not own it. */
@@ -200,15 +226,15 @@ export function ownedStore(db: D1Database) {
     },
 
     /**
-     * Also resets `access` and `owner_expires_at`: view-only and an owner
-     * expiry are both owner-managed settings, and with `owner_id` gone
+     * Also resets `access`, `owner_expires_at` and the password: all are
+     * owner-managed settings, and with `owner_id` gone
      * `getSettings`'s `AND owner_id = ?` guard would make either permanent —
      * nobody could ever reach the PATCH that undoes them.
      */
     async releaseAnnotation({ id, ownerId }: { id: string; ownerId: string }): Promise<boolean> {
       const res = await db
         .prepare(
-          "UPDATE annotations SET owner_id = NULL, access = 'edit', owner_expires_at = NULL, folder_id = NULL WHERE id = ? AND owner_id = ?",
+          "UPDATE annotations SET owner_id = NULL, access = 'edit', owner_expires_at = NULL, folder_id = NULL, password_hash = NULL, password_gen = password_gen + 1 WHERE id = ? AND owner_id = ?",
         )
         .bind(id, ownerId)
         .run();

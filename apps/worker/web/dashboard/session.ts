@@ -179,3 +179,28 @@ export async function updateLinkSettings({ id, patch }: { id: string; patch: Upd
   if (!updated) await loadLinks();
   return updated;
 }
+
+/**
+ * Sets, changes or (with `null`) removes a link's password. Not optimistic: the
+ * change ends every open session on the link, so the panel waits to be sure.
+ * Returns an error message, or null when it took.
+ */
+export async function setLinkPassword({
+  id,
+  password,
+}: {
+  id: string;
+  password: string | null;
+}): Promise<string | null> {
+  const res = await fetch(`/auth/links/${encodeURIComponent(id)}/password`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password }),
+  }).catch(() => null);
+  const failed = await errorFrom(res);
+  if (failed) return failed;
+  const parsed = updateLinkResponseSchema.safeParse(res ? await readJson(res) : null);
+  if (!parsed.success || !parsed.data.updated) return 'Only the owner can change this link.';
+  links.value = links.value.map((link) => (link.id === id ? { ...link, passwordProtected: password !== null } : link));
+  return null;
+}

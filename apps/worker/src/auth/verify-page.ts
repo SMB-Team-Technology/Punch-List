@@ -5,7 +5,7 @@ export function isTokenShaped(token: string | undefined): token is string {
   return token !== undefined && TOKEN_SHAPE.test(token);
 }
 
-const HEADERS = {
+export const HTML_HEADERS = {
   'Content-Type': 'text/html; charset=utf-8',
   'Cache-Control': 'no-store',
   // The token sits in this page's URL; nothing it links to should learn it.
@@ -15,8 +15,8 @@ const HEADERS = {
 
 // Same palette as the app shell and the sign-in email, so the page reads as the email's next step.
 const STYLE = `
-:root{--bg:#fff;--fg:#1a1a1a;--muted:#4d4d4d;--faint:#8f8f8f;--btn:#1a1a1a;--btn-hover:#333;--btn-fg:#fff;color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#111110;--fg:#e8e5e0;--muted:#b5b1ab;--faint:#85827d;--btn:#e8e5e0;--btn-hover:#d4d0ca;--btn-fg:#111}}
+:root{--bg:#fff;--fg:#1a1a1a;--muted:#4d4d4d;--faint:#8f8f8f;--line:#d6d6d6;--btn:#1a1a1a;--btn-hover:#333;--btn-fg:#fff;color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#111110;--fg:#e8e5e0;--muted:#b5b1ab;--faint:#85827d;--line:#3a3936;--btn:#e8e5e0;--btn-hover:#d4d0ca;--btn-fg:#111}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);font:15px/24px Arial,Helvetica,sans-serif;-webkit-font-smoothing:antialiased}
 main{max-width:480px;margin:0 auto;padding:15vh 24px 40px}
@@ -27,9 +27,13 @@ button,.btn{display:inline-block;border:0;border-radius:8px;padding:12px 20px;ba
 button:hover,.btn:hover{background:var(--btn-hover)}
 button:focus-visible,.btn:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
 small{display:block;margin-top:32px;font-size:13px;line-height:20px;color:var(--faint)}
+form.stack{display:flex;gap:8px}
+input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:11px 12px;background:var(--bg);color:var(--fg);font-family:inherit;font-size:16px;line-height:20px}
+input:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+p.alert{color:var(--fg);font-weight:500}
 `;
 
-function page({ title, body }: { title: string; body: string }): string {
+export function page({ title, body }: { title: string; body: string }): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><style>${STYLE}</style></head><body><main><p class="mark">MarkLayer</p>${body}</main></body></html>`;
 }
 
@@ -44,12 +48,12 @@ export function confirmPage(token: string): Response {
 <p>Press continue to finish signing in on this device.</p>
 <form method="post" action="/auth/verify"><input type="hidden" name="token" value="${token}"><button type="submit" autofocus>Continue</button></form>
 <small>If you did not ask to sign in, close this page and nothing will happen.</small>`;
-  return new Response(page({ title: 'Sign in · MarkLayer', body }), { status: 200, headers: HEADERS });
+  return new Response(page({ title: 'Sign in · MarkLayer', body }), { status: 200, headers: HTML_HEADERS });
 }
 
 export function expiredPage(): Response {
   const body = `<h1>This link has expired</h1>
 <p>Sign-in links work once and last 15 minutes. Ask for a new one and use the newest email.</p>
 <a class="btn" href="/app">Get a new link</a>`;
-  return new Response(page({ title: 'Link expired · MarkLayer', body }), { status: 400, headers: HEADERS });
+  return new Response(page({ title: 'Link expired · MarkLayer', body }), { status: 400, headers: HTML_HEADERS });
 }

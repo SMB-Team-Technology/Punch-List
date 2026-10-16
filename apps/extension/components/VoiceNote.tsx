@@ -7,7 +7,7 @@ import { MediaDraft, RecorderStop } from './MediaNote';
 import { Tooltip } from './Tooltip';
 
 /** Opus in WebM where the browser has it, MP4 for Safari; the first one MediaRecorder admits to. */
-const MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/mp4'];
+export const AUDIO_MIME_CANDIDATES = ['audio/webm;codecs=opus', 'audio/mp4'];
 
 interface VoiceNoteOptions {
   /** Same injected upload as the attachments' — the two apps reach `/f` through different origins. */
@@ -26,10 +26,10 @@ export function useVoiceNote({ upload, transcribe, onText, constraint, slot }: V
   const recorder = useRecorder({
     kind: 'voice',
     slot,
-    mimeTypes: MIME_CANDIDATES,
+    mimeTypes: AUDIO_MIME_CANDIDATES,
     maxSeconds: MAX_VOICE_SECONDS,
     upload,
-    onUploaded: async (id) => {
+    onUploaded: async ({ id }) => {
       const text = await transcribe(id);
       if (text) onText(text);
       else toast('No transcript. The audio is still attached');

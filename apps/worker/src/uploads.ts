@@ -47,9 +47,62 @@ export function classifyUpload({ bytes, kind }: { bytes: Uint8Array; kind?: stri
   return { contentType };
 }
 
-/** Only audio reaches the paid transcription model; video notes carry no transcript. */
-export function isTranscribable(contentType: string | undefined): boolean {
-  return isUploadType(contentType) && isAudioType(contentType);
+/** A refusal, or which bytes go to the model: the stored upload's own, or the request body's. */
+export type TranscriptionSource = 'stored' | 'body' | { status: 413 | 415; message: string };
+
+/**
+ * What `POST /f/:id/transcribe` feeds the paid model: a voice note's own bytes, or for a video
+ * the audio track the client recorded beside it, since a Worker cannot demux the clip. That
+ * track is held to a voice note's limits, so a video id buys no bigger transcription.
+ */
+export function transcriptionSource({
+  stored,
+  body,
+}: {
+  stored: string | undefined;
+  body: Uint8Array;
+}): TranscriptionSource {
+  if (!isUploadType(stored)) return { status: 415, message: 'Not a recording' };
+  if (isAudioType(stored)) return 'stored';
+  if (!isVideoType(stored)) return { status: 415, message: 'Not a recording' };
+  if (body.byteLength > MAX_VOICE_BYTES) return { status: 413, message: 'Audio track too large' };
+  const sniffed = sniffAmong(NON_VIDEO_FORMATS, body);
+  if (!sniffed || !isAudioType(sniffed)) return { status: 415, message: "Send the clip's audio track" };
+  return 'body';
+}
+
+/**
+ * A request body, counted as it arrives: `Content-Length` is only a claim, so the cap holds
+ * against the bytes received and stops pulling once blown. Null means over the cap.
+ */
+export async function readCapped({
+  stream,
+  cap,
+}: {
+  stream: ReadableStream<Uint8Array> | null;
+  cap: number;
+}): Promise<Uint8Array | null> {
+  if (!stream) return new Uint8Array(0);
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > cap) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return body;
 }
 
 /**

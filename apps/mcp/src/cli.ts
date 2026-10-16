@@ -26,6 +26,9 @@ Environment:
   MARKLAYER_ROOM       Same as --room.
   MARKLAYER_API_BASE   Same as --api-base.
   MARKLAYER_AGENT      Same as --agent.
+  MARKLAYER_PASSWORD   Password for a protected room. Environment only, never a
+                       flag, so it stays out of the process list. The
+                       marklayer_connect_room tool also takes a password.
 `;
 
 function parseArgs(argv: string[]): Args {
@@ -59,6 +62,7 @@ async function main(): Promise<void> {
     apiBase: args.apiBase,
     initialRoom: args.room,
     agentId: args.agentId,
+    password: process.env.MARKLAYER_PASSWORD || null,
   });
 }
 

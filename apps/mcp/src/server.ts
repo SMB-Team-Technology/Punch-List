@@ -1,8 +1,22 @@
 // Read, not restated: the literal here silently fell three releases behind package.json before.
-import { ConnectInput, callRoomTool, err, fail, ok, TOOLS, type ToolContent } from '@marklayer/agent-tools';
+import {
+  ConnectInput,
+  callCreateTool,
+  callRoomTool,
+  err,
+  fail,
+  ok,
+  type PreviewCreated,
+  type PreviewRequest,
+  parseRoomRef,
+  TOOLS,
+  type ToolContent,
+} from '@marklayer/agent-tools';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
+import { nanoid } from 'nanoid';
+import { z } from 'zod/mini';
 import { version } from '../package.json' with { type: 'json' };
 import { RoomClient } from './room.js';
 
@@ -10,28 +24,8 @@ interface ServerOptions {
   apiBase: string;
   initialRoom: string | null;
   agentId: string;
-}
-
-/**
- * Resolve a user-supplied room reference (URL or bare id) to the room id
- * used by the MarkLayer worker. Accepts:
- *   - "abc123"
- *   - "https://marklayer.app/s/abc123"
- *   - "https://marklayer.app/s/abc123?something"
- */
-export function parseRoomRef(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) throw new Error('empty room reference');
-  if (!trimmed.includes('/')) return trimmed;
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    throw new Error(`invalid room reference: ${input}`);
-  }
-  const match = parsed.pathname.match(/\/s\/([^/]+)/);
-  if (match?.[1]) return match[1];
-  throw new Error(`could not extract room id from URL: ${input}`);
+  /** For a password-protected room. */
+  password: string | null;
 }
 
 export async function startServer(opts: ServerOptions): Promise<void> {
@@ -63,6 +57,9 @@ export async function startServer(opts: ServerOptions): Promise<void> {
 
   let room: RoomClient | null = null;
 
+  // The connected room's password; a new version of a protected room inherits it.
+  let roomPassword = opts.password;
+
   const ensureRoom = (): RoomClient => {
     if (!room) {
       throw new Error('no room connected — call marklayer_connect_room first or set MARKLAYER_ROOM in the environment');
@@ -70,9 +67,41 @@ export async function startServer(opts: ServerOptions): Promise<void> {
     return room;
   };
 
+  /** Open a preview room through the share API, then connect to it so the next tool works the new room. */
+  const createPreview = async (request: PreviewRequest): Promise<PreviewCreated | { error: string }> => {
+    let previous: string | undefined;
+    try {
+      previous = request.previous ? parseRoomRef(request.previous) : room?.roomId;
+    } catch (e) {
+      return { error: e instanceof Error ? e.message : 'invalid previous room' };
+    }
+    const created = await postPreview({
+      apiBase: opts.apiBase,
+      request: { ...request, previous },
+      agentId: opts.agentId,
+      password: roomPassword,
+    });
+    if ('error' in created) return created;
+    const next = new RoomClient({
+      apiBase: opts.apiBase,
+      roomId: created.id,
+      agentId: opts.agentId,
+      password: roomPassword,
+    });
+    await next.connect();
+    room?.close();
+    room = next;
+    return created;
+  };
+
   if (opts.initialRoom) {
     try {
-      room = new RoomClient(opts.apiBase, parseRoomRef(opts.initialRoom), opts.agentId);
+      room = new RoomClient({
+        apiBase: opts.apiBase,
+        roomId: parseRoomRef(opts.initialRoom),
+        agentId: opts.agentId,
+        password: opts.password,
+      });
       await room.connect();
     } catch (e) {
       console.error(`marklayer-mcp: failed to connect to initial room: ${(e as Error).message}`);
@@ -94,10 +123,15 @@ export async function startServer(opts: ServerOptions): Promise<void> {
         if (!parsed.success) return fail(parsed.error);
         const id = parseRoomRef(parsed.data.room);
         if (room) room.close();
-        room = new RoomClient(opts.apiBase, id, opts.agentId);
+        // An explicit password wins; otherwise the startup one, which another room simply refuses.
+        roomPassword = parsed.data.password ?? opts.password;
+        room = new RoomClient({ apiBase: opts.apiBase, roomId: id, agentId: opts.agentId, password: roomPassword });
         await room.connect();
         return ok({ roomId: id, ...room.getMeta() });
       }
+
+      const made = await callCreateTool({ name, args: rawArgs, createPreview, apiBase: opts.apiBase });
+      if (made) return made;
 
       const r = ensureRoom();
       const handled = await callRoomTool({ name, args: rawArgs, room: r, apiBase: opts.apiBase });
@@ -120,3 +154,45 @@ export async function startServer(opts: ServerOptions): Promise<void> {
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
 }
+
+/** `POST /api/:id/preview` with a fresh id. The Worker validates the request again and owns the version chain. */
+async function postPreview({
+  apiBase,
+  request,
+  agentId,
+  password,
+}: {
+  apiBase: string;
+  request: PreviewRequest;
+  agentId: string;
+  /** Proves access to a protected `previous` room. */
+  password: string | null;
+}): Promise<PreviewCreated | { error: string }> {
+  const id = nanoid();
+  const res = await fetch(`${apiBase}/api/${id}/preview`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(password ? { Authorization: `Bearer ${password}` } : {}) },
+    body: JSON.stringify({ ...request, agent: agentId }),
+  }).catch((e: unknown) => (e instanceof Error ? e : new Error(String(e))));
+  if (res instanceof Error) return { error: `could not reach ${apiBase}: ${res.message}` };
+  const body: unknown = await res.json().catch(() => null);
+  const parsed = PreviewResponse.safeParse(body);
+  if (res.ok && parsed.success) {
+    return {
+      id: parsed.data.id,
+      link: parsed.data.url,
+      version: parsed.data.version,
+      previousId: parsed.data.previous,
+    };
+  }
+  const reason = ErrorBody.safeParse(body);
+  return { error: reason.success ? reason.data.error : `share API answered ${res.status}` };
+}
+
+const PreviewResponse = z.object({
+  id: z.string(),
+  url: z.string(),
+  version: z.nullable(z.number()),
+  previous: z.nullable(z.string()),
+});
+const ErrorBody = z.object({ error: z.string() });

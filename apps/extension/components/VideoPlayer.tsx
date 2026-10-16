@@ -2,7 +2,7 @@
 /** A posted video note: the browser's own player over the stored clip. */
 export function VideoPlayer({ id, resolveUrl }: { id: string; resolveUrl: (id: string) => string }) {
   return (
-    // biome-ignore lint/a11y/useMediaCaption: a reviewer's recorded clip; v1 carries no transcript to caption it with
+    // biome-ignore lint/a11y/useMediaCaption: its narration's transcript is the comment's own text, right above the player
     <video
       controls
       playsInline

@@ -1,9 +1,10 @@
 import {
   DEMO_ROOM,
-  isNewShareId,
   isUploadId,
+  isVideoType,
   MAX_UPLOAD_BYTES,
   MAX_VIDEO_BYTES,
+  MAX_VOICE_BYTES,
   RETENTION_DAYS,
   uploadPath,
 } from '@marklayer/types';
@@ -21,13 +22,26 @@ import { api } from './api';
 import { auth, authStore } from './auth';
 import type { EmailEnv } from './email';
 import { cachedPng, dayCached, once, overRateLimit, sha256Hex, toBase64 } from './http';
-import { handleMcpRequest, readRoomPage } from './mcp';
+import type { SlackEnv } from './integrations/slack-app';
+import { slackRoutes } from './integrations/slack-routes';
+import { slackStore } from './integrations/slack-store';
+import { FAILURE_WINDOW_SECONDS, lockedPages, roomAccess } from './lock/gate';
+import { unlockPage } from './lock/page';
 import { generateOgImage, generatePageOgImage } from './og';
 import { collectTally, EMPTY_TALLY_LABEL, plural, tallyParts } from './og-tally';
 import { RELAY_PREFIX, relayToPosthog } from './posthog-relay';
 import { proxy } from './proxy';
-import { annotationStore, nowInSeconds, projectStore, uploadStore } from './store';
-import { type ByteSpan, classifyUpload, extensionFor, isTranscribable, isUploadType, resolveRange } from './uploads';
+import { ogLocked, rooms } from './rooms';
+import { annotationStore, nowInSeconds, projectStore, unlockFailureStore, uploadStore } from './store';
+import {
+  type ByteSpan,
+  classifyUpload,
+  extensionFor,
+  isUploadType,
+  readCapped,
+  resolveRange,
+  transcriptionSource,
+} from './uploads';
 
 export { AnnotationRoom } from './annotation-room';
 
@@ -76,7 +90,13 @@ export type Env = {
      * ever bites. Neither set — the default in dev and in a fork — logs the
      * link instead of sending it, so sign-in still works locally.
      */
-  } & EmailEnv;
+    /**
+     * The two-way Slack app (SLACK_CLIENT_ID, SLACK_CLIENT_SECRET,
+     * SLACK_SIGNING_SECRET, SLACK_TOKEN_KEY). All four or the feature is off;
+     * see docs/slack-app.md.
+     */
+  } & EmailEnv &
+    SlackEnv;
 };
 
 const app = new Hono<Env>();
@@ -126,6 +146,16 @@ app.get('/s/:id', async (c) => {
   const annotationId = c.req.param('id');
   const reqUrl = new URL(c.req.url);
   const annotations = annotationStore(c.env.DB);
+
+  const access = await roomAccess({ db: c.env.DB, id: annotationId, headers: c.req.raw.headers });
+  if (!access.open) return unlockPage({ roomId: annotationId, returnTo: `/s/${annotationId}`, reason: access.reason });
+  // Unlocked, but the tags below are what a link preview caches and reposts, so they stay generic.
+  if (access.guarded) {
+    const shell = await c.env.ASSETS.fetch(new Request(new URL('/', reqUrl)));
+    return new Response(await shell.text(), {
+      headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': SHELL_CACHE },
+    });
+  }
 
   // The landing's embedded board: nothing unfurls an iframe, so the tags below
   // are never read. It still mints the demo room, being what first asks for one.
@@ -187,6 +217,13 @@ app.get('/p/:id', async (c) => {
   // Asset shell is independent of the project metadata — fetch in parallel.
   const assetsPromise = c.env.ASSETS.fetch(new Request(new URL('/', reqUrl)));
   const project = await projectStore(c.env.DB).get(projectId);
+  // A project has no password of its own; it asks for each protected page's in turn, returning here after each.
+  const [firstLocked] = await lockedPages({
+    db: c.env.DB,
+    pageIds: project?.pageIds ?? [],
+    headers: c.req.raw.headers,
+  });
+  if (firstLocked) return unlockPage({ roomId: firstLocked, returnTo: `/p/${projectId}`, reason: 'locked' });
   const firstPageId = project?.pageIds[0];
   pageCount = project?.pageIds.length ?? 0;
   let firstPageOps: unknown[] | null = null;
@@ -244,12 +281,18 @@ app.get('/og/page.png', async (c) => {
   });
 });
 
+/** The site-wide card from the asset layer, which says nothing about any one room. */
+const GENERIC_OG_IMAGE = '/og.jpg';
+
 // Generate OG preview image on-the-fly (cached in R2)
 app.get('/og/:key', async (c) => {
   const key = c.req.param('key');
   if (!key.endsWith('.png')) return c.notFound();
   const id = key.slice(0, -4);
   const domain = c.req.query('domain') || 'a webpage';
+
+  // The site's own card, not a rendered one: the domain, the tally and even the favicon would each describe the room.
+  if (await ogLocked({ db: c.env.DB, id })) return c.redirect(GENERIC_OG_IMAGE, 302);
 
   return cachedPng({
     bucket: c.env.OG_BUCKET,
@@ -268,63 +311,7 @@ app.get('/og/:key', async (c) => {
   });
 });
 
-/** The one door to a room: the store refuses to *persist* a guessable id, but
- *  the DO would still let strangers meet live on one. `&&` spares a real id the query. */
-async function getRoomStub({ id, env }: { id: string; env: Env['Bindings'] }) {
-  if (!isNewShareId(id) && !(await annotationStore(env.DB).exists(id))) return null;
-  return env.ANNOTATION_ROOM.get(env.ANNOTATION_ROOM.idFromName(id));
-}
-
-/**
- * The page an annotation room points at, read into an outline.
- *
- * Exists as its own route because the stdio server needs it too: fetching the
- * page has to happen here, behind the SSRF guard and the fixed-IP relay a
- * WAF-blocked host needs, not from wherever someone happens to run a CLI.
- */
-app.get('/s/:id/page.json', async (c) => {
-  const id = c.req.param('id');
-  const stub = await getRoomStub({ id, env: c.env });
-  if (!stub) return c.text('Share id too short', 400);
-  const reading = await readRoomPage({ stub, roomId: id, env: c.env });
-  return reading ? c.json(reading) : c.json({ error: 'could not read the page' }, 502);
-});
-
-/**
- * Remote MCP endpoint for a room — the share link is the address, so connecting
- * an agent is one line and needs no package installed:
- *
- *   claude mcp add --transport http marklayer https://marklayer.app/s/<id>/mcp
- *
- * `?agent=` names the tool for the people watching the room. It defaults to
- * something generic rather than a brand, because guessing wrong would put
- * someone else's logo on Cursor's annotations.
- */
-app.all('/s/:id/mcp', async (c) => {
-  const id = c.req.param('id');
-  const stub = await getRoomStub({ id, env: c.env });
-  if (!stub) return c.text('Share id too short', 400);
-  return handleMcpRequest({
-    request: c.req.raw,
-    stub,
-    roomId: id,
-    apiBase: new URL(c.req.url).origin,
-    agentId: c.req.query('agent') ?? 'agent',
-    env: c.env,
-    ctx: c.executionCtx,
-  });
-});
-
-// WebSocket endpoint for realtime collaboration
-app.get('/ws/:id', async (c) => {
-  const id = c.req.param('id');
-  if (c.req.header('Upgrade') !== 'websocket') return c.text('Expected WebSocket', 426);
-  const room = await getRoomStub({ id, env: c.env });
-  if (!room) return c.text('Share id too short', 400);
-  const url = new URL(c.req.url);
-  url.searchParams.set('id', id);
-  return room.fetch(new Request(url.toString(), c.req.raw));
-});
+app.route('/', rooms);
 
 // Wildcard and credential-less, like `/api`: the id is the token, and an embedded widget uploads cross-origin.
 // `/f/:id` leaves out `/transcribe`, which feeds a paid model.
@@ -335,34 +322,11 @@ app.use('/f/:id', cors());
 // just a public URL. The id itself is the access token, same as an annotation's.
 app.post('/f', async (c) => {
   if (await overRateLimit({ limiter: c.env.UPLOAD_LIMITER, req: c.req })) return c.text('Too many requests', 429);
-  const reader = c.req.raw.body?.getReader();
-  if (!reader) return c.text('Empty body', 400);
-
-  // Read as a stream and count bytes as they arrive — a Content-Length header
-  // is only a claim from the client, so the cap has to hold against the bytes
-  // actually received, and stop pulling once it's blown rather than buffering
-  // an oversized body just to reject it after the fact.
+  if (!c.req.raw.body) return c.text('Empty body', 400);
   const kind = c.req.query('kind');
-  const cap = kind === 'video' ? MAX_VIDEO_BYTES : MAX_UPLOAD_BYTES;
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > cap) {
-      await reader.cancel();
-      return c.text('File too large', 413);
-    }
-    chunks.push(value);
-  }
-
-  const body = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    body.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
+  const body = await readCapped({ stream: c.req.raw.body, cap: kind === 'video' ? MAX_VIDEO_BYTES : MAX_UPLOAD_BYTES });
+  if (!body) return c.text('File too large', 413);
+  const size = body.byteLength;
 
   // Sniff the real bytes, never the client's declared Content-Type: this type is
   // what `/f/{id}` will later hand a browser on our own origin.
@@ -428,7 +392,7 @@ app.get('/f/:id', async (c) => {
   });
 });
 
-// Transcribes one stored voice note. Its own route rather than part of `POST /f`:
+// Transcribes one stored voice or video note. Its own route rather than part of `POST /f`:
 // the upload stays a plain, fast store that a model outage cannot fail, and the
 // client decides whether to wait on text. The id is the access token, as for `GET`.
 app.post('/f/:id/transcribe', async (c) => {
@@ -442,14 +406,23 @@ app.post('/f/:id/transcribe', async (c) => {
 
   if (await overRateLimit({ limiter: c.env.TRANSCRIBE_LIMITER, req: c.req })) return c.text('Too many requests', 429);
 
-  const object = await c.env.FILE_BUCKET.get(id);
-  if (!object) return c.notFound();
-  const stored = object.httpMetadata?.contentType;
-  if (!isTranscribable(stored)) return c.text('Not an audio upload', 415);
+  // `head`, not `get`: a video's own bytes are never read, only the audio track sent with the call.
+  const head = await c.env.FILE_BUCKET.head(id);
+  if (!head) return c.notFound();
+  const stored = head.httpMetadata?.contentType;
+  const body =
+    stored && isVideoType(stored)
+      ? await readCapped({ stream: c.req.raw.body, cap: MAX_VOICE_BYTES })
+      : new Uint8Array(0);
+  if (!body) return c.text('Audio track too large', 413);
+  const source = transcriptionSource({ stored, body });
+  if (typeof source === 'object') return c.text(source.message, source.status);
+  const audio = source === 'body' ? body : await (await c.env.FILE_BUCKET.get(id))?.arrayBuffer();
+  if (!audio) return c.notFound();
 
   try {
     const { text } = await c.env.AI.run('@cf/openai/whisper-large-v3-turbo', {
-      audio: toBase64(new Uint8Array(await object.arrayBuffer())),
+      audio: toBase64(new Uint8Array(audio)),
     });
     const transcript = text.trim();
     await uploads.setTranscript({ id, text: transcript });
@@ -556,6 +529,8 @@ app.get('/', async (c) => {
 
 app.route('/auth', auth);
 
+app.route('/integrations/slack', slackRoutes);
+
 // The dashboard is its own bundle (app.html), so `/app` resolves from the asset
 // layer — but `/app/links` does not, and an unmatched path falls through to the
 // proxy catch-all, which would try to fetch it as a remote URL. Serve the same
@@ -611,8 +586,12 @@ const scheduled: ExportedHandlerScheduledHandler<Env['Bindings']> = async (event
   await dropOgCards(await annotationStore(env.DB).deleteExpired({ unusedSince: staleBefore }));
   await dropOgCards(await projectStore(env.DB).deleteExpired({ unusedSince: staleBefore }));
 
+  // After the annotation sweep, which is what orphans them.
+  await slackStore(env.DB).sweepOrphans();
+
   // Expired sessions and spent magic links are dead weight, not history.
   await authStore(env.DB).sweepExpired();
+  await unlockFailureStore(env.DB).sweep(nowInSeconds() - FAILURE_WINDOW_SECONDS);
 
   // Uploaded PDFs get the same window, keyed off their own last_accessed_at —
   // an upload that never makes it into a shared annotation must still be

@@ -1,6 +1,6 @@
 import { Database } from 'bun:sqlite';
 import { beforeEach, describe, expect, test } from 'bun:test';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { asDb, fakeDb } from '../test-d1';
 import { auth } from './routes';
 import { folderStore, ownedStore } from './store';
@@ -24,20 +24,21 @@ function sqliteD1(sqlite: Database): D1Database {
   return { prepare } as any;
 }
 
-const migration = readFileSync(new URL('../../migrations/0012_add_folders.sql', import.meta.url), 'utf8');
+// The real schema, every migration in order, so a later migration touching these tables is exercised too.
+const migrationsDir = new URL('../../migrations/', import.meta.url);
+const schema = readdirSync(migrationsDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort()
+  .map((f) => readFileSync(new URL(f, migrationsDir), 'utf8'));
 
 describe('folders are owner-scoped', () => {
   let sqlite: Database;
   let db: D1Database;
   beforeEach(() => {
     sqlite = new Database(':memory:');
+    for (const sql of schema) sqlite.exec(sql);
     sqlite.exec(
-      'CREATE TABLE annotations (id TEXT PRIMARY KEY, owner_id TEXT, url TEXT, created_at INTEGER, last_accessed_at INTEGER, expires_at INTEGER, access TEXT, owner_expires_at INTEGER)',
-    );
-    sqlite.exec('CREATE TABLE projects (id TEXT PRIMARY KEY)');
-    sqlite.exec(migration);
-    sqlite.exec(
-      "INSERT INTO annotations (id, owner_id, access) VALUES ('mine', 'alice', 'edit'), ('theirs', 'bob', 'edit')",
+      "INSERT INTO annotations (id, ops, owner_id, access) VALUES ('mine', '[]', 'alice', 'edit'), ('theirs', '[]', 'bob', 'edit')",
     );
     db = sqliteD1(sqlite);
   });

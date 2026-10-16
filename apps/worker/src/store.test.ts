@@ -163,3 +163,37 @@ describe('the share-id entropy floor', () => {
     expect(sql(fresh)).toContain('INSERT INTO projects');
   });
 });
+
+describe('annotationStore.createPreview', () => {
+  const STRONG = 'dsWPMrdw6EZ8jkkhxvFKS';
+  const sql = (db: ReturnType<typeof fakeDb>) => db.calls.map((call) => call.sql).join(' ');
+  const preview = {
+    url: 'https://p.example.com',
+    title: 'Hero',
+    note: null,
+    repo: 'acme/web',
+    branch: 'main',
+    sha: null,
+  };
+
+  // The chain is what exposes a room's neighbours, so naming a room is not enough: it must be the same branch.
+  test('chains to the named room only when its repo and branch match', async () => {
+    const same = fakeDb({ first: { repo: 'acme/web', branch: 'main', version: 2 } });
+    expect(
+      await annotationStore(asDb(same)).createPreview({ id: STRONG, ops: [], preview, previousId: 'prev' }),
+    ).toEqual({ created: true, version: 3, previousId: 'prev' });
+
+    const other = fakeDb({ first: { repo: 'acme/web', branch: 'feature', version: 2 } });
+    expect(
+      await annotationStore(asDb(other)).createPreview({ id: STRONG, ops: [], preview, previousId: 'prev' }),
+    ).toEqual({ created: true, version: 1, previousId: null });
+  });
+
+  test('never overwrites a room that already holds the id', async () => {
+    const taken = fakeDb({ changes: 0 });
+    expect(
+      await annotationStore(asDb(taken)).createPreview({ id: STRONG, ops: [], preview, previousId: null }),
+    ).toEqual({ created: false, reason: 'taken' });
+    expect(sql(taken)).toContain('DO NOTHING');
+  });
+});

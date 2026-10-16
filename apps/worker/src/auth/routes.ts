@@ -1,8 +1,11 @@
 import {
   folderNameRequestSchema,
   inviteRequestSchema,
+  LINK_PASSWORD_MAX,
+  LINK_PASSWORD_MIN,
   moveLinkRequestSchema,
   resolveOwnerExpiresAt,
+  setLinkPasswordSchema,
   signInRequestSchema,
   updateLinkSettingsSchema,
 } from '@marklayer/types';
@@ -12,8 +15,9 @@ import { createMiddleware } from 'hono/factory';
 import { Hono } from 'hono/tiny';
 import { inviteTemplate, sendEmail, signInTemplate, UndeliverableAddressError } from '../email';
 import { overRateLimit } from '../http';
+import { hashPassword } from '../lock/password';
 import { captureServer } from '../posthog';
-import { inviteStore, nowInSeconds } from '../store';
+import { annotationStore, inviteStore, nowInSeconds } from '../store';
 import { type AuthVariables, withUser } from './middleware';
 import { authStore, folderStore, ownedStore } from './store';
 import { mintToken } from './tokens';
@@ -58,6 +62,30 @@ function pingRoomRefreshAccess({
   ctx.waitUntil(
     room
       .fetch(new Request(`https://room/refresh-access?id=${encodeURIComponent(id)}`, { method: 'POST' }))
+      .catch(() => undefined),
+  );
+}
+
+/**
+ * Tells a room its password changed, so it closes every socket admitted under
+ * an older generation. Off the response path like the access ping: a lost ping
+ * leaves sockets open until they reconnect, and every reconnect is re-gated.
+ */
+function pingRoomRevoke({
+  env,
+  ctx,
+  id,
+  gen,
+}: {
+  env: AuthEnv;
+  ctx: { waitUntil(promise: Promise<unknown>): void };
+  id: string;
+  gen: number;
+}): void {
+  const room = env.ANNOTATION_ROOM.get(env.ANNOTATION_ROOM.idFromName(id));
+  ctx.waitUntil(
+    room
+      .fetch(new Request(`https://room/revoke?id=${encodeURIComponent(id)}&gen=${gen}`, { method: 'POST' }))
       .catch(() => undefined),
   );
 }
@@ -205,10 +233,36 @@ auth.post('/links/:id', async (c) => {
 auth.delete('/links/:id', async (c) => {
   const ownerId = c.get('session').id;
   const id = c.req.param('id');
+  const before = await annotationStore(c.env.DB).getLock(id);
   const released = await ownedStore(c.env.DB).releaseAnnotation({ id, ownerId });
   // Release reopened editing to everyone, which a warm room would not notice.
   if (released) pingRoomRefreshAccess({ env: c.env, ctx: c.executionCtx, id });
+  // It also dropped the password, which ends every session, the same as removing it by hand.
+  if (released && before?.passwordHash) {
+    pingRoomRevoke({ env: c.env, ctx: c.executionCtx, id, gen: before.passwordGen + 1 });
+  }
   return c.json({ released }, 200);
+});
+
+/**
+ * Sets, changes or removes the link's password. Any of the three ends every
+ * open session: unlock cookies carry the old generation, and the room closes
+ * the sockets admitted under it. Only the owner reaches this, which is also
+ * why a protected link is always an owned one.
+ */
+auth.put('/links/:id/password', async (c) => {
+  const body = setLinkPasswordSchema.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) {
+    return c.json({ error: `A password needs ${LINK_PASSWORD_MIN} to ${LINK_PASSWORD_MAX} characters.` }, 400);
+  }
+  const id = c.req.param('id');
+  const hash = body.data.password === null ? null : await hashPassword(body.data.password);
+  const gen = await ownedStore(c.env.DB).setPassword({ id, ownerId: c.get('session').id, hash });
+  // Same silent no-op as PATCH: a non-owner poking at an id is not worth a 403.
+  if (gen === null) return c.json({ updated: false }, 200);
+  pingRoomRevoke({ env: c.env, ctx: c.executionCtx, id, gen });
+  captureServer(c.env, c.executionCtx, 'link_password_updated', { protected: hash !== null });
+  return c.json({ updated: true }, 200);
 });
 
 auth.patch('/links/:id', async (c) => {

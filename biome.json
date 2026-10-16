@@ -59,6 +59,7 @@
       "!**/.astro",
       "!**/dist",
       "!graft",
+      "!.claude",
       "!**/*.astro",
       "!**/bun.lock",
       "!**/*.svg",

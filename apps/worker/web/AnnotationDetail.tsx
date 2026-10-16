@@ -203,7 +203,7 @@ function Replies({ op }: { op: { id: string; x: number; y: number } }) {
   const replyRef = useRef<HTMLTextAreaElement>(null);
   const { mentionProps, mentions } = useMentions();
   const replies = getReplies(op.id);
-  const attachments = useAttachments(uploadFile);
+  const attachments = useAttachments({ upload: uploadFile });
 
   // "Not fixed" asks for this box by thread id.
   useSignalEffect(() => {

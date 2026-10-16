@@ -39,7 +39,8 @@
       "/f/*", // and retrieval of one
       "/auth/*", // magic-link sign-in
       "/app", // dashboard shell (app.html)
-      "/app/*" // and its client-routed sub-paths, which have no asset of their own
+      "/app/*", // and its client-routed sub-paths, which have no asset of their own
+      "/integrations/*" // the Slack app's OAuth and Events endpoints
     ]
   },
   // Secrets, set with `wrangler secret put <NAME>` — deliberately not `vars`,
@@ -54,6 +55,13 @@
   //                 checking the PostHog event list, not the code.
   //   POSTHOG_HOST  Optional. Defaults to https://us.i.posthog.com. Also the
   //                 upstream of the browser's /_r relay.
+  //   SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_SIGNING_SECRET
+  //                 The two-way Slack app's credentials (docs/slack-app.md).
+  //   SLACK_TOKEN_KEY
+  //                 Base64 of 32 random bytes (`openssl rand -base64 32`): the
+  //                 AES-GCM key bot tokens are sealed under in D1. Rotating it
+  //                 orphans every install. Any of the four unset turns the
+  //                 Slack app off and hides it in the UI.
   // Voice-note transcripts: POST /f/:id/transcribe runs whisper-large-v3-turbo.
   "ai": { "binding": "AI" },
   // Caps /f/:id/transcribe per client IP (keyed by cf-connecting-ip). 10 calls a minute per

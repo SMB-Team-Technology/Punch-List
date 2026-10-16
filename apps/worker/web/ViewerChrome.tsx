@@ -18,10 +18,13 @@ import {
 import type { DeviceMode } from '@ext/lib/types';
 import { agentLabel, cn, isAgentPeer } from '@marklayer/types';
 import {
+  ChevronLeft,
+  ChevronRight,
   Columns3,
   Heart,
   Info,
   Link,
+  ListChecks,
   MessageSquare,
   Mic,
   MicOff,
@@ -37,6 +40,7 @@ import { lazy, Suspense } from 'preact/compat';
 import { canvasFitted, canvasZoom, toggleCanvasFit } from './DeviceOverview';
 import { isUploadPath } from './docSource';
 import { PresenceMenu } from './PresenceMenu';
+import { hasReviewContent, type PreviewInfo, panelChoice, previewInfo, reviewPanelOpen } from './review';
 import { SharePopover } from './SharePopover';
 import { DEVICE_ICONS, HOME_LINK_PROPS, Logo } from './shared';
 import {
@@ -147,6 +151,8 @@ function UrlField() {
     </div>
   );
 }
+
+type VersionRef = PreviewInfo['previous'];
 
 const VIEWPORTS = ['desktop', 'tablet', 'mobile'] as const;
 const viewportLabel = (m: DeviceMode) => `${m.charAt(0).toUpperCase() + m.slice(1)} viewport`;
@@ -404,6 +410,56 @@ function InCallControls() {
   );
 }
 
+/** The review panel's toggle. Offered to a guest only once there is something to read. */
+function ReviewButton() {
+  if (!hasReviewContent.value && isReadonly.value) return null;
+  return (
+    <BarButton
+      icon={<ListChecks size={16} strokeWidth={1.5} aria-hidden="true" />}
+      tip="Next steps and questions"
+      on={reviewPanelOpen.value}
+      onClick={() => (panelChoice.value = !reviewPanelOpen.value)}
+    />
+  );
+}
+
+/**
+ * Previous and next version of a preview room, with the build it shows. Absent
+ * on any room that is not part of a version chain.
+ */
+function VersionSwitcher() {
+  const info = previewInfo.value;
+  if (!info || info.version === null || (!info.previous && !info.next)) return null;
+  const build = [info.branch, info.sha?.slice(0, 7)].filter(Boolean).join(' @ ');
+  const step = (ref: VersionRef, dir: 'prev' | 'next') => {
+    const Icon = dir === 'prev' ? ChevronLeft : ChevronRight;
+    if (!ref) {
+      return (
+        <span aria-hidden="true" class={cn(geist.ctlSm, 'text-(--ds-gray-700)')}>
+          <Icon size={14} strokeWidth={1.5} />
+        </span>
+      );
+    }
+    const label = `${dir === 'prev' ? 'Previous' : 'Next'} version (v${ref.version ?? '?'})`;
+    return (
+      <a href={`/s/${ref.id}`} aria-label={label} class={cn(geist.ctlSm, geist.ctlIdle)}>
+        <Icon size={14} strokeWidth={1.5} aria-hidden="true" />
+        <Tooltip text={label} placement="bottom" />
+      </a>
+    );
+  };
+  return (
+    <nav aria-label="Versions" class={cn(geist.track, 'gap-0')}>
+      {step(info.previous, 'prev')}
+      <span class="px-1.5 text-meta font-medium tabular-nums text-(--ds-gray-1000) whitespace-nowrap" title={build}>
+        v{info.version}
+        {build && <span class="max-lg:hidden font-normal text-(--ds-gray-900)"> {build}</span>}
+      </span>
+      {step(info.next, 'next')}
+    </nav>
+  );
+}
+
 function ConnectionStatus() {
   return <PresenceMenu live={connected.value} count={peerCount.value} />;
 }
@@ -467,6 +523,7 @@ export function ViewerTopBar() {
       <BrandLink />
       <div class={geist.sep} />
       <UrlField />
+      <VersionSwitcher />
       <BarButton
         icon={<Info size={16} strokeWidth={1.5} aria-hidden="true" />}
         tip="Details"
@@ -485,6 +542,7 @@ export function ViewerTopBar() {
         {voiceActive.value ? <InCallControls /> : <JoinVoiceControls />}
         <ConnectionStatus />
         <PresentButton />
+        <ReviewButton />
         <BarButton
           icon={<MessageSquare size={16} strokeWidth={1.5} aria-hidden="true" />}
           tip="Annotations panel"

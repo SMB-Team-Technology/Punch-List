@@ -34,6 +34,8 @@ export function useRealtimeSync(annotationId: string) {
         onPresentChange,
         capture,
         noteSupportSignal,
+        // The page route owns the password prompt; reloading hands the visitor to it.
+        onLocked: () => location.reload(),
       },
     });
   }, [annotationId]);

@@ -536,7 +536,7 @@ export const commentOpSchema = z.object({
    * thread has to know to draw a player and not a thumbnail.
    */
   voice: z.optional(z.string().check(z.refine(isUploadId))),
-  /** Upload id of a recorded camera or screen clip. Unlike `voice` it has no transcript. */
+  /** Upload id of a recorded camera or screen clip. Its narration, if it had any, is transcribed into `text` like `voice`'s. */
   video: z.optional(z.string().check(z.refine(isUploadId))),
   tool: z.literal('comment'),
   num: z.number(),
@@ -674,6 +674,62 @@ export const introOpSchema = z.object({
   ...authored,
 });
 export type IntroOp = z.infer<typeof introOpSchema>;
+/** Bounds on a poll. Validated by the Durable Object, so a crafted op cannot carry a 500-option ballot. */
+export const MIN_QUESTION_OPTIONS = 2;
+export const MAX_QUESTION_OPTIONS = 6;
+export const MAX_QUESTION_TEXT = 300;
+export const MAX_STEP_TEXT = 300;
+export const MAX_NEXT_STEPS = 20;
+
+/**
+ * A structured question put to the room — a poll. Like guides it has no place on
+ * the page: `color`/`lineWidth` come from baseOp and nothing draws with them.
+ */
+export const questionOpSchema = z.object({
+  ...baseOp,
+  tool: z.literal('question'),
+  prompt: z.string().check(z.minLength(1), z.maxLength(MAX_QUESTION_TEXT)),
+  options: z
+    .array(z.string().check(z.minLength(1), z.maxLength(MAX_QUESTION_TEXT)))
+    .check(z.minLength(MIN_QUESTION_OPTIONS), z.maxLength(MAX_QUESTION_OPTIONS)),
+  ts: z.number(),
+  ...authored,
+});
+export type QuestionOp = z.infer<typeof questionOpSchema>;
+
+/**
+ * One ballot, an op of its own rather than a map on the question: two people
+ * voting at once would each patch the whole map and the later patch would erase
+ * the earlier vote. `voter` is the stable client id; the latest ballot per voter counts.
+ */
+export const voteOpSchema = z.object({
+  ...baseOp,
+  tool: z.literal('vote'),
+  questionId: z.string(),
+  option: z.int().check(z.gte(0), z.lt(MAX_QUESTION_OPTIONS)),
+  voter: z.string().check(z.minLength(1)),
+  ts: z.number(),
+  ...authored,
+});
+export type VoteOp = z.infer<typeof voteOpSchema>;
+
+/**
+ * One item of the agent's next-steps checklist, one op per step so ticking one
+ * off is a patch to that step alone. `annotationIds` are the threads it answers.
+ */
+export const stepOpSchema = z.object({
+  ...baseOp,
+  tool: z.literal('step'),
+  text: z.string().check(z.minLength(1), z.maxLength(MAX_STEP_TEXT)),
+  order: z.int(),
+  annotationIds: z.optional(z.array(z.string()).check(z.maxLength(MAX_NEXT_STEPS))),
+  done: z.optional(z.boolean()),
+  /** Display name of whoever ticked it, agent or person. */
+  doneBy: z.optional(z.nullable(z.string())),
+  ts: z.number(),
+  ...authored,
+});
+export type StepOp = z.infer<typeof stepOpSchema>;
 
 export const drawOpSchema = z.discriminatedUnion('tool', [
   freehandOpSchema,
@@ -687,8 +743,58 @@ export const drawOpSchema = z.discriminatedUnion('tool', [
   inspectOpSchema,
   guideOpSchema,
   introOpSchema,
+  questionOpSchema,
+  voteOpSchema,
+  stepOpSchema,
 ]);
 export type DrawOp = z.infer<typeof drawOpSchema>;
+
+/** Ops that are room state rather than marks: nothing is drawn for them and they never move. */
+export type ReviewOp = QuestionOp | VoteOp | StepOp;
+export const isReviewOp = (op: DrawOp): op is ReviewOp =>
+  op.tool === 'question' || op.tool === 'vote' || op.tool === 'step';
+
+export interface Ballot {
+  option: number;
+  name: string | null;
+  /** The vote op a revote patches. */
+  opId: string;
+}
+
+export interface QuestionTally {
+  question: QuestionOp;
+  /** Per option, in the question's order. */
+  counts: number[];
+  total: number;
+  /** Each voter's current ballot, keyed by `voter`. */
+  ballots: Map<string, Ballot>;
+}
+
+/**
+ * Count a poll. The latest ballot per voter wins, so a revote moves a vote
+ * rather than adding one; a ballot for an option the question does not have is
+ * ignored. Shared because the viewer and both agent transports must agree.
+ */
+export function tallyQuestion({ question, ops }: { question: QuestionOp; ops: readonly DrawOp[] }): QuestionTally {
+  const latest = new Map<string, VoteOp>();
+  for (const op of ops) {
+    if (op.tool !== 'vote' || op.questionId !== question.id) continue;
+    if (op.option >= question.options.length) continue;
+    const seen = latest.get(op.voter);
+    if (!seen || op.ts >= seen.ts) latest.set(op.voter, op);
+  }
+  const counts = question.options.map(() => 0);
+  const ballots = new Map<string, Ballot>();
+  for (const [voter, vote] of latest) {
+    counts[vote.option] = (counts[vote.option] ?? 0) + 1;
+    ballots.set(voter, { option: vote.option, name: vote.author ?? null, opId: vote.id });
+  }
+  return { question, counts, total: latest.size, ballots };
+}
+
+/** The checklist in the order the agent wrote it. */
+export const orderedSteps = (ops: readonly DrawOp[]): StepOp[] =>
+  ops.filter((op): op is StepOp => op.tool === 'step').sort((a, b) => a.order - b.order);
 
 /**
  * Ops that bind to a page element (comment/selection/area — reprojected whole)
@@ -754,6 +860,9 @@ export function translateOp({ op, dx, dy }: { op: DrawOp; dx: number; dy: number
     case 'inspect':
     case 'guide':
     case 'intro':
+    case 'question':
+    case 'vote':
+    case 'step':
       return null;
     default: {
       const _exhaustive: never = op;
@@ -1054,6 +1163,13 @@ export type DestinationSummary = z.infer<typeof destinationSummarySchema>;
 
 export const destinationListSchema = z.object({ integrations: z.array(destinationSummarySchema) });
 
+/** The two-way Slack app for one room: whether this deploy has it, and where the room posts if connected. */
+export const slackAppStatusSchema = z.object({
+  enabled: z.boolean(),
+  connection: z.nullable(z.object({ team: z.nullable(z.string()), channel: z.nullable(z.string()) })),
+});
+export type SlackAppStatus = z.infer<typeof slackAppStatusSchema>;
+
 /** Seconds in a day. Every expiry here and in the dashboard is a multiple of it. */
 export const DAY_SECONDS = 24 * 60 * 60;
 
@@ -1125,6 +1241,8 @@ export const ownedLinkSchema = z.object({
   ownerExpiresAt: z.nullable(z.number()),
   /** The owner's folder it is filed in, or null when unfiled. */
   folderId: z.nullable(z.string()),
+  /** Whether opening the link asks for a password. Never the password or its hash. */
+  passwordProtected: z.boolean(),
 });
 export type OwnedLink = z.infer<typeof ownedLinkSchema>;
 
@@ -1139,6 +1257,25 @@ export const foldersResponseSchema = z.object({ folders: z.array(folderSchema) }
 export const folderNameRequestSchema = z.object({ name: folderNameSchema });
 /** `PUT /auth/links/:id/folder`; `null` takes the link out of its folder. */
 export const moveLinkRequestSchema = z.object({ folderId: z.nullable(z.string()) });
+
+/** Bounds on a link password. The floor only stops an empty or one-key password; strength is the owner's call. */
+export const LINK_PASSWORD_MIN = 4;
+export const LINK_PASSWORD_MAX = 200;
+
+/** `PUT /auth/links/:id/password`. `null` removes the password and reopens the link. */
+export const setLinkPasswordSchema = z.object({
+  password: z.nullable(z.string().check(z.minLength(LINK_PASSWORD_MIN), z.maxLength(LINK_PASSWORD_MAX))),
+});
+export type SetLinkPassword = z.infer<typeof setLinkPasswordSchema>;
+
+/**
+ * Close code a room sends when a password change ends the session. 4000-4999 is
+ * the application range; 4401 echoes HTTP 401 so a log reader can place it.
+ */
+export const ROOM_LOCKED_CLOSE_CODE = 4401;
+
+/** Header an agent or API caller sends a link password in, for clients that cannot send a bearer token. */
+export const ROOM_PASSWORD_HEADER = 'X-MarkLayer-Password';
 
 /**
  * `PATCH /auth/links/:id`. Omitted fields stay as they are; `ownerExpiresIn: null`
@@ -1188,7 +1325,7 @@ export const inviteRequestSchema = z.object({ email: z.string(), url: z.url() })
 /** What `POST /f` answers with, parsed by the caller rather than read field by field. */
 export const uploadResponseSchema = z.object({ id: z.string(), url: z.string() });
 
-/** What `POST /f/:id/transcribe` answers with; `text` is empty when the note held no speech. A model failure is a 503, not an empty text. */
+/** What `POST /f/:id/transcribe` answers with (for a video, the call's body is the clip's separately recorded audio track); `text` is empty when the note held no speech. A model failure is a 503, not an empty text. */
 export const transcribeResponseSchema = z.object({ text: z.string() });
 
 /**

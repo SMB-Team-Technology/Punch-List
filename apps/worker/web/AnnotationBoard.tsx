@@ -31,18 +31,7 @@ import {
   deviceModeSchema,
 } from '@marklayer/types';
 import { signal } from '@preact/signals';
-import {
-  ArrowDownUp,
-  Check,
-  Ellipsis,
-  ListFilter,
-  LocateFixed,
-  MessageSquare,
-  Mic,
-  Paperclip,
-  Video,
-  X,
-} from 'lucide-preact';
+import { ArrowDownUp, Ellipsis, ListFilter, LocateFixed, MessageSquare, Mic, Paperclip, Video, X } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { tinykeys } from 'tinykeys';

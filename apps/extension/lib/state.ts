@@ -1,5 +1,5 @@
 import { buildAnnotationsPrompt, openAnnotationCount } from '@marklayer/agent-tools/prompt';
-import { isAnnotationOp, isSettled, resolveOpStatus, translateOp } from '@marklayer/types';
+import { applyOpPatch, isAnnotationOp, isReviewOp, isSettled, resolveOpStatus, translateOp } from '@marklayer/types';
 import { computed, effect, signal } from '@preact/signals';
 import { nanoid } from 'nanoid';
 import { tinykeys } from 'tinykeys';
@@ -1162,6 +1162,19 @@ export function setOpStatus(opId: string, status: CommentStatus) {
   }
 }
 
+/** Patch any op here and on the wire. Re-validated first, so a patch that breaks the op never leaves this tab. */
+export function patchOp({ opId, patch }: { opId: string; patch: Record<string, unknown> }) {
+  let applied = false;
+  operations.value = operations.value.map((op) => {
+    if (op.id !== opId) return op;
+    const merged = applyOpPatch({ op, patch });
+    if (!merged) return op;
+    applied = true;
+    return merged;
+  });
+  if (applied) emitOpUpdated({ opId, patch });
+}
+
 /** Set the annotation's triage priority; undefined clears it. */
 export function setOpPriority({ opId, priority }: { opId: string; priority: CommentPriority | null }) {
   let changed = false;
@@ -1241,6 +1254,9 @@ export const onExportPng = signal<(() => void) | null>(null);
 /** Bumped on undo/redo to trigger a canvas flash */
 export const undoRedoFlash = signal(0);
 
+const isUndoable = (op: DrawOp | undefined) =>
+  op !== undefined && !isReviewOp(op) && (!('authorId' in op) || !op.authorId || op.authorId === localUser.id);
+
 export function undo() {
   // Counted as an intent: a press with nothing to undo is still someone reaching for it.
   track('history_action', { action: 'undo' });
@@ -1270,10 +1286,13 @@ export function undo() {
     drafts.scheduleSave();
     return;
   }
-  const removed = ops[ops.length - 1];
+  // ⌘Z takes back my own marks: a peer's comment, ballot or the agent's checklist can land after my last one.
+  let index = ops.length - 1;
+  while (index >= 0 && !isUndoable(ops[index])) index--;
+  const removed = ops[index];
   if (!removed) return;
   undoStack.value = [...stack, removed];
-  operations.value = ops.slice(0, -1);
+  operations.value = ops.filter((_, i) => i !== index);
   onUndone.value?.(removed.id);
   undoRedoFlash.value++;
   drafts.scheduleSave();
