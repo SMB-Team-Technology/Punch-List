@@ -22,7 +22,7 @@ import { AGENT_IDS, AGENT_MOMENTS, COMPARISON_NAMES, COMPARISONS, FAQ, FEATURES,
 import { DemoStage } from './landing/DemoStage';
 import { HeroSource } from './landing/HeroSource';
 import { McpCommand } from './landing/McpCommand';
-import { MarginNote, ProblemRow, ProofGrid } from './landing/Proof';
+import { AgentRow, Card, MarginNote, ProblemRow, ProofGrid } from './landing/Proof';
 import { useLandingCanvas } from './landing/useLandingCanvas';
 import { useLandingPresence } from './landing/useLandingPresence';
 import { useLandingShortcuts } from './landing/useLandingShortcuts';
@@ -39,14 +39,6 @@ import { WebSelectionPopover } from './WebSelectionPopover';
 const HEAD_CLS = 'lp-display mx-auto max-w-[26em] text-center text-statement text-balance text-ml-fg';
 const BODY_CLS = 'm-0 text-lede leading-prose text-ml-fg/60';
 
-/* A row of lead-in claims. Three across only from `lg`: at `sm` a third of the
-   column left each cell about 100px of text. */
-const MOMENTS_ROW_CLS = 'lp-cell grid divide-y divide-ml-rule lg:grid-cols-3 lg:divide-x lg:divide-y-0';
-const MOMENT_CLS = 'px-6 py-10 text-pretty sm:px-10 sm:py-14';
-/* The lead-in takes the paragraph's leading: on its own first line it would set
-   a shorter line box and sit 2px above its neighbours' lead-ins. */
-const LEAD_CLS = 'inline text-lede leading-prose font-semibold text-ml-fg';
-
 /** A section head as figma.com sets one: the claim in ink, its support run on after it in grey, at one size. */
 function SectionHead({ title, children }: { title: ComponentChildren; children?: ComponentChildren }) {
   return (
@@ -62,26 +54,21 @@ function SectionHead({ title, children }: { title: ComponentChildren; children?:
   );
 }
 
-/** A bold lead-in running on into its sentence: the form every claim cell takes. */
-function LeadIn({
-  title,
-  desc,
-  icon: Icon,
-  class: extra,
-}: {
-  title: string;
-  desc: string;
-  icon?: LucideIcon;
-  class?: string;
-}) {
+/** One feature, as a compact card: a bare mark, the claim, a line of support. */
+function FeatureCard({ title, desc, icon: Icon }: { title: string; desc: string; icon: LucideIcon }) {
   return (
-    <div class={cn(MOMENT_CLS, extra)}>
-      {/* One size and one stroke for the row, so the text below starts on the same line in every cell. */}
-      {Icon && <Icon size={24} strokeWidth={1.5} class="mb-6 block text-ml-fg" aria-hidden="true" />}
-      <h3 class={LEAD_CLS}>{title}</h3> <p class={cn(BODY_CLS, 'inline')}>{desc}</p>
-    </div>
+    <Card class="px-7 pt-7 pb-8 sm:px-8 sm:pt-8 sm:pb-9">
+      <Icon size={24} strokeWidth={1.5} class="mb-7 block text-ml-fg" aria-hidden="true" />
+      <h3 class="lp-display m-0 text-title text-ml-fg text-balance">{title}</h3>
+      <p class={cn(BODY_CLS, 'mt-2 text-pretty')}>{desc}</p>
+    </Card>
   );
 }
+
+/* The rhythm: every section opens with the same space above its head, and a
+   head sits one step above the cards it introduces. */
+const SECTION_CLS = 'relative pt-28 sm:pt-36';
+const CARDS_CLS = 'mt-12 sm:mt-14';
 
 /**
  * The marketing page, which is also a live board: every mark on the first screen
@@ -157,236 +144,230 @@ export function Landing() {
         </header>
 
         <main>
-          <div class="mx-auto w-full max-w-page sm:px-10">
-            <div class="lp-frame">
-              {/* The hero owns the fold: nav plus this cell is exactly one screen. */}
-              <section class="lp-cell flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center px-6 pt-16 pb-20 text-center sm:px-10 sm:pt-10 sm:pb-40">
-                {/* The demo cursors belong to the fold and scroll away with it. */}
-                <FakeCursors />
+          <div class="mx-auto w-full max-w-page px-6 sm:px-10">
+            {/* The hero owns the fold: nav plus this section is exactly one screen. */}
+            <section class="relative flex min-h-[calc(100svh-3.5rem)] flex-col items-center justify-center pt-16 pb-20 text-center sm:pt-10 sm:pb-40">
+              {/* The demo cursors belong to the fold and scroll away with it. */}
+              <FakeCursors />
 
-                {/* Two explicit lines, no `text-balance`: only line two holds the
-                    cycling word, so the block's height never changes as it swaps. */}
-                <h1 class="lp-display lp-fade-up text-hero text-ml-fg" style={{ animationDelay: '0.05s' }}>
-                  <span class="block">{copy.headlinePrefix}</span>
-                  <span class="block">
-                    {copy.headlineJoiner} <ChannelCycle /> {copy.headlineSuffix}
-                  </span>
-                </h1>
+              {/* Two explicit lines, no `text-balance`: only line two holds the
+                  cycling word, so the block's height never changes as it swaps. */}
+              <h1 class="lp-display lp-fade-up text-hero text-ml-fg" style={{ animationDelay: '0.05s' }}>
+                <span class="block">{copy.headlinePrefix}</span>
+                <span class="block">
+                  {copy.headlineJoiner} <ChannelCycle /> {copy.headlineSuffix}
+                </span>
+              </h1>
 
-                <p
-                  class="lp-fade-up mt-6 max-w-[48ch] text-intro text-ml-fg/60 text-balance"
-                  style={{ animationDelay: '0.1s' }}
-                >
-                  Send your client one link. They comment straight on the live page in their own browser, without
-                  signing up or installing anything.
-                </p>
+              <p
+                class="lp-fade-up mt-6 max-w-[48ch] text-intro text-ml-fg/60 text-balance"
+                style={{ animationDelay: '0.1s' }}
+              >
+                Send your client one link. They comment straight on the live page in their own browser, without signing
+                up or installing anything.
+              </p>
 
-                {/* Pasting a URL delivers the product in one step; the install
-                        is the higher-friction ask, so it sits in the nav. */}
-                <HeroSource />
+              {/* Pasting a URL delivers the product in one step; the install
+                      is the higher-friction ask, so it sits in the nav. */}
+              <HeroSource />
 
-                {/* Verifiable claims only: the licence link goes to the repo. */}
-                <p
-                  class="lp-fade-up mt-9 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-ui text-ml-fg/60"
-                  style={{ animationDelay: '0.25s' }}
-                >
-                  {/* Below `lg` the nav has no room for its install button, so the fold keeps one. */}
-                  {/* A phone browser can't install an extension, so it isn't offered one. */}
-                  {!isMobileDevice && (
-                    <>
-                      <a
-                        href={CHROME_STORE_URL}
-                        target="_blank"
-                        rel="noopener"
-                        class="inline-flex items-center gap-1.5 text-ml-fg/60 no-underline transition-colors hover:text-ml-fg lg:hidden"
-                        onClick={() => capture('extension_install_clicked', { at: 'hero' })}
-                      >
-                        <ChromeIcon />
-                        Add to Chrome
-                      </a>
-                      <span aria-hidden="true" class="lg:hidden">
-                        ·
-                      </span>
-                    </>
-                  )}
-                  <span>No account needed</span>
-                  <span aria-hidden="true">·</span>
-                  <a
-                    href="https://github.com/thevrus/MarkLayer"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-ml-fg/60 hover:text-ml-fg transition-colors underline underline-offset-2 decoration-ml-fg/30"
-                  >
-                    Apache-2.0
-                  </a>
-                  <span aria-hidden="true">·</span>
-                  <span>Self-hostable</span>
-                </p>
-
-                {/* Without this line, strangers' cursors over the copy read as a
-                    rendering fault. Sits above the docked toolbar, on its centre line. */}
-                <div
-                  class="lp-fade-up pointer-events-none absolute inset-x-0 bottom-6 hidden justify-center px-6 sm:flex sm:bottom-27"
-                  style={{ animationDelay: '0.3s' }}
-                >
-                  <p class="m-0 text-ui text-ml-fg/60">
-                    This page is a live MarkLayer board.{' '}
-                    <span class="text-ml-fg">Pick a tool below and draw on it.</span>
-                  </p>
-                </div>
-              </section>
-
-              {/* The problem first, in the reader's own terms: the gate a client
-                  meets, and where the feedback ends up instead. */}
-              <section class="lp-cell px-6 pt-24 pb-14 sm:px-10 sm:pt-32 sm:pb-16">
-                <MarginNote class="top-[38%] left-[5%]">Been here?</MarginNote>
-                <SectionHead title="Clients will not install anything to tell you a button is wrong.">
-                  So the feedback comes by email instead, and nobody can tell which button they meant.
-                </SectionHead>
-              </section>
-              <ProblemRow />
-
-              {/* The proof: the real viewer on a shared room, which scroll grows to
-                  the whole screen. The heading's second clause is a tonal step, not
-                  a colour. */}
-              <section class="lp-cell px-6 pt-24 pb-14 sm:px-10 sm:pt-32 sm:pb-16">
-                <MarginNote class="top-[38%] right-[5%]" flip>
-                  The whole fix
-                </MarginNote>
-                <SectionHead title="One link is the whole setup.">
-                  Your client opens it and comments straight on the page, in their own browser. Nothing to install on
-                  either end.
-                </SectionHead>
-                <div class="mt-12 sm:mt-14">
-                  <DemoStage />
-                </div>
-              </section>
-
-              {/* The claims, each proved by a piece of the product. */}
-              <ProofGrid />
-
-              {/* The agent handoff. The command is the install, not a room: pointing a visitor's
-                  agent at the public demo board would feed it strangers' comments. */}
-              <section class="lp-cell px-6 pt-24 pb-20 text-center sm:px-10 sm:pt-32 sm:pb-24">
-                <SectionHead title="Let your AI coding tool make the fixes.">
-                  Give Claude Code or Cursor the link. It reads each comment, changes the code, and ticks the comment
-                  off while you watch.
-                </SectionHead>
-                <div class="mt-12">
-                  <McpCommand />
-                </div>
-                <p class="mt-5 text-ui text-ml-fg/60">
-                  Or skip the install: add <code class="font-mono">/mcp</code> to the end of any share link and point
-                  the agent at that.
-                </p>
-                <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-ui text-ml-fg/60">
-                  <span id="lp-agents" class="text-ml-fg">
-                    Any MCP client, including
-                  </span>
-                  <ul
-                    aria-labelledby="lp-agents"
-                    class="m-0 flex list-none flex-wrap items-center justify-center gap-x-6 gap-y-3 p-0"
-                  >
-                    {AGENT_IDS.map((id) => (
-                      <li key={id} class="m-0 inline-flex items-center gap-1.5 p-0">
-                        <AgentMark id={id} size={15} />
-                        {agentLabel(id)}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </section>
-
-              <section class={MOMENTS_ROW_CLS}>
-                {AGENT_MOMENTS.map((m) => (
-                  <LeadIn key={m.title} {...m} />
-                ))}
-              </section>
-
-              <section class="lp-cell px-6 py-24 sm:px-10 sm:py-32">
-                <SectionHead title="Everything else a review needs.">
-                  All of it free, for everyone on the link. The{' '}
-                  <a href="/features" class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30">
-                    features page
-                  </a>{' '}
-                  has the rest, down to every shortcut.
-                </SectionHead>
-              </section>
-
-              {/* Seams drawn by `gap-px` over the rule colour, as in the comparisons row. */}
-              <section class="lp-cell grid gap-px bg-ml-rule md:grid-cols-2 xl:grid-cols-4">
-                {FEATURES.map((f) => (
-                  <LeadIn key={f.title} {...f} class="bg-ml-board" />
-                ))}
-              </section>
-
-              <section class="lp-cell px-6 py-24 sm:px-10 sm:py-32">
-                <SectionHead
-                  title={
-                    <>
-                      Free alternative <span class="text-ml-fg/50">to {COMPARISON_NAMES}.</span>
-                    </>
-                  }
-                />
-                {/* The pricing claims live in home-copy.json, shared with HomeContent.astro. */}
-                <div class="mx-auto mt-12 grid max-w-[960px] gap-x-14 gap-y-5 md:grid-cols-2">
-                  <p class={cn(BODY_CLS, 'text-pretty')}>{copy.pricingFacts}</p>
-                  <p class={cn(BODY_CLS, 'text-pretty')}>
-                    MarkLayer is free because of its licence, not a pricing policy that could change. The code is open
-                    (Apache-2.0) and you can run your own copy.{' '}
+              {/* Verifiable claims only: the licence link goes to the repo. */}
+              <p
+                class="lp-fade-up mt-9 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-ui text-ml-fg/60"
+                style={{ animationDelay: '0.25s' }}
+              >
+                {/* Below `lg` the nav has no room for its install button, so the fold keeps one. */}
+                {/* A phone browser can't install an extension, so it isn't offered one. */}
+                {!isMobileDevice && (
+                  <>
                     <a
-                      href="/guides/free-website-annotation-tools"
-                      class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30"
+                      href={CHROME_STORE_URL}
+                      target="_blank"
+                      rel="noopener"
+                      class="inline-flex items-center gap-1.5 text-ml-fg/60 no-underline transition-colors hover:text-ml-fg lg:hidden"
+                      onClick={() => capture('extension_install_clicked', { at: 'hero' })}
                     >
-                      See the full audit
+                      <ChromeIcon />
+                      Add to Chrome
                     </a>
-                    , checked against each vendor&rsquo;s live pricing page.
-                  </p>
-                </div>
-                <p class="mx-auto mt-10 max-w-[62ch] text-center text-ui leading-prose text-balance text-ml-fg/60">
-                  See{' '}
-                  <a href="/compare" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                    every head-to-head comparison
-                  </a>
-                  ,{' '}
-                  <a href="/alternatives" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                    free alternatives by tool
-                  </a>
-                  ,{' '}
-                  <a href="/alternatives/markup-io" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                    Markup.io alternatives compared on price
-                  </a>
-                  , or the no-extension flow for{' '}
-                  <a href="/for/staging-feedback-no-extension" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                    client feedback on a staging site
-                  </a>
-                  .
-                </p>
-              </section>
+                    <span aria-hidden="true" class="lg:hidden">
+                      ·
+                    </span>
+                  </>
+                )}
+                <span>No account needed</span>
+                <span aria-hidden="true">·</span>
+                <a
+                  href="https://github.com/thevrus/MarkLayer"
+                  target="_blank"
+                  rel="noopener"
+                  class="text-ml-fg/60 hover:text-ml-fg transition-colors underline underline-offset-2 decoration-ml-fg/30"
+                >
+                  Apache-2.0
+                </a>
+                <span aria-hidden="true">·</span>
+                <span>Self-hostable</span>
+              </p>
 
-              {/* One row of head-to-heads. `gap-px` over the rule colour draws the
-                  inner seams, so no cell carries a border of its own. */}
-              <nav aria-label="Comparisons" class="lp-cell grid grid-cols-2 gap-px bg-ml-rule sm:grid-cols-4">
+              {/* Without this line, strangers' cursors over the copy read as a
+                  rendering fault. Sits above the docked toolbar, on its centre line. */}
+              <div
+                class="lp-fade-up pointer-events-none absolute inset-x-0 bottom-6 hidden justify-center px-6 sm:flex sm:bottom-27"
+                style={{ animationDelay: '0.3s' }}
+              >
+                <p class="m-0 text-ui text-ml-fg/60">
+                  This page is a live MarkLayer board. <span class="text-ml-fg">Pick a tool below and draw on it.</span>
+                </p>
+              </div>
+            </section>
+
+            {/* The problem first, in the reader's own terms: the gate a client
+                meets, and where the feedback ends up instead. */}
+            <section class={SECTION_CLS}>
+              <MarginNote class="top-[22%] left-[2%]">Been here?</MarginNote>
+              <SectionHead title="Clients will not install anything to tell you a button is wrong.">
+                So the feedback comes by email instead, and nobody can tell which button they meant.
+              </SectionHead>
+              <div class={CARDS_CLS}>
+                <ProblemRow />
+              </div>
+            </section>
+
+            {/* The proof: the real viewer on a shared room, which scroll grows to
+                the whole screen, then the claims each proved by a piece of the product. */}
+            <section class={SECTION_CLS}>
+              <MarginNote class="top-[22%] right-[2%]" flip>
+                The whole fix
+              </MarginNote>
+              <SectionHead title="One link is the whole setup.">
+                Your client opens it and comments straight on the page, in their own browser. Nothing to install on
+                either end.
+              </SectionHead>
+              <div class={CARDS_CLS}>
+                <DemoStage />
+              </div>
+              <div class="mt-16 sm:mt-20">
+                <ProofGrid />
+              </div>
+            </section>
+
+            {/* The agent handoff. The command is the install, not a room: pointing a visitor's
+                agent at the public demo board would feed it strangers' comments. */}
+            <section class={cn(SECTION_CLS, 'text-center')}>
+              <SectionHead title="Let your AI coding tool make the fixes.">
+                Give Claude Code or Cursor the link. It reads each comment, changes the code, and ticks the comment off
+                while you watch.
+              </SectionHead>
+              <div class="mt-12">
+                <McpCommand />
+              </div>
+              <p class="mt-5 text-ui text-ml-fg/60">
+                Or skip the install: add <code class="font-mono">/mcp</code> to the end of any share link and point the
+                agent at that.
+              </p>
+              <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-ui text-ml-fg/60">
+                <span id="lp-agents" class="text-ml-fg">
+                  Any MCP client, including
+                </span>
+                <ul
+                  aria-labelledby="lp-agents"
+                  class="m-0 flex list-none flex-wrap items-center justify-center gap-x-6 gap-y-3 p-0"
+                >
+                  {AGENT_IDS.map((id) => (
+                    <li key={id} class="m-0 inline-flex items-center gap-1.5 p-0">
+                      <AgentMark id={id} size={15} />
+                      {agentLabel(id)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div class={cn(CARDS_CLS, 'text-left')}>
+                <AgentRow moments={AGENT_MOMENTS} />
+              </div>
+            </section>
+
+            <section class={SECTION_CLS}>
+              <SectionHead title="Everything else a review needs.">
+                All of it free, for everyone on the link. The{' '}
+                <a href="/features" class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30">
+                  features page
+                </a>{' '}
+                has the rest, down to every shortcut.
+              </SectionHead>
+              <div class={cn(CARDS_CLS, 'grid gap-4 md:grid-cols-2 xl:grid-cols-4 sm:gap-5')}>
+                {FEATURES.map((f) => (
+                  <FeatureCard key={f.title} {...f} />
+                ))}
+              </div>
+            </section>
+
+            <section class={SECTION_CLS}>
+              <SectionHead
+                title={
+                  <>
+                    Free alternative <span class="text-ml-fg/50">to {COMPARISON_NAMES}.</span>
+                  </>
+                }
+              />
+              {/* The pricing claims live in home-copy.json, shared with HomeContent.astro. */}
+              <div class="mx-auto mt-12 grid max-w-[960px] gap-x-14 gap-y-5 md:grid-cols-2">
+                <p class={cn(BODY_CLS, 'text-pretty')}>{copy.pricingFacts}</p>
+                <p class={cn(BODY_CLS, 'text-pretty')}>
+                  MarkLayer is free because of its licence, not a pricing policy that could change. The code is open
+                  (Apache-2.0) and you can run your own copy.{' '}
+                  <a
+                    href="/guides/free-website-annotation-tools"
+                    class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30"
+                  >
+                    See the full audit
+                  </a>
+                  , checked against each vendor&rsquo;s live pricing page.
+                </p>
+              </div>
+              <p class="mx-auto mt-10 max-w-[62ch] text-center text-ui leading-prose text-balance text-ml-fg/60">
+                See{' '}
+                <a href="/compare" class="text-ml-fg/60 underline hover:text-ml-fg/80">
+                  every head-to-head comparison
+                </a>
+                ,{' '}
+                <a href="/alternatives" class="text-ml-fg/60 underline hover:text-ml-fg/80">
+                  free alternatives by tool
+                </a>
+                ,{' '}
+                <a href="/alternatives/markup-io" class="text-ml-fg/60 underline hover:text-ml-fg/80">
+                  Markup.io alternatives compared on price
+                </a>
+                , or the no-extension flow for{' '}
+                <a href="/for/staging-feedback-no-extension" class="text-ml-fg/60 underline hover:text-ml-fg/80">
+                  client feedback on a staging site
+                </a>
+                .
+              </p>
+
+              {/* One row of head-to-heads, each its own link card. */}
+              <nav aria-label="Comparisons" class={cn(CARDS_CLS, 'grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-5')}>
                 {COMPARISONS.map(({ name, href }) => (
                   <a
                     key={href}
                     href={href}
-                    class="lp-compare relative flex flex-col gap-1 bg-ml-board px-6 py-7 no-underline sm:px-10 sm:py-9"
+                    class="lp-card relative flex flex-col gap-1 px-6 py-7 no-underline sm:px-8 sm:py-8"
                   >
                     <span class="text-ui text-ml-fg/60">MarkLayer vs</span>
-                    <span class="text-heading text-ml-fg">{name}</span>
+                    <span class="lp-display text-title text-ml-fg">{name}</span>
                     <ArrowUpRight
                       size={16}
-                      class="lp-compare-arrow absolute top-7.5 right-6 text-ml-fg/50 sm:top-9.5 sm:right-8"
+                      class="lp-compare-arrow absolute top-7.5 right-6 text-ml-fg/50 sm:top-8.5 sm:right-8"
                       aria-hidden="true"
                     />
                   </a>
                 ))}
               </nav>
+            </section>
 
-              <section class="lp-cell px-6 py-24 sm:px-10 sm:py-32">
-                <SectionHead title="Questions people ask first." />
-                <div class="lp-faq mx-auto mt-12 max-w-[760px] divide-y divide-ml-rule border-y border-ml-rule">
+            <section class={SECTION_CLS}>
+              <SectionHead title="Questions people ask first." />
+              <Card class="lp-faq mx-auto mt-12 max-w-[760px] px-6 py-2 sm:px-10 sm:py-4">
+                <div class="divide-y divide-ml-rule">
                   {FAQ.map((item) => (
                     <details key={item.q}>
                       <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-6 py-5 text-lede text-ml-fg">
@@ -397,24 +378,22 @@ export function Landing() {
                     </details>
                   ))}
                 </div>
-              </section>
+              </Card>
+            </section>
 
-              {/* The close, and the only full-size install button on the page. It
-                  takes the hero's step, so the page ends at the size it opened at. */}
-              <section class="lp-cell px-6 py-24 text-center sm:px-10 sm:py-32">
-                <h2 class="lp-display mx-auto mb-12 max-w-[16em] text-hero text-balance text-ml-fg">
-                  Get feedback on the page, not in your inbox.
-                </h2>
-                <ChromeStoreLink label="Add to Chrome" at="closing" />
-                <p class="mt-4 text-ui text-ml-fg/60">Free to use &middot; No sign-up required</p>
-              </section>
-            </div>
+            {/* The close, and the only full-size install button on the page. It
+                takes the hero's step, so the page ends at the size it opened at. */}
+            <section class="pt-28 pb-16 text-center sm:pt-36 sm:pb-20">
+              <h2 class="lp-display mx-auto mb-12 max-w-[16em] text-hero text-balance text-ml-fg">
+                Get feedback on the page, not in your inbox.
+              </h2>
+              <ChromeStoreLink label="Add to Chrome" at="closing" />
+              <p class="mt-4 text-ui text-ml-fg/60">Free to use &middot; No sign-up required</p>
+            </section>
           </div>
 
           {/* The same footer the marketing pages close with (SiteFooter.astro),
-              read from `@site/lib/footer`. White, on the board, with the
-              frame's bottom seam as its edge; the gutter sits inside the capped
-              box so its columns start on the rail. */}
+              read from `@site/lib/footer`, on the page's own floor. */}
           <footer class="@container relative overflow-hidden pt-16 pb-7">
             <div class="mx-auto w-full max-w-page px-6 sm:px-10">
               {/* A grid, not `flex-wrap`: wrapping drops the fourth column onto

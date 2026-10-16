@@ -81,19 +81,16 @@
   --color-ml-btn-fg: #fff;
   --color-ml-card: oklch(1 0 0 / 0.3);
   --color-ml-card-border: oklch(0.1 0 0 / 0.06);
-  /* Landing surface steps. Plain white, deliberately — not the lavender-tinted
-     white this started on and not the off-white canvas that replaced it. The
-     page is a document, and a document is white; every off-white tried here read
-     as a tint nobody chose. It also means the only colour anywhere on the page
-     comes from the annotation marks, which is the one place colour carries
-     meaning. The footer sits on it too, edged by the frame's bottom seam. */
+  /* Landing surfaces. The page is white and everything that matters sits on
+     it as a white card drawn by its hairline ring, the way Inflight lays its
+     product out: the card is the object, its inner stage is a half-step of
+     warm grey, and the artifact on the stage is white again. */
   --color-ml-board: #fff;
-  /* Half a step off the board: a hovered frame cell and the demo's desk. */
-  --color-ml-board-raised: #fafafa;
-  /* The landing frame: hairline rails and seams, and the darker registration
-     marks where they cross. */
+  /* The stage inside a card, and a hovered link card. Warm, not the UI-kit
+     cool grey, so it sits on the ink ramp's temperature. */
+  --color-ml-board-raised: #f7f6f4;
+  /* Hairline rules: the FAQ rows, the stage's own edge. */
   --color-ml-rule: #00000014;
-  --color-ml-rule-mark: #00000040;
   --color-ml-input: oklch(1 0 0 / 0.85);
   --color-ml-input-border: oklch(0 0 0 / 0.12);
   /* Glass overlay surfaces (toolbar, panels, popovers) */
@@ -164,7 +161,11 @@
   --text-intro: 1.25rem;
   --text-intro--line-height: 1.4;
   --text-heading: 1.1875rem; /* 19 */
-  --text-title: 1.5rem; /* 24 */
+  /* 24 — the title on a card. Leading and tracking ride the step, as the two
+     display steps' do, so a card title is one decision wherever it is set. */
+  --text-title: 1.5rem;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.02em;
 
   /* The landing page's two display steps, on figma.com's ratios: the hero (its
      56-64px h1), and the section head, where the claim and its support run on
@@ -692,14 +693,13 @@
   }
 }
 
-/* The page is one continuous board, wall to wall.
-   Two rewrites ago this was an animated pastel wash (butter-pink into lavender
-   on a 12s loop) — the candy-gradient background that reads as machine-made.
-   Then it was flat white, which left the whole page below the hero with no
-   atmosphere at all and forced every section to invent its own separation.
-   Now the board IS the surface and white is reserved for objects sitting on it
-   (the URL field, the feature artifacts, the FAQ rows), so sections need no
-   bands, no rules and no seams to be told apart. */
+/* ── The landing surface system ──
+   Three tones and one card. The page is the grey floor, `.lp-card` is a white
+   object on it, `.lp-card-art` is the grey stage inside the card where a piece
+   of the product is shown, and `.lp-panel` is the product itself, white again.
+   Depth is a hairline ring plus a 2px contact shadow, never a bloom: the same
+   token the toolbar and its tooltip use, so an object on the page and an
+   object in the product are lit identically. */
 .lp-board {
   background: var(--color-ml-board);
 }
@@ -726,10 +726,8 @@
   font-weight: 400;
 }
 
-/* The primary call to action: one flat black surface. This was a gradient fill
-   with two inset highlights, a drop shadow and a white shine sweeping across it
-   every 4s — the glowy gradient button, and the loop drew the eye away from the
-   page's own content. The hover is a value step; nothing lifts, sweeps or glows. */
+/* The primary call to action: one flat black surface. The hover is a value
+   step; nothing lifts, sweeps or glows. */
 .lp-cta {
   background: var(--ds-gray-1000);
 }
@@ -740,76 +738,31 @@
   background: #0a0a0a;
 }
 
-/* ── The landing surface system ──
-   One elevation primitive for the whole page. Depth is a hairline *ring* plus a
-   2px contact shadow, not a border and not a bloom: the ring is drawn by the
-   shadow so it never takes layout, never doubles up against a neighbour's
-   border, and never rounds off into the boxy silhouette a blurred duplicate
-   leaves behind. Same token the toolbar and its tooltip already use, so an
-   object on the board and an object in the product are lit identically. */
 .lp-panel {
   background: #fff;
   box-shadow: var(--ds-shadow-border-small);
 }
-
-/* ── The frame ──
-   The page is set inside hairline rails, its sections divided by seams, with a
-   registration mark wherever a seam meets a rail: the canvas a MarkLayer guide
-   is drawn on. Rails and marks only from `sm`; a phone keeps the seams alone. */
-@media (min-width: 640px) {
-  .lp-frame {
-    position: relative;
-    border-inline: 1px solid var(--color-ml-rule);
-    border-bottom: 1px solid var(--color-ml-rule);
-  }
+.lp-card {
+  background: #fff;
+  border-radius: 1.5rem;
+  box-shadow: var(--ds-shadow-border-small);
 }
-.lp-cell {
-  position: relative;
-  border-top: 1px solid var(--color-ml-rule);
+.lp-card-art {
+  background: var(--color-ml-board-raised);
+  border-radius: 1rem;
+  box-shadow: 0 0 0 1px var(--color-ml-rule);
 }
-/* 11px marks centred on the 1px line: offsets are from the padding box, so -6px
-   puts the mark's middle pixel exactly on the border it straddles. */
-@media (min-width: 640px) {
-  .lp-cell::before,
-  .lp-cell::after,
-  .lp-frame::before,
-  .lp-frame::after {
-    content: "";
-    position: absolute;
-    width: 11px;
-    height: 11px;
-    pointer-events: none;
-    background:
-      linear-gradient(var(--color-ml-rule-mark), var(--color-ml-rule-mark)) center / 1px 100% no-repeat,
-      linear-gradient(var(--color-ml-rule-mark), var(--color-ml-rule-mark)) center / 100% 1px no-repeat;
-  }
-  .lp-cell::before,
-  .lp-cell::after {
-    top: -6px;
-  }
-  /* The frame's top seam sits under the glass nav, which would cut these to a T. */
-  .lp-frame > .lp-cell:first-child::before,
-  .lp-frame > .lp-cell:first-child::after {
-    content: none;
-  }
-  .lp-frame::before,
-  .lp-frame::after {
-    bottom: -6px;
-  }
-  .lp-cell::before,
-  .lp-frame::before {
-    left: -6px;
-  }
-  .lp-cell::after,
-  .lp-frame::after {
-    right: -6px;
-  }
+/* A link card's hover is a tonal step, not a lift. */
+a.lp-card {
+  transition: background-color 160ms ease;
+}
+a.lp-card:hover {
+  background: var(--color-ml-board-raised);
 }
 
 /* ── The nav ──
    Glass over the page, and it steps out of the way while the demo holds the
-   screen, as the toolbar does. Its hairline is always drawn and doubles as the
-   frame's top seam, so the first cell drops its own. */
+   screen, as the toolbar does. */
 .lp-nav {
   /* A short blur: a long one drags dark shapes from just off-screen into the
      bar's top edge as a smudge. */
@@ -829,28 +782,18 @@
     translate 320ms var(--ease-ml-spring),
     visibility 0s 320ms;
 }
-.lp-frame > .lp-cell:first-child {
-  border-top: 0;
-}
-
-/* A comparison cell: the hover is a tonal step and the arrow leaning out. */
-.lp-compare {
-  transition: background-color 160ms ease;
-}
-.lp-compare:hover {
-  background-color: var(--color-ml-board-raised);
-}
+/* The arrow on a comparison card leans out on hover. */
 .lp-compare-arrow {
   transition:
     translate 220ms var(--ease-ml-spring),
     color 160ms ease;
 }
-.lp-compare:hover .lp-compare-arrow {
+.lp-card:hover .lp-compare-arrow {
   translate: 2px -2px;
   color: var(--color-ml-fg);
 }
 
-/* The FAQ toggle is the frame's own registration mark, turned to a cross when open. */
+/* The FAQ toggle: a plus, turned to a cross when open. */
 .lp-faq-mark {
   transition: rotate 260ms var(--ease-ml-spring);
 }
@@ -881,14 +824,15 @@ details[open] .lp-faq-mark {
   container-type: inline-size;
   position: relative;
   overflow: hidden;
-  border-radius: 1rem;
+  /* The card radius: the desk sits in the card column as one of them. */
+  border-radius: 1.5rem;
   aspect-ratio: 16 / 10;
   background-color: var(--color-ml-board-raised);
   /* The resting width of the runway desk, as a ratio of the viewport it is laid
-     out at: the frame's content spine (gutter plus cell padding, 5rem a side),
-     so its edges line up with the copy. CSS has no length-over-length division
-     and `scale` takes a number, so tan(atan2(a, b)) does the division. */
-  --lp-rest: tan(atan2(min(100vw, var(--container-page)) - 10rem, 100vw));
+     out at: the page column inside its gutter (2.5rem a side), so its edges
+     line up with the cards. CSS has no length-over-length division and `scale`
+     takes a number, so tan(atan2(a, b)) does the division. */
+  --lp-rest: tan(atan2(min(100vw, var(--container-page)) - 5rem, 100vw));
 }
 .lp-desk-pad {
   position: absolute;
