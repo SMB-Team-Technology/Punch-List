@@ -11,7 +11,14 @@
  */
 import { wrapElements } from './rehype-wrap.mjs';
 
-const LABELS = { plaintext: '', sh: 'Terminal', bash: 'Terminal', shell: 'Terminal', json: 'JSON', toml: 'TOML' };
+export const LABELS = {
+  plaintext: '',
+  sh: 'Terminal',
+  bash: 'Terminal',
+  shell: 'Terminal',
+  json: 'JSON',
+  toml: 'TOML',
+};
 
 const el = (tagName, properties, children = []) => ({ type: 'element', tagName, properties, children });
 
@@ -36,24 +43,24 @@ const icon = (className, children) => ({
   children,
 });
 
+/** The bar over a code block: language label left, hidden-until-scripted copy button right. */
+export const codeBlockBar = (label) =>
+  el('div', { className: ['ml-code-bar'] }, [
+    el('span', {}, [text(label)]),
+    el('button', { type: 'button', className: ['ml-copy'], dataMlCopyCode: '', hidden: true }, [
+      icon('ml-i-copy', [
+        el('rect', { width: 14, height: 14, x: 8, y: 8, rx: 2, ry: 2 }),
+        el('path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }),
+      ]),
+      icon('ml-i-done', [el('path', { d: 'M20 6 9 17l-5-5' })]),
+      el('span', { ariaLive: 'polite', dataMlCopyLabel: '' }, [text('Copy')]),
+    ]),
+  ]);
+
 export const rehypeCodeBlocks = wrapElements({
   tagName: 'pre',
   wrap: (pre) => {
     const lang = String(pre.properties?.dataLanguage ?? 'plaintext');
-    const label = LABELS[lang] ?? lang;
-    return el('div', { className: ['ml-code'] }, [
-      el('div', { className: ['ml-code-bar'] }, [
-        el('span', {}, [text(label)]),
-        el('button', { type: 'button', className: ['ml-copy'], dataMlCopyCode: '', hidden: true }, [
-          icon('ml-i-copy', [
-            el('rect', { width: 14, height: 14, x: 8, y: 8, rx: 2, ry: 2 }),
-            el('path', { d: 'M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2' }),
-          ]),
-          icon('ml-i-done', [el('path', { d: 'M20 6 9 17l-5-5' })]),
-          el('span', { ariaLive: 'polite', dataMlCopyLabel: '' }, [text('Copy')]),
-        ]),
-      ]),
-      pre,
-    ]);
+    return el('div', { className: ['ml-code'] }, [codeBlockBar(LABELS[lang] ?? lang), pre]);
   },
 });

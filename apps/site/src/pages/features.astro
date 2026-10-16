@@ -3,14 +3,16 @@ import Faq from '../components/Faq.astro';
 import LinkGrid from '../components/LinkGrid.astro';
 import dates from '../data/page-dates.json';
 import ArticleLayout from '../layouts/ArticleLayout.astro';
+import { AGENT_TOOLS as agentTools } from '../lib/agent-tools';
 import { articleSchema, faqSchema, type QA } from '../lib/schema';
+
+const toolCount = agentTools.length;
 
 const { published, modified } = dates.features;
 
 const path = '/features';
 const title = 'MarkLayer Features: Every Tool, Integration and AI Hook';
-const description =
-  'The full feature list: 16 annotation tools, threaded comments with status and priority, live cursors, voice and video, Slack, Jira, Linear, GitHub and Trello, a 12-tool MCP server, Markdown and PNG export. Free, no account.';
+const description = `The full feature list: 16 annotation tools, threaded comments with status, priority and video notes, live cursors, voice and video, Slack, Jira, Linear, GitHub, Trello and Notion, a ${toolCount}-tool MCP server, Markdown and PNG export. Free, no account.`;
 const h1 = 'MarkLayer features';
 
 /**
@@ -42,26 +44,15 @@ const integrations: { name: string; when: string; sends: string }[] = [
   { name: 'Microsoft Teams', when: 'Automatic', sends: 'The same batch, formatted for a Teams incoming webhook.' },
   { name: 'Discord', when: 'Automatic', sends: "The same batch, trimmed to fit Discord's 2,000-character ceiling." },
   { name: 'Webhook', when: 'Automatic', sends: 'A structured JSON body to any public endpoint you control.' },
+  { name: 'Zapier', when: 'Automatic', sends: 'The same JSON to a catch hook, to start a Zap. Needs a paid Zapier plan.' },
   { name: 'Linear', when: 'You pick one', sends: 'Files a single annotation as a Linear issue and hands you the link.' },
   { name: 'GitHub', when: 'You pick one', sends: 'Opens a GitHub issue on a repository from one annotation.' },
   { name: 'Jira', when: 'You pick one', sends: 'Creates a Jira issue in the project and issue type you name.' },
   { name: 'Trello', when: 'You pick one', sends: 'Adds a card to the list you name from one annotation.' },
+  { name: 'Notion', when: 'You pick one', sends: 'Files one annotation as a page under the Notion page you name.' },
+  { name: 'ClickUp', when: 'You pick one', sends: 'Files one annotation as a task in the ClickUp list you name.' },
 ];
 
-const agentTools: { name: string; does: string }[] = [
-  { name: 'connect_room', does: 'Join a share link, by URL or by bare id.' },
-  { name: 'room_info', does: 'Read the page under review, its viewport and its timestamps.' },
-  { name: 'read_page', does: "Read the page's headings, text, links and controls with their selectors." },
-  { name: 'list_annotations', does: 'Backfill everything outstanding, filtered by status.' },
-  { name: 'get_annotation', does: 'Pull one annotation in full, including the reply thread.' },
-  { name: 'watch_annotations', does: 'Long-poll for new work and for anything handed to this agent by name.' },
-  { name: 'acknowledge', does: 'Mark a comment in progress so the human sees it has been picked up.' },
-  { name: 'resolve', does: 'Close a comment and post the summary as a reply.' },
-  { name: 'dismiss', does: 'Decline a comment, with a reason that is required rather than optional.' },
-  { name: 'reply', does: 'Ask a clarifying question without moving the status.' },
-  { name: 'create_annotation', does: 'Leave a comment of its own, anchored to an element.' },
-  { name: 'suggest_edit', does: 'Propose exact replacement text, shown to the human as a diff.' },
-];
 
 const qa: QA[] = [
   {
@@ -78,7 +69,7 @@ const qa: QA[] = [
   },
   {
     q: 'What can an AI coding agent do with a MarkLayer link?',
-    a: 'Twelve things, over MCP. An agent can join the room, read the page, list and watch annotations, acknowledge one so the human sees it is being worked on, resolve it with a summary, dismiss it with a reason, reply with a question, leave comments of its own, and propose an exact text edit rendered as a diff. Every share link is the server, at its own address plus /mcp, so connecting needs nothing installed: claude mcp add --transport http marklayer https://marklayer.app/s/<id>/mcp. The same tools ship on npm as marklayer-mcp for clients that only run local servers.',
+    a: `${toolCount} things, over MCP. An agent can join the room, read the page, list and watch annotations, acknowledge one so the human sees it is being worked on, resolve it with a summary, dismiss it with a reason, reply with a question, leave comments of its own, propose an exact text edit rendered as a diff, open a review room on a preview it built, publish a checklist of planned changes and tick it off, and put a poll to the reviewers. Every share link is the server, at its own address plus /mcp, so connecting needs nothing installed: claude mcp add --transport http marklayer https://marklayer.app/s/<id>/mcp. The same tools ship on npm as marklayer-mcp for clients that only run local servers. Setup for Claude, Codex, Cursor and VS Code is at marklayer.app/mcp.`,
   },
   {
     q: 'Can I get my comments out of MarkLayer?',
@@ -111,7 +102,7 @@ const qa: QA[] = [
   <Fragment slot="intro">
     MarkLayer is a free web app and Chrome extension for drawing and commenting on any live webpage, PDF or image, then
     sharing it as a link. It has 16 annotation tools, threaded comments with status and priority, live cursors, voice
-    and video, eight places to send feedback, and a 12-tool MCP server for AI coding agents. No account, no paid tier.
+    and video, eleven places to send feedback, and a {toolCount}-tool MCP server for AI coding agents. No account, no paid tier.
   </Fragment>
 
   <h2>The 16 annotation tools</h2>
@@ -157,6 +148,12 @@ const qa: QA[] = [
     paste a screenshot straight from the clipboard.
   </p>
   <p>
+    Some bugs are easier to show than to describe, so a comment can also carry a video note: up to two minutes from
+    the camera or the screen, transcribed so an agent reading the room can act on what was said. When the notes pile
+    up, the board in the annotation panel lays every one out by status, and you can change a card's status or
+    assignee from its menu.
+  </p>
+  <p>
     Each comment also records the browser, operating system and viewport size it was written on, so a bug report that
     only reproduces at one width says so without anyone having to ask.
   </p>
@@ -193,8 +190,13 @@ const qa: QA[] = [
     in one dashboard. The room enforces view-only everywhere a write could land, rather than by hiding the toolbar. The
     account is optional and free; annotating and viewing never require one.
   </p>
+  <p>
+    A link you own can also take a password. Anyone opening it, including an agent connecting over MCP, has to enter it
+    first, and repeated wrong guesses are throttled. Changing or removing the password signs out everyone who had
+    unlocked it, so it works as a way to cut access after a review, not only before one.
+  </p>
 
-  <h2>Send feedback to Slack, Teams, Discord, Linear, GitHub, Jira or Trello</h2>
+  <h2>Send feedback to Slack, Teams, Linear, GitHub, Jira, Trello, Notion and more</h2>
   <p>
     Connect a destination from the panel on any share link. Chat destinations post on their own as annotations arrive.
     Issue trackers wait for you to pick a specific annotation and file it, which is what stops a review from
@@ -224,15 +226,14 @@ const qa: QA[] = [
     </table>
   </div>
   <p>
-    This is one way out. MarkLayer creates the Linear, GitHub, Jira issue or Trello card and gives you
-    the link to it, and nothing about that issue's later life comes back. If you need a comment to close when the ticket
-    closes, you want a bug tracker, and the honest recommendation is <a href="/vs/bugherd">BugHerd</a> or
-    <a href="/vs/marker-io">Marker.io</a>.
+    This is one way out. MarkLayer creates the issue, card, page or task and gives you the link to it, and nothing
+    about that issue's later life comes back. If you need a comment to close when the ticket closes, you want a bug
+    tracker, and the honest recommendation is <a href="/vs/bugherd">BugHerd</a> or <a href="/vs/marker-io">Marker.io</a>.
   </p>
   <p>
-    Unlike most tools, MarkLayer never sends the API token for Linear, GitHub, Jira or Trello to
-    its server. The room stores only the repository, project key or team id. The token stays in the browser of
-    whoever set it up. A room holds five destinations at once.
+    Unlike most tools, MarkLayer never sends the API token for Linear, GitHub, Jira, Trello, Notion or ClickUp to its
+    server. The room stores only the repository, project key, list or page id. The token stays in the browser of whoever
+    set it up. A room holds five destinations at once.
   </p>
 
   <h2>What an AI coding agent can do with a link</h2>
@@ -242,13 +243,14 @@ const qa: QA[] = [
   </p>
   <pre><code>claude mcp add --transport http marklayer https://marklayer.app/s/&lt;id&gt;/mcp</code></pre>
   <p>
-    The share panel on every link shows that command with the id filled in. For a client that only runs local servers,
-    the same tools ship on npm as <code>marklayer-mcp</code>, installed once for every room:
+    The Details panel on every link shows that command with the id filled in, and <a href="/mcp">the MCP setup page</a>
+    has the same for Claude, Codex, Cursor and VS Code. For a client that only runs local servers, the same tools ship on
+    npm as <code>marklayer-mcp</code>, installed once for every room:
     <code>claude mcp add marklayer -- npx -y marklayer-mcp</code>.
   </p>
   <div class="ml-scroll-x">
     <table>
-      <caption>The twelve tools an AI agent gets over MCP</caption>
+      <caption>The {toolCount} tools an AI agent gets over MCP</caption>
       <thead>
         <tr>
           <th scope="col">Tool</th>
@@ -271,6 +273,12 @@ const qa: QA[] = [
     The part that matters is that the human watching sees all of it happen. A comment flips to in progress when the
     agent picks it up, and lands as resolved with a written summary underneath. When an agent asks a question, it
     appears as a reply on the thread the person already has open.
+  </p>
+  <p>
+    It works the other way too. When an agent has built something, it can open a review room on the preview URL and
+    send you the link instead of describing the change. A later preview of the same repository and branch becomes the
+    next version of that room, and reviewers step between versions. The agent can post its plan as a checklist that
+    ticks off as the work lands, and ask the room to vote when it needs a decision rather than an opinion.
   </p>
   <p>
     Feeding it is the inspector. Point at any element and MarkLayer captures its CSS selector, its computed styles, a
@@ -315,7 +323,7 @@ const qa: QA[] = [
     live page with the drawings over it.
   </p>
 
-  <h2>The web app and the extension</h2>
+  <h2>The web app, the extension and a script tag</h2>
   <p>
     The web app is the main route: paste a URL at marklayer.app and MarkLayer fetches the page, overlays the canvas, and
     gives you the address bar as the share link before you have drawn anything. Nothing to install, for you or for the
@@ -326,6 +334,11 @@ const qa: QA[] = [
     localhost. It annotates in place in the browser you are already signed into, and it asks for only three permissions
     (<code>activeTab</code>, <code>scripting</code>, <code>contextMenus</code>), none of which grant standing access to
     your browsing. Both routes produce the same share link, and the recipient installs nothing either way.
+  </p>
+  <p>
+    The third route is for your own site. Paste one script tag into a page, or into every page of a project, and
+    visitors comment on the live site itself, with no extension and no account. Copy the tag from the share popover,
+    which also notes what a strict Content Security Policy has to allow.
   </p>
 
   <h2>What MarkLayer does not do</h2>
@@ -356,6 +369,7 @@ const qa: QA[] = [
   <LinkGrid
     links={[
       { href: '/guides/how-marklayer-works', label: 'How MarkLayer works, in plain English' },
+      { href: '/mcp', label: 'Connect MarkLayer to your coding agent' },
       { href: '/guides/bug-report-mcp-servers', label: 'Bug report MCP servers compared' },
       { href: '/guides/website-feedback-tools', label: 'Twenty-one website feedback tools, prices checked' },
       { href: '/for/localhost-ai-agents', label: 'Annotating localhost for AI coding agents' },

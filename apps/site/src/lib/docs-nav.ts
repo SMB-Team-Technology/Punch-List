@@ -66,6 +66,12 @@ async function buildDocsNav(): Promise<DocsNav> {
           title: 'MarkLayer features',
           keywords: 'tools shortcuts integrations mcp',
         },
+        {
+          href: '/mcp',
+          label: 'MCP server',
+          title: 'Connect MarkLayer to your coding agent',
+          keywords: 'mcp claude code cursor codex vs code agent setup',
+        },
         { href: '/changelog', label: 'Changelog', title: "What's new in MarkLayer", keywords: 'releases versions' },
       ],
     },

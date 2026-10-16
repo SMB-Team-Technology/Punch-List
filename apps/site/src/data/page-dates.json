@@ -5,7 +5,7 @@
   },
   "features": {
     "published": "2026-09-17",
-    "modified": "2026-09-17"
+    "modified": "2026-10-16"
   },
   "hub-compare": {
     "published": "2026-01-16",
@@ -42,5 +42,9 @@
   "hub-changelog": {
     "published": "2026-08-29",
     "modified": "2026-10-11"
+  },
+  "mcp": {
+    "published": "2026-10-16",
+    "modified": "2026-10-16"
   }
 }
