@@ -20,7 +20,7 @@ const isSource = (v: unknown): v is Source => SOURCES.some((s) => s.id === v);
 
 const SUGGESTIONS = [
   { name: 'Wikipedia', url: 'https://en.wikipedia.org/wiki/Web_annotation' },
-  { name: 'Hacker News', url: 'https://news.ycombinator.com' },
+  { name: 'Example.com', url: 'https://example.com/' },
   { name: 'Product Hunt', url: 'https://www.producthunt.com/products/marklayer' },
 ];
 

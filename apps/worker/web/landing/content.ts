@@ -5,15 +5,15 @@ import { Eye, FileDown, Files, type LucideIcon, MonitorPlay, Ruler, Send, Square
 export const AGENT_MOMENTS: { title: string; desc: string }[] = [
   {
     title: 'It knows what you clicked.',
-    desc: 'The comment arrives with the exact piece of the page it was left on, so nobody has to describe it twice.',
+    desc: 'Each comment carries the exact element it was left on. Nobody describes it twice.',
   },
   {
     title: 'You watch it work.',
-    desc: 'Seen, replied, done. Every step shows up on the page while the thread is still in front of you.',
+    desc: 'Seen, replied, done. Each step shows on the page as it happens.',
   },
   {
     title: 'Wording fixes come back exact.',
-    desc: 'A typo or a better sentence comes back as the replacement itself.',
+    desc: 'A typo or better sentence comes back as the replacement itself.',
   },
 ];
 
@@ -25,36 +25,36 @@ export const AGENT_IDS = ['claude', 'cursor', 'copilot', 'windsurf', 'cline', 'z
  * row at two columns and at four.
  */
 export const FEATURES: { title: string; desc: string; icon: LucideIcon }[] = [
-  { title: 'Talk it through.', desc: 'Voice and video calls, right inside the review.', icon: Video },
+  { title: 'Talk it through.', desc: 'Voice and video calls inside the review.', icon: Video },
   {
     title: 'Walk people through it.',
-    desc: 'Bring everyone to the part you are looking at, or follow along with someone else.',
+    desc: 'Bring everyone to what you see, or follow someone else.',
     icon: MonitorPlay,
   },
   {
     title: 'Track what is done.',
-    desc: 'Mark a comment open, in progress or done, give it a priority, and see them all on one board.',
+    desc: 'Status, priority and one board for every comment.',
     icon: SquareKanban,
   },
   {
     title: 'Measure anything.',
-    desc: 'Check sizes and spacing in pixels, and pin ruler lines to the page.',
+    desc: 'Sizes and spacing in pixels, plus ruler guides.',
     icon: Ruler,
   },
-  { title: 'Review a whole site.', desc: 'Up to 50 pages on one link, each in its own tab.', icon: Files },
+  { title: 'Review a whole site.', desc: 'Up to 50 pages on one link, one tab each.', icon: Files },
   {
     title: 'Send it to your tools.',
-    desc: 'New comments post to Slack, Teams or Discord. One comment becomes a Linear, GitHub, Jira or Trello task.',
+    desc: 'Comments post to Slack, Teams or Discord. Any one becomes a Linear, GitHub, Jira or Trello task.',
     icon: Send,
   },
   {
     title: 'Export the whole review.',
-    desc: 'Every comment and reply in one document you can copy or download.',
+    desc: 'Every comment and reply as one document, copied or downloaded.',
     icon: FileDown,
   },
   {
     title: 'Lock a link.',
-    desc: 'Sign in with your email, if you want to, and make a link read-only, set an end date or see all your links.',
+    desc: 'Optional email sign-in: make a link read-only, set an expiry, see all your links.',
     icon: Eye,
   },
 ];
@@ -86,12 +86,12 @@ export const COMPARISON_NAMES = new Intl.ListFormat('en', { type: 'conjunction' 
 export const FAQ: { q: string; a: string }[] = [
   {
     q: 'Does my client need to install anything?',
-    a: 'No. They open the link, click on the page and type. They do not install anything or create an account.',
+    a: 'No. They open the link, click the page and type. No install, no account.',
   },
   { q: 'Is it really free?', a: 'Yes. No account, no paywall, no trial that runs out.' },
   {
     q: 'Does my client need to know anything technical?',
-    a: 'No. If they can use a web browser, they can leave a comment. The technical details come attached on their own.',
+    a: 'No. If they can use a browser, they can comment. The technical details attach themselves.',
   },
   {
     q: 'Does it work on any website?',
@@ -99,15 +99,15 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'Does it work on localhost?',
-    a: 'Yes, with the Chrome extension. It draws in your browser, so your dev server never has to be reachable from the internet. Share links do need a public URL, so point collaborators at staging or a tunnel.',
+    a: 'Yes, with the Chrome extension. It draws in your browser, so your dev server stays private. Share links need a public URL, so use staging or a tunnel for others.',
   },
   {
     q: 'Can multiple people annotate at the same time?',
-    a: 'Yes. Everyone sees each other’s cursors and marks as they happen, and you can talk over voice or video in the same room.',
+    a: 'Yes. Everyone sees each other’s cursors and marks live, with voice or video in the same room.',
   },
   {
     q: 'Can I keep a link private?',
-    a: 'Links are unguessable and unlisted. If you sign in with an email link (optional), you can make one view-only or set when it expires.',
+    a: 'Links are unguessable and unlisted. Sign in by email (optional) to make one view-only or set an expiry.',
   },
 ];
 

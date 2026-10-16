@@ -14,6 +14,9 @@ import { parseCompareUrl } from './url';
 type Side = 'a' | 'b';
 type Mode = 'side' | 'overlay';
 
+/** "Before" and "After", not "A" and "B": the pair is nearly always live vs. changed, and a letter says nothing. */
+const SIDE_LABEL: Record<Side, string> = { a: 'Before', b: 'After' };
+
 const MODES: { value: Mode; label: string }[] = [
   { value: 'side', label: 'Side by side' },
   { value: 'overlay', label: 'Slider' },
@@ -62,7 +65,7 @@ function CompareFrame({ side, url }: { side: Side; url: string }) {
       ref={(el) => {
         frames[side] = el;
       }}
-      title={`Page ${side.toUpperCase()}: ${hostOf(url)}`}
+      title={`${SIDE_LABEL[side]}: ${hostOf(url)}`}
       src={frameSrc({ url })}
       sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
       onLoad={(e) => e.currentTarget.contentWindow?.postMessage({ type: 'ml-scroll-sync', on: true }, location.origin)}
@@ -74,7 +77,7 @@ function CompareFrame({ side, url }: { side: Side; url: string }) {
 function FrameLabel({ side, url }: { side: Side; url: string }) {
   return (
     <div class="text-meta flex h-8 min-w-0 items-center gap-2 px-3 text-(--ds-gray-900)">
-      <span class="font-medium text-(--ds-gray-1000)">{side.toUpperCase()}</span>
+      <span class="font-medium text-(--ds-gray-1000)">{SIDE_LABEL[side]}</span>
       <span class="truncate">{hostOf(url)}</span>
     </div>
   );
@@ -134,7 +137,7 @@ function SliderOverlay({ a, b }: { a: string; b: string }) {
       <div
         role="slider"
         tabIndex={0}
-        aria-label="Reveal page B"
+        aria-label="Reveal the after page"
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(split.value)}
@@ -165,11 +168,13 @@ function UrlField({
   label,
   value,
   onInput,
+  autoFocus,
 }: {
   id: string;
   label: string;
   value: string;
   onInput: (v: string) => void;
+  autoFocus?: boolean;
 }) {
   return (
     <div class="flex min-w-0 flex-1 flex-col gap-1">
@@ -185,6 +190,10 @@ function UrlField({
           spellcheck={false}
           placeholder="staging.example.com"
           value={value}
+          // The field the visitor came to fill: the link from a room pre-fills the other one.
+          ref={(el) => {
+            if (autoFocus) el?.focus();
+          }}
           onInput={(e) => onInput(e.currentTarget.value)}
           /* 16px, not the text-ui step: iOS Safari zooms into any focused input below it. */
           class={cn(geist.input, 'w-full text-base')}
@@ -194,7 +203,7 @@ function UrlField({
   );
 }
 
-function CompareBar({ a, b }: { a: string; b: string }) {
+function CompareBar({ a, b, compared }: { a: string; b: string; compared: boolean }) {
   const [, navigate] = useLocation();
   const draftA = useSignal(a);
   const draftB = useSignal(b);
@@ -218,25 +227,40 @@ function CompareBar({ a, b }: { a: string; b: string }) {
         <a href="/" class="mb-2 flex h-6 shrink-0 items-center" aria-label="MarkLayer home">
           <Logo size={20} />
         </a>
-        <UrlField id="ml-cmp-a" label="Page A" value={draftA.value} onInput={(v) => (draftA.value = v)} />
-        <UrlField id="ml-cmp-b" label="Page B" value={draftB.value} onInput={(v) => (draftB.value = v)} />
+        <UrlField
+          id="ml-cmp-a"
+          label={SIDE_LABEL.a}
+          value={draftA.value}
+          onInput={(v) => (draftA.value = v)}
+          autoFocus={!a}
+        />
+        <UrlField
+          id="ml-cmp-b"
+          label={SIDE_LABEL.b}
+          value={draftB.value}
+          onInput={(v) => (draftB.value = v)}
+          autoFocus={Boolean(a) && !b}
+        />
         <button type="submit" class={cn(submitBtn, 'h-10')}>
           Compare
         </button>
-        <ToggleGroup
-          value={[mode.value]}
-          onValueChange={(next: Mode[]) => {
-            if (next[0]) mode.value = next[0];
-          }}
-          aria-label="Layout"
-          className={cn(geist.track, 'mb-0.5')}
-        >
-          {MODES.map((m) => (
-            <Toggle key={m.value} value={m.value} className={geist.segmentText}>
-              {m.label}
-            </Toggle>
-          ))}
-        </ToggleGroup>
+        {/* Layout is a choice about two pages on screen; before there are two, it is noise. */}
+        {compared && (
+          <ToggleGroup
+            value={[mode.value]}
+            onValueChange={(next: Mode[]) => {
+              if (next[0]) mode.value = next[0];
+            }}
+            aria-label="Layout"
+            className={cn(geist.track, 'mb-0.5')}
+          >
+            {MODES.map((m) => (
+              <Toggle key={m.value} value={m.value} className={geist.segmentText}>
+                {m.label}
+              </Toggle>
+            ))}
+          </ToggleGroup>
+        )}
       </form>
       {error.value ? (
         <p role="alert" class="text-meta mt-2 text-(--ds-red-700)">
@@ -258,7 +282,7 @@ export function ComparePage() {
   return (
     <div class="flex h-dvh flex-col bg-(--ds-background-100)">
       {/* Keyed on the pair so a submit re-seeds the drafts from the address bar. */}
-      <CompareBar key={`${rawA}|${rawB}`} a={rawA} b={rawB} />
+      <CompareBar key={`${rawA}|${rawB}`} a={rawA} b={rawB} compared={Boolean(a && b)} />
       {a && b ? (
         mode.value === 'side' ? (
           <SideBySide a={a} b={b} />
@@ -266,7 +290,12 @@ export function ComparePage() {
           <SliderOverlay a={a} b={b} />
         )
       ) : (
-        <p class="text-ui m-auto px-6 text-center text-(--ds-gray-900)">Enter two addresses to compare them.</p>
+        <div class="m-auto max-w-[360px] px-6 text-center">
+          <p class="text-ui font-medium text-(--ds-gray-1000)">Two versions of a page, side by side.</p>
+          <p class="text-ui mt-1 text-(--ds-gray-900)">
+            Paste the live page and the changed one. They scroll together, and the slider wipes one over the other.
+          </p>
+        </div>
       )}
     </div>
   );

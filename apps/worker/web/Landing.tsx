@@ -163,8 +163,7 @@ export function Landing() {
                 class="lp-fade-up mt-6 max-w-[48ch] text-intro text-ml-fg/60 text-balance"
                 style={{ animationDelay: '0.1s' }}
               >
-                Send your client one link. They comment straight on the live page in their own browser, without signing
-                up or installing anything.
+                Send one link. Your client comments on the live page. Nothing to install, no account.
               </p>
 
               {/* Pasting a URL delivers the product in one step; the install
@@ -216,7 +215,7 @@ export function Landing() {
                 style={{ animationDelay: '0.3s' }}
               >
                 <p class="m-0 text-ui text-ml-fg/60">
-                  This page is a live MarkLayer board. <span class="text-ml-fg">Pick a tool below and draw on it.</span>
+                  This page is a live board. <span class="text-ml-fg">Pick a tool below and draw.</span>
                 </p>
               </div>
             </section>
@@ -225,8 +224,8 @@ export function Landing() {
                 meets, and where the feedback ends up instead. */}
             <section class={SECTION_CLS}>
               <MarginNote class="top-[22%] left-[2%]">Been here?</MarginNote>
-              <SectionHead title="Clients will not install anything to tell you a button is wrong.">
-                So the feedback comes by email instead, and nobody can tell which button they meant.
+              <SectionHead title="Clients won’t install anything to say a button is wrong.">
+                So it arrives by email, and nobody knows which button.
               </SectionHead>
               <div class={CARDS_CLS}>
                 <ProblemRow />
@@ -240,8 +239,7 @@ export function Landing() {
                 The whole fix
               </MarginNote>
               <SectionHead title="One link is the whole setup.">
-                Your client opens it and comments straight on the page, in their own browser. Nothing to install on
-                either end.
+                They open it and comment on the page. Nothing to install on either end.
               </SectionHead>
               <div class={CARDS_CLS}>
                 <DemoStage />
@@ -255,19 +253,17 @@ export function Landing() {
                 agent at the public demo board would feed it strangers' comments. */}
             <section class={cn(SECTION_CLS, 'text-center')}>
               <SectionHead title="Let your AI coding tool make the fixes.">
-                Give Claude Code or Cursor the link. It reads each comment, changes the code, and ticks the comment off
-                while you watch.
+                Give Claude Code or Cursor the link. It reads each comment, fixes the code and ticks it off.
               </SectionHead>
               <div class="mt-12">
                 <McpCommand />
               </div>
               <p class="mt-5 text-ui text-ml-fg/60">
-                Or skip the install: add <code class="font-mono">/mcp</code> to the end of any share link and point the
-                agent at that.
+                No install needed: add <code class="font-mono">/mcp</code> to any share link.
               </p>
               <div class="mt-9 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-ui text-ml-fg/60">
                 <span id="lp-agents" class="text-ml-fg">
-                  Any MCP client, including
+                  Works with
                 </span>
                 <ul
                   aria-labelledby="lp-agents"
@@ -288,11 +284,11 @@ export function Landing() {
 
             <section class={SECTION_CLS}>
               <SectionHead title="Everything else a review needs.">
-                All of it free, for everyone on the link. The{' '}
+                All free. Full list on the{' '}
                 <a href="/features" class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30">
                   features page
-                </a>{' '}
-                has the rest, down to every shortcut.
+                </a>
+                .
               </SectionHead>
               <div class={cn(CARDS_CLS, 'grid gap-4 md:grid-cols-2 xl:grid-cols-4 sm:gap-5')}>
                 {FEATURES.map((f) => (
@@ -313,35 +309,34 @@ export function Landing() {
               <div class="mx-auto mt-12 grid max-w-[960px] gap-x-14 gap-y-5 md:grid-cols-2">
                 <p class={cn(BODY_CLS, 'text-pretty')}>{copy.pricingFacts}</p>
                 <p class={cn(BODY_CLS, 'text-pretty')}>
-                  MarkLayer is free because of its licence, not a pricing policy that could change. The code is open
-                  (Apache-2.0) and you can run your own copy.{' '}
+                  MarkLayer is free by licence (Apache-2.0), not by a pricing policy that can change. Self-host it if
+                  you want.{' '}
                   <a
                     href="/guides/free-website-annotation-tools"
                     class="text-ml-fg underline underline-offset-2 decoration-ml-fg/30"
                   >
                     See the full audit
                   </a>
-                  , checked against each vendor&rsquo;s live pricing page.
+                  , checked against live pricing pages.
                 </p>
               </div>
               <p class="mx-auto mt-10 max-w-[62ch] text-center text-ui leading-prose text-balance text-ml-fg/60">
-                See{' '}
+                More:{' '}
                 <a href="/compare" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                  every head-to-head comparison
+                  all comparisons
                 </a>
-                ,{' '}
+                {' · '}
                 <a href="/alternatives" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                  free alternatives by tool
+                  alternatives by tool
                 </a>
-                ,{' '}
+                {' · '}
                 <a href="/alternatives/markup-io" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                  Markup.io alternatives compared on price
+                  Markup.io alternatives by price
                 </a>
-                , or the no-extension flow for{' '}
+                {' · '}
                 <a href="/for/staging-feedback-no-extension" class="text-ml-fg/60 underline hover:text-ml-fg/80">
-                  client feedback on a staging site
+                  staging feedback without an extension
                 </a>
-                .
               </p>
 
               {/* One row of head-to-heads, each its own link card. */}
@@ -365,7 +360,7 @@ export function Landing() {
             </section>
 
             <section class={SECTION_CLS}>
-              <SectionHead title="Questions people ask first." />
+              <SectionHead title="Common questions." />
               <Card class="lp-faq mx-auto mt-12 max-w-[760px] px-6 py-2 sm:px-10 sm:py-4">
                 <div class="divide-y divide-ml-rule">
                   {FAQ.map((item) => (
@@ -388,7 +383,7 @@ export function Landing() {
                 Get feedback on the page, not in your inbox.
               </h2>
               <ChromeStoreLink label="Add to Chrome" at="closing" />
-              <p class="mt-4 text-ui text-ml-fg/60">Free to use &middot; No sign-up required</p>
+              <p class="mt-4 text-ui text-ml-fg/60">Free &middot; No sign-up</p>
             </section>
           </div>
 

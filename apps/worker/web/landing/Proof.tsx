@@ -283,9 +283,7 @@ export function ProofGrid() {
             </p>
           </div>
         </Art>
-        <Caption title="Click the page. Say what’s wrong.">
-          The comment stays on that spot, even after the page changes.
-        </Caption>
+        <Caption title="Click the page. Say what’s wrong.">The comment stays put, even after the page changes.</Caption>
       </Card>
 
       <Card class="items-center justify-center px-6 py-14 text-center lg:col-span-4">
@@ -329,13 +327,11 @@ export function ProofGrid() {
                 </div>
               ))}
             </dl>
-            <p class="m-0 max-w-[22ch] text-ui leading-prose text-ml-fg/55">
-              Those are yours, read from this browser just now.
-            </p>
+            <p class="m-0 max-w-[22ch] text-ui leading-prose text-ml-fg/55">Yours, read from this browser just now.</p>
           </div>
         </Art>
         <Caption title="It remembers what they were looking at.">
-          Browser, screen size and page come attached. Nobody has to ask.
+          Browser, screen and page come attached. Nobody has to ask.
         </Caption>
       </Card>
     </div>
