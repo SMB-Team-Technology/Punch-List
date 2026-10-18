@@ -5,11 +5,11 @@
   --color-ml-glass-accent: oklch(0 0 0 / 0.06);
   --color-ml-glass-muted: oklch(0 0 0 / 0.03);
   /* Brand accent — used for primary submit buttons, focus rings, caret. */
-  --color-ml-accent: oklch(0.65 0.15 300);
+  --color-ml-accent: #0091c9;
   /* Its readable foreground — the count inside an accent-tinted badge. */
-  --color-ml-accent-fg: oklch(0.86 0.08 300);
+  --color-ml-accent-fg: #bfe8f8;
   /* Resolved/muted neutral — used for done-state chips and de-emphasized swatches. */
-  --color-ml-resolved: oklch(0.55 0 0);
+  --color-ml-resolved: #5a7a8c;
   /* Spring easing for entrance/exit motion. */
   --ease-ml-spring: cubic-bezier(0.16, 1, 0.3, 1);
 
@@ -56,8 +56,8 @@
        host lost to anything the page appended after we mounted. */
     z-index: 2147483647;
 
-    --ml-glass-bg: oklch(0.96 0.003 280);
-    --ml-glass-bg-small: oklch(0.96 0.003 280);
+    --ml-glass-bg: oklch(0.97 0.006 230);
+    --ml-glass-bg-small: oklch(0.97 0.006 230);
     --ml-glass-border: oklch(0 0 0 / 0.16);
     --ml-glass-shadow-small:
       0 0 0 0.5px oklch(0 0 0 / 0.1), 0 6px 24px oklch(0 0 0 / 0.08), 0 16px 48px oklch(0 0 0 / 0.05),
@@ -73,7 +73,7 @@
     --ds-gray-100: #f2f2f2;
     --ds-gray-700: #8f8f8f;
     --ds-gray-900: #4d4d4d;
-    --ds-gray-1000: #171717;
+    --ds-gray-1000: #003a59;
     --ds-gray-alpha-100: #0000000d;
     --ds-gray-alpha-200: #00000015;
     --ds-gray-alpha-400: #00000014;
@@ -85,7 +85,7 @@
     /* One step past green-700: the "approved" badge, so a signed-off thread
        reads as further along than a resolved one rather than identical. */
     --ds-green-900: #0a7d33;
-    --ds-focus-color: #0070f7;
+    --ds-focus-color: #0091c9;
     --ds-shadow-menu: 0 0 0 1px #00000014, 0 1px 1px #00000005, 0 4px 8px -4px #0000000a, 0 16px 24px -8px #0000000f;
     --ds-shadow-tooltip: 0 0 0 1px #00000014, 0 1px 1px #00000005, 0 4px 8px #0000000a;
     --ds-shadow-border-small: 0 0 0 1px #00000014, 0 2px 2px #0000000a;
@@ -95,7 +95,7 @@
     --ml-state-green: oklch(0.62 0.17 145);
     --ml-state-red: oklch(0.62 0.22 25);
     --ml-state-yellow: oklch(0.78 0.16 85);
-    --ml-state-accent: oklch(0.65 0.15 300);
+    --ml-state-accent: #0091c9;
 
     /* Syntax highlighting (monokai-inspired) for inspector code blocks */
     --ml-syntax-bg: oklch(0 0 0 / 0.04);
@@ -144,21 +144,21 @@
       --color-ml-glass-fg: #fff;
       --color-ml-glass-accent: oklch(1 0 0 / 0.12);
       --color-ml-glass-muted: oklch(1 0 0 / 0.06);
-      --color-ml-accent: oklch(0.78 0.13 300);
-      --color-ml-resolved: oklch(0.65 0 0);
-      --ml-glass-bg: oklch(0.14 0.012 280 / 0.92);
-      --ml-glass-bg-small: oklch(0.13 0.012 280 / 0.94);
+      --color-ml-accent: #3fb6e4;
+      --color-ml-resolved: #8fb0c3;
+      --ml-glass-bg: oklch(0.25 0.05 240 / 0.94);
+      --ml-glass-bg-small: oklch(0.23 0.05 240 / 0.96);
       --ml-glass-border: oklch(1 0 0 / 0.18);
       --ml-glass-shadow-small:
         0 0 0 0.5px oklch(0 0 0 / 0.3), 0 6px 24px oklch(0 0 0 / 0.25), 0 16px 48px oklch(0 0 0 / 0.15),
         inset 0 0.5px 0 oklch(1 0 0 / 0.15);
 
       /* Geist tokens — same set as the light block above. */
-      --ds-background-100: #000;
+      --ds-background-100: #00121d;
       --ds-gray-100: #1a1a1a;
       --ds-gray-700: #8f8f8f;
       --ds-gray-900: #a0a0a0;
-      --ds-gray-1000: #ededed;
+      --ds-gray-1000: #e4eef4;
       --ds-gray-alpha-100: #ffffff0f;
       --ds-gray-alpha-200: #ffffff17;
       --ds-gray-alpha-400: #ffffff24;
@@ -170,7 +170,7 @@
       /* One step past green-700: the "approved" badge, so a signed-off thread
          reads as further along than a resolved one rather than identical. */
       --ds-green-900: #00c853;
-      --ds-focus-color: #50a8ff;
+      --ds-focus-color: #3fb6e4;
       --ds-shadow-menu: 0 0 0 1px #ffffff25, 0 1px 1px #00000052, 0 4px 8px -4px #00000052, 0 16px 24px -8px #00000052;
       --ds-shadow-tooltip: 0 0 0 1px #ffffff25, 0 1px 1px #00000052, 0 4px 8px #00000052;
       --ds-shadow-border-small: 0 0 0 1px #ffffff25, 0 1px 2px #00000029;
@@ -179,7 +179,7 @@
       --ml-state-green: oklch(0.78 0.18 145);
       --ml-state-red: oklch(0.7 0.2 25);
       --ml-state-yellow: oklch(0.85 0.17 85);
-      --ml-state-accent: oklch(0.78 0.13 300);
+      --ml-state-accent: #3fb6e4;
 
       --ml-syntax-bg: oklch(1 0 0 / 0.05);
       --ml-syntax-property: oklch(0.78 0.15 295);
@@ -193,21 +193,21 @@
     --color-ml-glass-fg: #fff;
     --color-ml-glass-accent: oklch(1 0 0 / 0.12);
     --color-ml-glass-muted: oklch(1 0 0 / 0.06);
-    --color-ml-accent: oklch(0.78 0.13 300);
-    --color-ml-resolved: oklch(0.65 0 0);
-    --ml-glass-bg: oklch(0.14 0.012 280 / 0.92);
-    --ml-glass-bg-small: oklch(0.13 0.012 280 / 0.94);
+    --color-ml-accent: #3fb6e4;
+    --color-ml-resolved: #8fb0c3;
+    --ml-glass-bg: oklch(0.25 0.05 240 / 0.94);
+    --ml-glass-bg-small: oklch(0.23 0.05 240 / 0.96);
     --ml-glass-border: oklch(1 0 0 / 0.18);
     --ml-glass-shadow-small:
       0 0 0 0.5px oklch(0 0 0 / 0.3), 0 6px 24px oklch(0 0 0 / 0.25), 0 16px 48px oklch(0 0 0 / 0.15),
       inset 0 0.5px 0 oklch(1 0 0 / 0.15);
 
     /* Geist tokens — same set as the light block above. */
-    --ds-background-100: #000;
+    --ds-background-100: #00121d;
     --ds-gray-100: #1a1a1a;
     --ds-gray-700: #8f8f8f;
     --ds-gray-900: #a0a0a0;
-    --ds-gray-1000: #ededed;
+    --ds-gray-1000: #e4eef4;
     --ds-gray-alpha-100: #ffffff0f;
     --ds-gray-alpha-200: #ffffff17;
     --ds-gray-alpha-400: #ffffff24;
@@ -219,7 +219,7 @@
     /* One step past green-700: the "approved" badge, so a signed-off thread
        reads as further along than a resolved one rather than identical. */
     --ds-green-900: #00c853;
-    --ds-focus-color: #50a8ff;
+    --ds-focus-color: #3fb6e4;
     --ds-shadow-menu: 0 0 0 1px #ffffff25, 0 1px 1px #00000052, 0 4px 8px -4px #00000052, 0 16px 24px -8px #00000052;
     --ds-shadow-tooltip: 0 0 0 1px #ffffff25, 0 1px 1px #00000052, 0 4px 8px #00000052;
     --ds-shadow-border-small: 0 0 0 1px #ffffff25, 0 1px 2px #00000029;
@@ -228,7 +228,7 @@
     --ml-state-green: oklch(0.78 0.18 145);
     --ml-state-red: oklch(0.7 0.2 25);
     --ml-state-yellow: oklch(0.85 0.17 85);
-    --ml-state-accent: oklch(0.78 0.13 300);
+    --ml-state-accent: #3fb6e4;
 
     --ml-syntax-bg: oklch(1 0 0 / 0.05);
     --ml-syntax-property: oklch(0.78 0.15 295);

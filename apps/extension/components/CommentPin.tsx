@@ -15,6 +15,7 @@ import {
   hostMutationTick,
   openContextMenu,
   STATUS_LABELS,
+  pinTone,
   STATUS_STYLES,
   scrollTick,
   setOpStatus,
@@ -97,6 +98,7 @@ export function CommentPin({ op }: { op: CommentOp }) {
   const flipV = top > window.innerHeight / 2;
   const status = getCommentStatus(op);
   const styles = STATUS_STYLES[status];
+  const tone = pinTone(status);
   const inspector = parseInspectorComment(op.text);
   const resolved = status === 'resolved' || status === 'dismissed';
   const replies = getReplies(op.id);
@@ -134,12 +136,12 @@ export function CommentPin({ op }: { op: CommentOp }) {
             // A marker on someone else's page: flat fill, a surface-coloured ring
             // to separate it from whatever is behind, and one tight shadow. The
             // ring thickens on hover instead of the pin growing.
-            class="w-7 h-7 rounded-full text-white text-meta font-semibold
+            class="w-7 h-7 rounded-full text-meta font-semibold
                  grid place-items-center
                  shadow-[0_0_0_2px_var(--ds-background-100),0_1px_2px_oklch(0_0_0/0.25)]
                  transition-[box-shadow] duration-150 ease-out
                  group-hover/pin:shadow-[0_0_0_3px_var(--ds-background-100),0_1px_2px_oklch(0_0_0/0.3)]"
-            style={{ background: op.color, opacity: styles.pinOpacity, ...flashRing(op) }}
+            style={{ background: tone.bg, color: tone.fg, opacity: styles.pinOpacity, ...flashRing(op) }}
           >
             {op.num}
             {status !== 'open' && (

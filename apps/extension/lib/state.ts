@@ -620,6 +620,10 @@ export const STATUS_STYLES: Record<CommentStatus, { color: string; bg: string; r
   },
 };
 
+/** The pin itself, in brand colours: green while there is work to do, navy once it is done. */
+export const pinTone = (status: CommentStatus): { bg: string; fg: string } =>
+  isSettled(status) ? { bg: '#003a59', fg: '#fff' } : { bg: '#69cd2b', fg: '#003a59' };
+
 export const STATUS_LABELS: Record<CommentStatus, string> = {
   open: 'Open',
   in_progress: 'In progress',

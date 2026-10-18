@@ -89,7 +89,7 @@ export function buildOgSvg({ domain, ops, faviconUri }: OgCardParams): string {
 
   ${faviconUri ? `<image x="${MARK_AXIS}" y="${iconY.toFixed(1)}" width="${icon}" height="${icon}" href="${faviconUri}"/>` : ''}
 
-  <text x="${textX}" y="${baseline}" font-family="Geist" font-size="${size}" font-weight="700" fill="${TONE.ink}" letter-spacing="${(TRACKING * size).toFixed(2)}">${escapeXml(label)}</text>
-  <text x="${textX}" y="${baseline + 45}" font-family="Geist" font-size="20" letter-spacing="-0.1">${statsLine(tally)}</text>
+  <text x="${textX}" y="${baseline}" font-family="Poppins" font-size="${size}" font-weight="700" fill="${TONE.ink}" letter-spacing="${(TRACKING * size).toFixed(2)}">${escapeXml(label)}</text>
+  <text x="${textX}" y="${baseline + 45}" font-family="Poppins" font-size="20" letter-spacing="-0.1">${statsLine(tally)}</text>
 </svg>`;
 }

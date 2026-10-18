@@ -1,16 +1,11 @@
-import { MARK_PATHS, MARK_TRANSFORM } from './brand';
+import { BRAND, MARK_CHECK, MARK_CHECK_WIDTH, MARK_TILE_RADIUS } from './brand';
 
 export function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-/**
- * Where the artwork actually sits inside the 512 box: it fills neither the width
- * nor the height of it, so scaling the box alone would hang the mark off-center
- * from the wordmark beside it. These are the measured extents of the three paths
- * after `MARK_TRANSFORM`.
- */
-export const MARK_BOX = { x: 27.6, y: -3.4, h: 423.4 };
+/** The tile fills its whole 512 box, so the box is the artwork's extent. */
+export const MARK_BOX = { x: 0, y: 0, h: 512 };
 
 /* Two axes, and everything on either card sits on one of them: the marks (the
    logo, the favicon) hang at the outer edge, the words start at the inner one. */
@@ -24,17 +19,16 @@ export const CARD = { width: 1200, height: 630 };
 export const TRACKING = -0.035;
 
 /**
- * The cards' five tones. Both are drawn on black so the only colour on them can
- * belong to the annotation — the person's own ink on the share card, the drawn
- * stroke on the page card.
+ * The cards' five tones, on the brand navy. The one other colour on a card is
+ * the green the page card's stroke and pin are drawn in.
  */
 export const TONE = {
-  ground: '#000000',
+  ground: BRAND.navy,
   ink: '#ffffff',
-  muted: '#8f8f8f',
-  faint: '#3d3d3d',
+  muted: '#9db7c6',
+  faint: '#3d6b84',
   /** A tone barely above the ground: the watermark, an empty panel. */
-  ghost: '#141414',
+  ghost: '#00476b',
 };
 
 /**
@@ -46,12 +40,12 @@ export const TONE = {
  */
 export const SEPARATOR = `<tspan fill="${TONE.faint}">\u00a0\u00a0·\u00a0\u00a0</tspan>`;
 
-/** The mark alone, placed by the artwork's true extents rather than by its box. */
+/** The mark alone: the tile in `fill`, the check cut through it in the ground tone. */
 export function mark({ x, top, height, fill }: { x: number; top: number; height: number; fill: string }): string {
   const k = height / MARK_BOX.h;
-  const paths = MARK_PATHS.map((d) => `<path d="${d}"/>`).join('');
-  return `<g transform="translate(${(x - MARK_BOX.x * k).toFixed(2)} ${(top - MARK_BOX.y * k).toFixed(2)}) scale(${k.toFixed(6)})" fill="${fill}">
-    <g transform="${MARK_TRANSFORM}">${paths}</g>
+  return `<g transform="translate(${(x - MARK_BOX.x * k).toFixed(2)} ${(top - MARK_BOX.y * k).toFixed(2)}) scale(${k.toFixed(6)})">
+    <rect width="512" height="512" rx="${MARK_TILE_RADIUS}" fill="${fill}"/>
+    <path d="${MARK_CHECK}" fill="none" stroke="${TONE.ground}" stroke-width="${MARK_CHECK_WIDTH}" stroke-linecap="round" stroke-linejoin="round"/>
   </g>`;
 }
 

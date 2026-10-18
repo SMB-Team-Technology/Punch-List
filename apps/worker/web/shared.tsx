@@ -5,7 +5,7 @@ import { cn } from '@marklayer/types';
 import { Check, Copy, Loader2, Monitor, Smartphone, Tablet } from 'lucide-preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { siGithub } from 'simple-icons';
-import { MARK_PATHS, MARK_TRANSFORM } from '../src/brand';
+import { BRAND, MARK_CHECK, MARK_CHECK_WIDTH, MARK_TILE_RADIUS } from '../src/brand';
 
 /** Item of a panel's Base UI menu. */
 export const menuItem = cn(
@@ -84,22 +84,31 @@ export function CopyControl({
   );
 }
 
-let logoIdx = 0;
-export function Logo({ size = 24, class: className }: { size?: number; class?: string }) {
-  const id = `ml${++logoIdx}`;
+/**
+ * The mark: a check in a rounded tile. `navy` is the brand's own pairing, a green
+ * check on navy; `light` is the same mark reversed out, for a navy ground.
+ */
+export function Logo({
+  size = 24,
+  tone = 'navy',
+  class: className,
+}: {
+  size?: number;
+  tone?: 'navy' | 'light';
+  class?: string;
+}) {
+  const tile = tone === 'navy' ? BRAND.navy : '#fff';
+  const check = tone === 'navy' ? BRAND.green : BRAND.navy;
   return (
     <svg width={size} height={size} viewBox="0 0 512 512" fill="none" aria-hidden="true" class={className}>
-      <g transform={MARK_TRANSFORM} fill={`url(#${id})`}>
-        {MARK_PATHS.map((d) => (
-          <path key={d} d={d} />
-        ))}
-      </g>
-      <defs>
-        <linearGradient id={id} gradientTransform="rotate(45)" style={{ transformOrigin: 'center center' }}>
-          <stop stop-color="#A855F7" />
-          <stop offset="1" stop-color="#6D28D9" />
-        </linearGradient>
-      </defs>
+      <rect width="512" height="512" rx={MARK_TILE_RADIUS} fill={tile} />
+      <path
+        d={MARK_CHECK}
+        stroke={check}
+        stroke-width={MARK_CHECK_WIDTH}
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
     </svg>
   );
 }

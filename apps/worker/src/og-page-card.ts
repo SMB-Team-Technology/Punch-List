@@ -22,8 +22,8 @@ const SINGLE_LINE_FLOOR = 64;
 /** Leaves the right margin the slack the pin needs at the end of a full line. */
 const HEADING_WIDTH = 1000;
 const LINE_HEIGHT = 1.08;
-/** Geist's caps reach roughly this far above the baseline. */
-const CAP = 0.72;
+/** Poppins' caps reach roughly this far above the baseline. */
+const CAP = 0.7;
 /** The cap band of the heading block centers here: the midpoint between the
     mark's foot and the colophon's cap, which is what reads level. */
 const OPTICAL_CENTER = 322;
@@ -244,12 +244,11 @@ function stroke({ x, y, width, size, seed }: { x: number; y: number; width: numb
 const PIN_RADIUS = 19;
 const PIN_LABEL = 20;
 function pin({ cx, cy }: { cx: number; cy: number }): string {
-  // 0.36em below the center is where Geist's digits actually sit centered; a
-  // glyph's optical middle is not its box's. Weight 600, not the 500 the share
-  // card's pins use: white on the accent is a 3.2:1 ratio, which needs the extra
-  // stem to stay legible at the size a card is actually looked at.
+  // 0.36em below the center is where the digits actually sit centered; a
+  // glyph's optical middle is not its box's. Navy on the green, as the app's
+  // own open pins are.
   return `<circle cx="${n(cx)}" cy="${n(cy)}" r="${PIN_RADIUS}" fill="${MARK_ACCENT}"/>
-  <text x="${n(cx)}" y="${n(cy + PIN_LABEL * 0.36)}" text-anchor="middle" font-family="Geist" font-size="${PIN_LABEL}" font-weight="600" fill="${TONE.ink}">1</text>`;
+  <text x="${n(cx)}" y="${n(cy + PIN_LABEL * 0.36)}" text-anchor="middle" font-family="Poppins" font-size="${PIN_LABEL}" font-weight="600" fill="${TONE.ground}">1</text>`;
 }
 
 export interface PageOgCardParams {
@@ -262,7 +261,7 @@ export interface PageOgCardParams {
 /**
  * The marketing pages' card: the page's heading set large, with the product's
  * own vocabulary drawn onto it — a pen stroke under the operative word and a
- * comment pinned to it. The artifact is the thing MarkLayer does, performed on
+ * comment pinned to it. The artifact is the thing Punch List does, performed on
  * the page's own words, so no two pages share a card and none of it is a prop.
  *
  * Pure, like the share card's composer: no fonts, no rasterizer, no network, so
@@ -295,7 +294,7 @@ export function buildPageOgSvg({ heading, path }: PageOgCardParams): string {
   const heads = lines
     .map(
       (line, i) =>
-        `<text x="${MARK_AXIS}" y="${n(firstBaseline + size * LINE_HEIGHT * i)}" font-family="Geist" font-size="${size}" font-weight="700" fill="${TONE.ink}" letter-spacing="${(TRACKING * size).toFixed(2)}">${escapeXml(line)}</text>`,
+        `<text x="${MARK_AXIS}" y="${n(firstBaseline + size * LINE_HEIGHT * i)}" font-family="Poppins" font-size="${size}" font-weight="700" fill="${TONE.ink}" letter-spacing="${(TRACKING * size).toFixed(2)}">${escapeXml(line)}</text>`,
     )
     .join('\n  ');
 
@@ -310,6 +309,6 @@ export function buildPageOgSvg({ heading, path }: PageOgCardParams): string {
 
   ${annotation}
 
-  <text x="${MARK_AXIS}" y="${COLOPHON_BASELINE}" font-family="Geist" font-size="22" letter-spacing="-0.1"><tspan fill="${TONE.ink}" font-weight="500">marklayer.app</tspan>${trail}</text>
+  <text x="${MARK_AXIS}" y="${COLOPHON_BASELINE}" font-family="Poppins" font-size="22" letter-spacing="-0.1"><tspan fill="${TONE.ink}" font-weight="500">feedback.smbteam.com</tspan>${trail}</text>
 </svg>`;
 }

@@ -103,7 +103,7 @@ describe('pickWord', () => {
   });
 
   it('falls back to the longest word with no brand on the line', () => {
-    expect(pickWord(layoutHeading('Annotate any webpage'))?.text).toBe('Annotate');
+    expect(pickWord(layoutHeading('Annotate any page'))?.text).toBe('Annotate');
   });
 });
 
@@ -115,7 +115,8 @@ describe('buildPageOgSvg', () => {
   });
 
   it('seeds the stroke from the heading alone', () => {
-    const strokeOf = (svg: string) => svg.match(/<path d="([^"]+)" fill="none" stroke=/)?.[1];
+    // The pen stroke is the curved path; the mark's check is straight segments.
+    const strokeOf = (svg: string) => svg.match(/<path d="(M [^"]*Q[^"]+)" fill="none" stroke=/)?.[1];
     const a = buildPageOgSvg({ heading: 'Markup.io vs MarkLayer', path: '/vs/markup-io' });
     // Same letters, same width, same operative word: only the seed can tell them apart.
     const b = buildPageOgSvg({ heading: 'Markup.oi vs MarkLayer', path: '/vs/markup-io' });
@@ -138,7 +139,7 @@ describe('buildPageOgSvg', () => {
 
   it('names the site alone on the root, with no dangling separator', () => {
     const svg = buildPageOgSvg({ heading: 'Annotate any webpage', path: '/' });
-    expect(svg).toContain('marklayer.app');
+    expect(svg).toContain('feedback.smbteam.com');
     expect(svg).not.toContain('·');
   });
 
