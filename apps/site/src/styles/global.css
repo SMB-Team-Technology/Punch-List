@@ -1,78 +1,133 @@
 @import "tailwindcss";
 
-/* MarkLayer marketing site — design system.
+/* Punch List site — design system.
 
-   One family: Geist, self-hosted. The site used to pull it from the Google Fonts
-   CDN, behind a render-blocking third-party stylesheet and two extra DNS/TLS
-   handshakes; it is served from this origin now, so a marketing page makes no
-   third-party request at all.
-
-   A display serif set the h1/h2 for a while. It is gone by choice — the site
-   runs a single grotesque, matching the app UI, and the hierarchy is carried by
-   size, weight and space instead of a change of family.
-
-   Only the roman latin face loads on a normal page. latin-ext is gated on
-   `unicode-range`, and the italic only fetches when an <em> actually renders. */
+   One family: Poppins, SMB Team's face, self-hosted so a page makes no
+   third-party request. Static weights, so each is its own file; only the latin
+   roman faces a page actually uses are fetched. Mirrored in
+   apps/worker/web/style.css; keep the two in step. */
 
 @font-face {
-  font-family: "Geist";
+  font-family: "Poppins";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: swap;
-  src: url("/fonts/geist-latin.woff2") format("woff2");
+  src: url("/fonts/poppins-400-latin.woff2") format("woff2");
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Geist";
+  font-family: "Poppins";
   font-style: normal;
-  font-weight: 400 700;
+  font-weight: 400;
   font-display: swap;
-  src: url("/fonts/geist-latin-ext.woff2") format("woff2");
+  src: url("/fonts/poppins-400-latin-ext.woff2") format("woff2");
   unicode-range:
     U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
     U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 @font-face {
-  font-family: "Geist";
-  font-style: italic;
-  font-weight: 400 700;
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 500;
   font-display: swap;
-  src: url("/fonts/geist-italic-latin.woff2") format("woff2");
+  src: url("/fonts/poppins-500-latin.woff2") format("woff2");
   unicode-range:
     U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
     U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
 @font-face {
-  font-family: "Geist";
-  font-style: italic;
-  font-weight: 400 700;
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 500;
   font-display: swap;
-  src: url("/fonts/geist-italic-latin-ext.woff2") format("woff2");
+  src: url("/fonts/poppins-500-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/poppins-600-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/poppins-600-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/poppins-700-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/poppins-700-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
+    U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/poppins-400-italic-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Poppins";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/poppins-400-italic-latin-ext.woff2") format("woff2");
   unicode-range:
     U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF,
     U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
 }
 
-/* Metric-matched fallback, so `swap` can exchange glyphs without reflowing the
-   block around them. `size-adjust` is the ratio of Geist's mean A–Z/a–z advance
-   to Arial's, and the three overrides are Geist's own vertical metrics divided
-   by that ratio — measured off the woff2 and the system TTF with fontkit, not
-   estimated.
-
-   One `local()`, and it is the face the numbers were computed against. If it is
-   missing the whole rule drops and the stack falls through to the generic, which
-   is correct: a fallback carrying another font's metrics is worse than none.
-   Arial covers macOS and Windows, and on Linux it resolves to the
-   metric-compatible Liberation Sans. */
+/* Arial re-metricked to Poppins' proportions, so `swap` exchanges glyphs
+   without reflowing the page. Two weights, because `font-synthesis: none`
+   below would otherwise set every bold heading in regular until Poppins lands. */
 @font-face {
-  font-family: "Geist Fallback";
+  font-family: "Poppins Fallback";
   src: local("Arial");
-  size-adjust: 102.01%;
-  ascent-override: 98.52%;
-  descent-override: 28.92%;
-  line-gap-override: 0%;
+  font-weight: 100 500;
+  size-adjust: 112.16%;
+  ascent-override: 93.62%;
+  descent-override: 31.21%;
+  line-gap-override: 8.92%;
+}
+@font-face {
+  font-family: "Poppins Fallback";
+  src: local("Arial Bold"), local("Arial-BoldMT");
+  font-weight: 600 900;
+  size-adjust: 112.16%;
+  ascent-override: 93.62%;
+  descent-override: 31.21%;
+  line-gap-override: 8.92%;
 }
 
 @theme {
@@ -82,43 +137,28 @@
   --color-canvas: #ffffff;
   --color-surface: #ffffff;
   /* Inline code and code blocks: the one tone step on the site. */
-  --color-sunken: #f5f5f5;
+  --color-sunken: #f1f6f9;
 
-  /* A three-step ladder with one job each, and every step clears 4.5:1 on white
-     so no token can put text under the AA floor wherever it lands.
-
-     `ink` was #000000, then #131313, then #1a1a1a. It is #171717 now (17.4:1) —
-     Geist's Text Primary, which is what `/` resolves `--color-ml-fg` to inside
-     its `.ml-force-light` block, so `/` and every page linked from it set text
-     in one colour instead of two near-blacks a shade apart. The #1a1a1a step
-     claimed to match the landing and stopped doing so when the landing moved
-     onto the Geist ink ramp its toolbar already used.
-
-     The scanning problem this ladder fixes was not contrast, it was ROLE. `meta`
-     used to set the lede, the bylines, the nav, the footer and every caption at
-     once, so the most important paragraph on each page and its date stamp
-     carried identical weight. Now: ink reads, meta annotates, faint marks. */
-  --color-ink: #171717;
+  /* A three-step ladder on the brand navy, one job each, and every step clears
+     4.5:1 on white: ink reads, meta annotates, faint marks. */
+  --color-ink: #003a59;
   /* Secondary — bylines, date stamps, breadcrumbs, captions, column labels.
      Genuine metadata only. Never a paragraph someone is meant to read. */
-  --color-meta: #6a6a6a;
+  --color-meta: #4a6878;
   /* Tertiary — list markers, row icons, resting link underlines. Held at
      4.54:1 because ordered-list numerals are content, not decoration. */
-  --color-faint: #767676;
+  --color-faint: #557383;
 
   /* Hover and press steps on `ink` — the site's one filled control. */
-  --color-ink-hover: #383838;
-  --color-ink-press: #0a0a0a;
+  --color-ink-hover: #0a4d72;
+  --color-ink-press: #002b42;
 
-  --color-rule: #e4e4e4;
+  --color-rule: #dbe5eb;
 
-  /* The only colour on the page, and it belongs to the mark alone: these two
-     values ARE the mark's gradient, read by Logo.astro rather than written into
-     the SVG a second time. They are never used for links, buttons, rules or
-     fills — an accent everywhere is what makes a page read as a template.
-     Keep them in step with the app's own lockup (apps/worker/web/shared.tsx). */
-  --color-brand: #a855f7;
-  --color-brand-deep: #6d28d9;
+  /* The mark's two colours, read by Logo.astro: a green check in a navy tile.
+     Keep them in step with apps/worker/src/brand.ts. */
+  --color-brand-navy: #003a59;
+  --color-brand-green: #69cd2b;
 
   /* The status dot's green, and the one place the achromatic rule above bends.
      Green is not decoration here, it is the datum — a status line in ink says
@@ -129,7 +169,7 @@
      use it. */
   --color-live: #0a7d33;
 
-  --font-sans: "Geist", "Geist Fallback", ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: "Poppins", "Poppins Fallback", ui-sans-serif, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
   /* The type scale. Eight steps, each named for its role, and nothing on the
@@ -212,10 +252,10 @@
   --text-side: 0.875rem;
   --text-side--line-height: 1.43;
   /* Half a step off white: a hovered pager cell, a hovered search row. */
-  --color-raised: #fafafa;
+  --color-raised: #f5f9fb;
   /* The landing frame's rail, and the darker registration mark where two meet. */
-  --color-seam: #00000014;
-  --color-seam-mark: #00000040;
+  --color-seam: #003a5914;
+  --color-seam-mark: #003a5940;
   /* `--ds-shadow-border-small`: a hairline ring drawn by the shadow, plus a 2px
      contact shadow. Never a border, never a bloom. */
   --shadow-ring: 0 0 0 1px #00000014, 0 2px 2px #0000000a;
@@ -286,8 +326,7 @@
     /* Every weight and both italics are served, so a missing face should fail
        visibly rather than render slanted or smeared. */
     font-synthesis: none;
-    /* Geist ships no `opsz` axis, but the metric-matched Arial fallback may;
-       asking for it is free and correct where the axis exists. */
+    /* Free, and correct wherever a face in the stack has an `opsz` axis. */
     font-optical-sizing: auto;
     /* Full width, with the reading column moved to `.ml-shell`. The footer steps
        onto its own floor edge to edge the way `/` does, and a band cannot reach
@@ -301,11 +340,10 @@
     @apply m-0 flex min-h-screen flex-col bg-canvas p-0 text-body text-ink antialiased;
   }
 
-  /* Measure. The 712px column inside the gutters ran ~94 characters per line
-     (Geist averages 0.473em over English prose at 16px), well past the 60–75 the
-     eye can track back to. Prose caps at ~70; headings, tables, nav and footer
-     keep the full width, so the page structure is unchanged.
-     Not `ch`: Geist's zero is 0.663em, so `65ch` would resolve to 690px. */
+  /* Measure. Poppins sets English prose at roughly 0.53em a character at 16px,
+     so 560px is ~66 characters a line, inside the 60–75 the eye can track back
+     to. Headings, tables, nav and footer keep the full width. Not `ch`: a zero
+     is far wider than the average glyph. */
   :where(p, li, dt, dd, blockquote, .ml-lede) {
     max-width: 560px;
   }
@@ -511,23 +549,10 @@
      lockup (Landing.tsx), so the name does not change face between `/` and a
      marketing page. */
   .ml-wordmark {
-    @apply relative inline-flex items-center gap-2 font-semibold text-ink no-underline;
+    @apply relative inline-flex items-center gap-2.5 font-bold text-ink no-underline;
     font-size: 1.0625rem;
     line-height: 1.2;
-    letter-spacing: -0.045em;
-  }
-  /* Optical alignment, measured off the rendered mark rather than assumed.
-     The artwork does not fill its 512 frame — its ink starts 6.7% in from the
-     left and stops 19.4% short of the bottom — so centring the 26px BOX put the
-     mark's ink 2.5px above the wordmark's cap-height centre and 1.5px right of
-     the column edge that the h1 and every paragraph below begin on.
-
-     A transform, not a margin: it corrects where the mark is SEEN without
-     moving anything in layout, and it leaves the frame alone — that frame is
-     the app's lockup and the favicon's, and re-cropping it here would make the
-     brand two different shapes. */
-  .ml-wordmark svg {
-    transform: translate(-1.5px, 2.5px);
+    letter-spacing: -0.02em;
   }
   /* The lockup is 26px tall and must stay 26px tall — padding it out to the
      touch floor would drop the mark off the nav's centre line. So the TARGET
@@ -1085,55 +1110,5 @@
   .ml-live[data-ml-status="degraded"] .ml-live-dot {
     background-color: var(--color-meta);
     animation: none;
-  }
-
-  /* ── The signature wordmark ──
-     Full-bleed, cut partway down the letterforms and dissolved into the floor.
-     Ported value for value from the landing page's own `.lp-wordmark`, because a
-     signature that differs between two pages of one site is not a signature.
-
-     The height is set against the x-height, not the cap height: cutting at the
-     caps leaves M, k, L and the y ascender tall while showing barely a third of
-     a, r, e and r, so the word reads as a row of bars rather than as a word.
-
-     Twelve mask stops on an ease-out alpha curve, fully transparent by the clip.
-     A short fade, or one still at partial opacity where the box ends, puts a
-     visible band across the glyphs — which is the whole failure this avoids. */
-  .ml-signature-clip {
-    font-size: 21vw;
-    height: 0.6em;
-    overflow: hidden;
-    text-align: center;
-    --ml-signature-fade: linear-gradient(
-      to bottom,
-      rgb(0 0 0) 0%,
-      rgb(0 0 0) 44%,
-      rgb(0 0 0 / 95%) 52%,
-      rgb(0 0 0 / 87%) 60%,
-      rgb(0 0 0 / 76%) 67%,
-      rgb(0 0 0 / 63%) 73%,
-      rgb(0 0 0 / 49%) 79%,
-      rgb(0 0 0 / 35%) 85%,
-      rgb(0 0 0 / 22%) 90%,
-      rgb(0 0 0 / 11%) 94%,
-      rgb(0 0 0 / 3%) 97%,
-      transparent 100%
-    );
-    -webkit-mask-image: var(--ml-signature-fade);
-    mask-image: var(--ml-signature-fade);
-    @apply mt-12 select-none;
-  }
-  .ml-signature {
-    display: block;
-    margin-top: -0.125em;
-    font-size: 1em;
-    font-weight: 500;
-    line-height: 1;
-    letter-spacing: -0.03em;
-    white-space: nowrap;
-    /* Stronger than the tone it looks like it should be: the mask takes most of
-       it back, and a value tuned to read correctly unmasked goes invisible once
-       faded. */
-    color: color-mix(in srgb, var(--color-ink) 19%, transparent);
   }
 }
