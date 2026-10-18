@@ -26,7 +26,7 @@ interface Props {
 
 const { title, description, path, h1, breadcrumbs, schema = [], modified } = Astro.props;
 
-const crumbs: Crumb[] = breadcrumbs ?? [{ name: 'MarkLayer', path: '/' }, { name: h1 }];
+const crumbs: Crumb[] = breadcrumbs ?? [{ name: 'Punch List', path: '/' }, { name: h1 }];
 // The card carries the h1, not the SEO title: the h1 is what the page calls
 // itself, and the title is written for a search result, tail and all.
 const ogImage = pageOgImage({ heading: h1, path });

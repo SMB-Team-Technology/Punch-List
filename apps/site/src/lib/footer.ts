@@ -52,8 +52,6 @@ export const FOOTER_COLUMNS: FooterColumn[] = [
   },
 ];
 
-export const ASK_AI_LABEL = 'Ask an AI about MarkLayer';
-
 /**
  * Brand marks from @lobehub/icons-static-svg (simple-icons dropped OpenAI and
  * Grok). Single-path 24×24, drawn in `currentColor` so they take the same faint
@@ -92,14 +90,9 @@ const PROVIDERS: { label: string; url: (encodedQuestion: string) => string; path
   },
 ];
 
-/** The assistants' deep links for `question`; the footer asks about MarkLayer, an article about itself. */
+/** The assistants' deep links for `question`: an article offers to be read by one. */
 export const askAi = (question: string): { href: string; label: string; path: string }[] =>
   PROVIDERS.map(({ label, url, path }) => ({ label, href: url(encodeURIComponent(question)), path }));
-
-/** A prefilled question to the assistants, as plain `<a href>` deep links. Only the app shell's footer shows it. */
-export const ASK_AI = askAi(
-  'What is MarkLayer (marklayer.app), and how does it compare to other web annotation and visual feedback tools?',
-);
 
 /** Apache-2.0 grants no trademark rights, so the fork says plainly whose name MarkLayer is. */
 export const TRADEMARK_NOTICE =
