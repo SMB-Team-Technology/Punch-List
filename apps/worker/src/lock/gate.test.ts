@@ -160,7 +160,7 @@ describe('GET /ws/:id', () => {
   });
 
   const upgrade = (headers: Record<string, string> = {}) =>
-    new Request(`https://marklayer.app/ws/${ID}`, { headers: { Upgrade: 'websocket', ...headers } });
+    new Request(`https://feedback.smbteam.com/ws/${ID}`, { headers: { Upgrade: 'websocket', ...headers } });
 
   test('without an unlock the socket never reaches the room and is closed as locked', async () => {
     closes.length = 0;
@@ -187,7 +187,7 @@ describe('other room readers', () => {
   test('page.json, the remote MCP endpoint and the share API refuse a locked room', async () => {
     for (const path of [`/s/${ID}/page.json`, `/s/${ID}/mcp`]) {
       const { env, reached } = roomEnv(fakeDb({ firstQueue: [lockRow({ owner_id: null })] }));
-      const res = await rooms.fetch(new Request(`https://marklayer.app${path}`), loose(env), loose(testCtx));
+      const res = await rooms.fetch(new Request(`https://feedback.smbteam.com${path}`), loose(env), loose(testCtx));
       expect(res.status).toBe(401);
       expect(reached).toHaveLength(0);
     }

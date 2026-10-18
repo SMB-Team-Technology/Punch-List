@@ -1,4 +1,3 @@
-import { MCP_INSTALL } from './agent';
 import { ORIGIN } from './site';
 
 /**
@@ -37,7 +36,7 @@ export const MCP_CLIENTS: McpClient[] = [
     file: 'Settings → Connectors → Add custom connector',
     code: ROOM_MCP_URL,
     after:
-      'Name it MarkLayer and paste the address. There is no sign-in to approve: the link is the credential. Start a new chat.',
+      'Name it Punch List and paste the address. There is no sign-in to approve: the link is the credential. Start a new chat.',
   },
   {
     id: 'codex',
@@ -62,20 +61,12 @@ export const MCP_CLIENTS: McpClient[] = [
     code: `{\n  "servers": {\n    "marklayer": {\n      "type": "http",\n      "url": "${ROOM_MCP_URL}?agent=copilot"\n    }\n  }\n}`,
     after: 'The top-level key is servers, not mcpServers, and the transport is named.',
   },
-  {
-    id: 'npm',
-    label: 'Any client',
-    lang: 'bash',
-    code: MCP_INSTALL,
-    after:
-      'The same tools as a local stdio server, installed once for every link. Elsewhere, add a stdio entry running npx -y marklayer-mcp with MARKLAYER_AGENT set to the client’s name.',
-  },
 ];
 
-/** What to paste into CLAUDE.md or AGENTS.md so the agent reaches for MarkLayer on its own. */
+/** What to paste into CLAUDE.md or AGENTS.md so the agent reaches for Punch List on its own. */
 export const MCP_HABIT = `## Visual review
 
-When I share a marklayer.app/s/... link, connect to it over MCP and work the
+When I share a feedback.smbteam.com/s/... link, connect to it over MCP and work the
 annotations: acknowledge each one before you start, resolve it with a one-line
 summary of what changed, and dismiss it with a reason if you cannot act on it.
 
@@ -84,7 +75,7 @@ preview URL with marklayer_share_preview and send me that link instead of
 describing the change.`;
 
 export const MCP_PROMPTS = {
-  work: 'Watch my MarkLayer annotations. For each one, acknowledge it, make the fix, then resolve it with a one-line summary of what changed.',
+  work: 'Watch my Punch List comments. For each one, acknowledge it, make the fix, then resolve it with a one-line summary of what changed.',
   review:
-    'Read the page in my MarkLayer room and review it for broken copy, accessibility gaps and layout bugs. Leave one comment per finding, and use a suggested edit for any exact text fix.',
+    'Read the page on my Punch List link and review it for broken copy, accessibility gaps and layout bugs. Leave one comment per finding, and use a suggested edit for any exact text fix.',
 };

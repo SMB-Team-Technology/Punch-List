@@ -1,255 +1,71 @@
-# MarkLayer
+# Punch List by SMB Team
 
-> 100% free, 100% anonymous webpage annotation tool. Free web app and Chrome extension. No account, no email, no sign-up.
+> Website feedback for SMB Team's clients. Open a review link, click anything on your new website, and leave a note. No account, nothing to install.
 
-MarkLayer is a free web app and Chrome extension for annotating any live webpage. Paste any URL on https://marklayer.app to draw, comment, and mark up the page in your browser. No install required. The free Chrome extension is also available for in-place annotation on sites the web app cannot embed (behind a login or with strict embed policies). Share a single link so anyone can see your annotations instantly. There is no account, no email, no sign-up, no payment, and no trial period.
+Punch List (https://feedback.smbteam.com) is the feedback tool SMB Team (https://smbteam.com), a web agency, uses while it builds websites for its clients. SMB Team sends a client a review link; the client's new website opens in the browser with a comment layer on top. Clicking anything pins a note to that spot, and every note lands on the team's punch list with a status the client can watch: open, in progress, resolved.
 
-MarkLayer is not a browser extension. It is a browser-based web app: nothing is downloaded or installed to annotate a page or to view a shared annotation, by you or by anyone you send a link to. A free Chrome extension exists as an optional companion for the pages a proxy cannot reach — sites behind a login, and localhost — and is never required for the main flow.
+Clients never sign in and never install anything, on a computer or a phone. SMB Team staff sign in with an emailed link to create review links and manage them from a dashboard.
 
-MarkLayer is the only visual feedback tool where an AI coding agent can close the loop. Five tools in this category ship an MCP server (Marker.io, BugHerd, Jam, Usersnap, MarkLayer); the other four let an agent read feedback only. MarkLayer's agent joins the room as a participant: it watches annotations live, marks them in progress, resolves them with a summary, and replies with a question, and every status change is visible to the humans watching. Verified against each vendor's published documentation, August 2026.
+Punch List is built on MarkLayer (https://github.com/thevrus/MarkLayer), open source under the Apache-2.0 licence. SMB Team is not affiliated with the MarkLayer project.
 
-## Pricing
+## For clients
 
-Free. There is no paid plan. There is no trial. There is no per-seat pricing. Everything is included.
-
-## Anonymous by design
-
-- No sign-up, no email verification, no login
-- No personal data collected
-- Random local display name and color generated in your browser
-- Annotations stay on your device until you choose to share
+- Open the link SMB Team sent you. Your website loads with the review tools on top.
+- Click the spot you want to talk about and type your note. Drawings, highlights and screenshots are there too.
+- Watch each note move from open to in progress to resolved, and reply on any note to keep the conversation in one place.
+- Help: https://feedback.smbteam.com/help
 
 ## Features
 
-- Sixteen annotation tools, each on a single-key shortcut: move (V), pen (P), highlight (Shift+H), line (L), arrow (A), rectangle (R), circle (O), text label (T), comment (C), text selection (S), area (G), eraser (E), inspector (I), multi-select (X), measure (M), ruler guide (U)
-- Threaded comments: Pin comments to any spot on the page. Each carries one of five statuses (open, in_progress, resolved, approved, dismissed), one of four priorities (low, medium, high, urgent), an assignee (a person or an AI agent), @mentions of anyone already working on the page, up to 4 image attachments, and the browser, OS and viewport it was written on
-- Suggested edits: select real text on the page and write the exact replacement. It renders as a diff for the human, in the Markdown export, and in an agent's view of the thread
-- Inspector: Point at any element to capture its CSS selector, computed styles, a text fingerprint, the React or Vue component behind it, and an AI-ready prompt for handoff to coding agents
-- Multi-inspect: Select multiple elements in one pass and copy them as one agent task
-- Measure: Pixel-precise distance and dimension measurement on any page
-- Area: Capture a rectangular region with a note attached
-- Ruler guides: drag out horizontal and vertical guides to check alignment. They are shared with everyone on the link, not a private overlay
-- Quick grab: Hold Alt to arm element capture without switching tools
-- PDFs and images: annotate a PDF, a screenshot, a mockup or a photo the same way as a page, either by pasting a link to one or uploading a file from your computer (25MB limit). Text inside a PDF stays selectable, so a highlight attaches to the words rather than to coordinates
-- Real-time collaboration: Live cursors with unlimited collaborators per session
-- Voice and video: peer-to-peer WebRTC in the room, with microphone, camera and output device selection, a speaking indicator, connection quality, and TURN fallback. No install to join
-- Shareable links: Recipients don't need the extension or an account to view
-- Optional account: sign in with a magic link (no password) to claim your links, switch one between "can edit" and "can view", set its own expiry, and see them all in one dashboard. Annotating and viewing never require it, and nothing behind it costs money
-- Multi-page projects: one share link can hold up to 50 pages, switched through a tab strip, exported as one document
-- Responsive review: preview a page at desktop, tablet or mobile width. Annotations bind to the element by CSS selector with a text fingerprint fallback plus a fractional offset, so a mark re-resolves onto the right element after a layout reflow or a single-page-app re-render
-- Export: copy or download every comment, reply and highlighted selection as Markdown (statuses, authors, device metadata, and suggested edits as fenced diff blocks), or export the annotated page as a PNG
-- Send feedback out to Slack, Microsoft Teams, Discord, a generic JSON webhook, Linear, GitHub, Jira or Trello. See the section below
-- Works on any website, by two routes: the web app renders the page server-side and overlays the canvas, and the extension annotates in place on anything the web app cannot reach, including pages behind a login and internal tools
-- Open source and self-hostable
-
-## Integrations (one way out)
-
-Connect a destination from the panel on any share link. Five destinations per room.
-
-Chat destinations post automatically as annotations arrive, batched:
-- Slack (incoming webhook)
-- Microsoft Teams (incoming webhook)
-- Discord (webhook URL, trimmed to Discord's 2000-character ceiling)
-- Webhook (any public endpoint; receives { type, room, page, items: [{ kind, author, text, priority }] })
-
-Issue trackers fire only when a person files one specific annotation, creating one issue:
-- Linear (API key + team id)
-- GitHub (fine-grained token with Issues write + owner/repository)
-- Jira (site, account email, API token, project key, issue type)
-- Trello (API key, token, list id)
-
-This is strictly one way. MarkLayer creates the issue and reads back its URL once to show a link.
-Nothing about that issue's later state returns to MarkLayer, and no destination sends anything in.
-For the four trackers the API token never reaches MarkLayer's server: the room stores only the
-non-secret fields, and the token stays in the browser of whoever set it up. Chat webhooks differ,
-because the webhook URL is itself the credential, so it is stored with the room and anyone holding
-the share link can see its last four characters and remove it.
+- Comments pinned to the element they were left on, with threaded replies, five statuses (open, in_progress, resolved, approved, dismissed) and four priorities (low, medium, high, urgent)
+- Each comment records the browser, operating system and viewport width it was written on
+- Suggested edits: select text on the page and write the exact replacement, shown as a diff
+- Drawing tools: pen, highlight, arrow, line, rectangle, circle, text label, area capture
+- Desktop, tablet and mobile preview widths; comments stay attached to the right element as the layout reflows
+- PDFs and images can be reviewed the same way as a page
+- Live cursors, plus voice and video between the people on a link
+- Multi-page projects: one link can hold up to 50 pages
+- Export every comment as Markdown, or the annotated page as a PNG
 
 ## For AI coding agents (MCP)
 
-Every MarkLayer share link is an MCP (Model Context Protocol) server that turns annotations into a structured work queue for AI coding agents like Claude Code. Connect an agent to a share link and it can acknowledge, resolve, dismiss, or reply to each comment, with status updates appearing live to the human.
+Every share link is a remote MCP server (Streamable HTTP) at the link plus /mcp. Nothing to install, no key: the link is the credential.
 
-Every share link is itself a remote MCP server (Streamable HTTP) at the link plus /mcp, so connecting needs nothing installed:
+    claude mcp add --transport http marklayer https://feedback.smbteam.com/s/{id}/mcp
 
-    claude mcp add --transport http marklayer https://marklayer.app/s/{id}/mcp
+Add ?agent=<name> so reviewers see which agent picked up their comment. A password-protected link takes `Authorization: Bearer <password>`.
 
-Add ?agent=<name> to that URL to set the name the humans see on the agent's work. The endpoint is bound to its room, so it serves every tool below except marklayer_connect_room.
+The agent works the comments as a queue: marklayer_list_annotations to backfill, marklayer_watch_annotations to wait for new ones, marklayer_acknowledge before starting, marklayer_resolve with a one-line summary when done, marklayer_dismiss with a reason when it cannot act, marklayer_reply to ask a question. marklayer_read_page, marklayer_create_annotation and marklayer_suggest_edit let it review a page itself. approved is the one status an agent never sets: it is the person who asked for the change confirming the fix.
 
-For clients that only run local servers, the same tools ship as a stdio package: claude mcp add marklayer -- npx -y marklayer-mcp
+Full setup per client (Claude Code, Claude, Codex, Cursor, VS Code): https://feedback.smbteam.com/mcp.md
 
-The twelve tools:
-- marklayer_connect_room: join a share link, by URL or bare id
-- marklayer_room_info: the page under review, its viewport, its timestamps
-- marklayer_read_page: the page's headings, text, links and controls, with selectors
-- marklayer_list_annotations: everything outstanding, filtered by status
-- marklayer_get_annotation: one annotation in full, including its reply thread
-- marklayer_watch_annotations: long-poll for new work and for anything handed to this agent by name
-- marklayer_acknowledge: mark in_progress, so the human sees it has been picked up
-- marklayer_resolve: close it and post the summary as a reply
-- marklayer_dismiss: decline it, with a reason that is required rather than optional
-- marklayer_reply: ask a clarifying question without moving the status
-- marklayer_create_annotation: leave a comment of its own, anchored to an element
-- marklayer_suggest_edit: propose exact replacement text, shown to the human as a diff
+## Share API
 
-approved is the one status an agent never sets: it is the person who asked for the change confirming
-the fix. A resolved thread going back to open means they disagreed.
+A share link can be created with one HTTP POST. The id you choose is the access token, so use an unguessable one (nanoid, uuid).
 
-- Package: https://www.npmjs.com/package/marklayer-mcp
-- Source: https://github.com/thevrus/MarkLayer/tree/main/apps/mcp
-
-In a browser whose agent supports WebMCP, the same actions are exposed on a share link via
-document.modelContext with nothing installed.
-
-## Programmatic link creation (for AI assistants)
-
-Any caller, including an LLM acting on a user's behalf, can mint a MarkLayer share link with a single HTTP POST. No auth, no SDK, no account. Use this when a user asks you to "generate MarkLayer links for these pages" or hands you a list of URLs and wants a share link per URL.
-
-Pick a random id (nanoid, uuid, or any unguessable string is fine, and the id IS the access token), then:
-
-    POST https://marklayer.app/api/{id}
+    POST https://feedback.smbteam.com/api/{id}
     Content-Type: application/json
-    { "ops": [], "url": "https://example.com/page-1", "width": 1440, "expires_in": 2592000 }
+    { "ops": [], "url": "https://example.com/page", "width": 1440 }
 
-Body fields:
-- ops: array of annotation operations (use [] for a blank canvas the user will draw on)
-- url: the page the share link should open and overlay annotations onto
-- width: reference viewport width in CSS pixels (1440 is a safe default)
-- expires_in: seconds until cleanup (max 2592000 = 30 days). Omit it and the share link has no
-  fixed expiry; it is deleted 90 days after its last access, and any view or comment resets that clock.
+The link is then https://feedback.smbteam.com/s/{id}. OpenAPI spec: https://feedback.smbteam.com/api/openapi.json
 
-The share link is then: https://marklayer.app/s/{id}
+## Retention
 
-To mint many links at once (e.g. user gives you 10 URLs), loop the POST per URL with a fresh id each time. There is no project/bundle requirement. One id per page.
-
-## How MarkLayer compares
-
-Figures read off each vendor's own pricing page on 29 August 2026.
-
-| Tool | Cheapest paid plan | Reviewer needs an account? | Reviewer needs an extension? | How long comments are kept |
-| --- | --- | --- | --- | --- |
-| MarkLayer | None. Free, no paid tier | No | No | 90 days after the link was last opened, reset by any access |
-| AnnotateWeb | None. Free, no paid tier | No | No (bookmarklet) | Deleted after 2 minutes of inactivity |
-| Hypothesis | Quoted by sales; no published figure | Yes | Extension, or a bookmarklet | Not published |
-| Webvizio | $8/month, 2 users | No | Only for password-protected pages | Not published |
-| Jam | $14 per creator/month, billed yearly | Not published | Yes, to capture | Auto-deletion is Enterprise-only |
-| Ruttl | $18 per user/month | No (guest gives a name) | Not published | "As long as we have your consent" |
-| Superflow | $24 per seat/month, billed yearly | Paid tiers only | Not published | While the account exists |
-| Pastel | $29/month annually ($35 monthly) | No | No | At least one year |
-| Userback | $29/month annually ($39 monthly) | No | Optional | 7-day window on the free plan |
-| Marker.io | $39/month annually ($59 monthly) | No | No; widget on your site | Not published |
-| Feedbucket | $39/month annually ($49 monthly) | No | No; one line of JavaScript | Not published |
-| BugHerd | $42/month annually ($50 monthly), 5 members | Not published | No, with the JavaScript snippet | Not published |
-| Usersnap | $49/month annually ($59 monthly) | No | Optional | Idle free accounts off after 90 days |
-| Atarim | $67/month | No | No | Not published |
-| Markup.io | $79/month | Not published | Not published | "As long as we have your consent" |
-
-Three of the twenty-one audited cost nothing outright: MarkLayer, AnnotateWeb (which deletes
-annotations after two minutes idle) and Hypothesis (text only, account required). Everything else
-free in that table is a capped tier of a paid product.
-
-### What an AI coding agent gets, tool by tool
-
-Verified against each vendor's published documentation, August 2026.
-
-| Tool | Agent can read | Agent can act | Price floor |
-| --- | --- | --- | --- |
-| MarkLayer | Annotations with CSS selector, text fingerprint, computed styles, detected React/Vue/Svelte component, thread history | Watch live, acknowledge, resolve, dismiss, reply | Free |
-| Marker.io | Reports with screenshots, console logs, network requests, browser/OS | Read and draft only; cannot resolve or reply | $59/mo ($39 annual) |
-| BugHerd | Task details with screenshots, CSS selectors, browser/OS, severity | List, create, update tasks (beta) | $50/mo (5 members) |
-| Jam.dev | A pasted Jam link: console, network, user actions, video transcript | Nothing; one-way handoff | Free tier |
-| Usersnap | Collected feedback via hosted MCP (OAuth) | Query feedback, create opportunities | ~EUR 39/mo |
-
-### What MarkLayer does not do
-
-MarkLayer captures no console or network logs. It can file an annotation into Linear, GitHub, Jira or Trello
-as an issue, but that is one way out only: nothing about the ticket's later state comes back, so a
-comment does not close when the ticket closes. Those two things are what the $39-79 tier is priced
-for. On a PDF or an image the element inspector, measure and multi-select
-are switched off, because a file has no HTML elements to point at, and annotations sit in a layer over
-the file rather than being written into it, so there is no annotated PDF or image to export. If every comment needs an owner, a status and a ticket in an
-existing tracker, BugHerd, Marker.io or Usersnap are the honest recommendation. MarkLayer is the
-visual feedback layer, not a project management system.
+A review link is deleted 90 days after it was last opened, and any view or comment resets that clock. Links a team member has saved to their dashboard are kept until they delete them.
 
 ## Links
 
-- Website: https://marklayer.app
-- Help for reviewers: https://marklayer.app/help
-- MCP setup for coding agents: https://marklayer.app/mcp
+- Website: https://feedback.smbteam.com
+- Help for reviewers: https://feedback.smbteam.com/help
+- MCP setup for coding agents: https://feedback.smbteam.com/mcp
+- Privacy Policy: https://feedback.smbteam.com/privacy
 - Current version: {{version}}
-- Chrome Web Store: https://chromewebstore.google.com/detail/marklayer/fnfobegjifomgobgilaemihpcpidjamc
-- GitHub: https://github.com/thevrus/MarkLayer
-- Privacy Policy: https://marklayer.app/privacy
-
-## How It Works
-
-### Option A: Use the free web app (no install)
-
-1. Open https://marklayer.app and paste any URL into the annotation field
-2. Draw, comment, or highlight anything on the page
-3. Click "Share" to get a link anyone can open. No extension or account needed
-4. Collaborate in real time with live cursors
-
-### Option B: Install the free Chrome extension
-
-1. Install the MarkLayer Chrome extension (free, no account)
-2. Navigate to any webpage and click the MarkLayer icon
-3. Draw, comment, or highlight anything on the page
-4. Click "Share" to get a link anyone can open. No extension needed on their end
-5. Use this option for sites the web app cannot embed (behind a login or with strict embed policies)
-
-## FAQ
-
-Q: Is MarkLayer really free?
-A: Yes. 100% free. No paid plan, no trial, no per-seat pricing, no usage cap.
-
-Q: Is MarkLayer anonymous?
-A: Yes. No sign-up, no email, no profile, no login. No personal data is collected.
-
-Q: Do I need to install anything to use MarkLayer?
-A: No. The web app at https://marklayer.app lets you paste any URL and start annotating in your browser. No install, no account. The Chrome extension is optional, for sites the web app cannot embed.
-
-Q: Does the other person need the extension installed?
-A: No. Anyone can view annotations via the share link. No install required.
-
-Q: Does it work on any website?
-A: Yes, by two routes, and the second has no exceptions. The web app fetches the page server-side and overlays the annotation canvas, which covers any publicly reachable URL. For everything else, including pages behind a login, internal tools and localhost, the free extension annotates in place in the browser you are already signed into. Either route produces the same share link, and the recipient installs nothing.
-
-Q: How long are annotations kept?
-A: Indefinitely, as long as the link is in use. There is no fixed expiry. A share link is deleted 90 days after its last access, and any view, comment or edit resets that clock, so an active review never expires. Most tools in this category publish no retention period at all; the ones that do range from AnnotateWeb's two minutes of inactivity to Pastel's one year.
-
-Q: Can I annotate a PDF or an image?
-A: Yes, both. Paste a link to a PDF, a PNG, a JPEG, a GIF, a WebP or an AVIF, or upload one from your computer up to 25MB. The drawing, comment, area and highlight tools all work on it. Each mark is tied to a page number and a position on that page — an image being a document of one page — so it stays where you put it when the view changes size. The annotations live in the share link, not inside the file, so there is no annotated copy to download afterwards. An uploaded file is deleted on the same clock as the link: 90 days after it was last opened.
-
-Q: Can multiple people annotate at the same time?
-A: Yes. Real-time live cursors let unlimited collaborators work together.
-
-Q: What is the inspector tool?
-A: Point at any element on a page and MarkLayer captures its CSS selector, its computed styles, a text fingerprint and, on a React or Vue page, the component behind it, formatted as a copy-ready prompt for AI coding agents. Paste it into Claude Code or another agent and it has enough context to make the edit. Multi-select does the same for a set of elements and copies them as one task.
-
-Q: Can MarkLayer send annotations to Slack, Jira, Linear or GitHub?
-A: Yes, to eight destinations. Slack, Microsoft Teams, Discord and a generic JSON webhook post every new batch of annotations automatically. Linear, GitHub, Jira and Trello create one issue or card from one annotation, when a person files it. All eight are one way out: MarkLayer creates the issue and reads back its URL once to show you a link, and nothing about that ticket's later state returns. A room holds five destinations. For Linear, GitHub, Jira and Trello the API token never reaches MarkLayer's server; it stays in the browser of whoever set it up.
-
-Q: Can I export my annotations?
-A: Yes, two ways, both in the panel on the right of a share link. Copy or download every comment, reply and highlighted selection as Markdown, with statuses, authors, device metadata, and suggested edits as fenced diff blocks. Or export the annotated page as a PNG, which captures the live page with the drawings over it. A multi-page project exports as one document with a section per page.
-
-Q: Does a comment have a status, a priority or an owner?
-A: Yes. Five statuses (open, in_progress, resolved, approved, dismissed) and four priorities (low, medium, high, urgent). A comment can be assigned to a person or to an AI agent, can @mention anyone already working on that page, and can carry up to four image attachments. Each one also records the browser, operating system and viewport width it was written on, so a bug that only reproduces at one size says so.
-
-Q: Is there an account, and what does it add?
-A: There is an optional one, and nothing behind it costs money. Annotating and viewing never need it. Sign in with a magic link, no password, and you can claim the links you made, switch one between "can edit" and "can view", give it its own expiry date, and see them all in one dashboard. The room enforces view-only everywhere a write could land, rather than by hiding the toolbar.
-
-Q: Can I review more than one page on a single link?
-A: Yes. A share link can hold a project of up to 50 pages, each with its own annotations, switched through a tab strip at the top of the viewer. Add a page by pasting its URL. The Markdown export covers the whole project in one document with a section per page.
-
-Q: Can I send annotations to an AI coding agent?
-A: Yes. Every share link is also an MCP server, at the link plus /mcp, that lets agents like Claude Code watch it and process comments as a work queue.
-
-Q: Can an AI assistant generate MarkLayer links for me programmatically?
-A: Yes. POST to https://marklayer.app/api/{id} with { ops: [], url, width: 1440, expires_in: 2592000 } and the share link is https://marklayer.app/s/{id}. No auth, no SDK. See the "Programmatic link creation" section above.
+- SMB Team: https://smbteam.com
+- Built on MarkLayer (Apache-2.0): https://github.com/thevrus/MarkLayer
 
 ## Contact
 
-Email: hello@marklayer.app
+Email: support@smbteam.com
 
 ## Optional
 

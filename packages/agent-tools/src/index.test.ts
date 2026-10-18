@@ -60,7 +60,7 @@ function fakeRoom(over: Partial<RoomOps> = {}): RoomOps & { calls: string[] } {
 }
 
 const run = (name: string, args: unknown, room: RoomOps = fakeRoom()) =>
-  callRoomTool({ name, args, room, apiBase: 'https://marklayer.app' });
+  callRoomTool({ name, args, room, apiBase: 'https://feedback.smbteam.com' });
 
 const body = (result: Awaited<ReturnType<typeof run>>) => JSON.parse(result?.content[0]?.text ?? '{}');
 
@@ -257,10 +257,10 @@ describe('callCreateTool', () => {
     const result = callCreateTool({
       name: 'marklayer_share_preview',
       args,
-      apiBase: 'https://marklayer.app',
+      apiBase: 'https://feedback.smbteam.com',
       createPreview: async (request) => {
         asked.push(request);
-        return { id: 'r1', link: 'https://marklayer.app/s/r1', version: 1, previousId: null };
+        return { id: 'r1', link: 'https://feedback.smbteam.com/s/r1', version: 1, previousId: null };
       },
     });
     return { result, asked };

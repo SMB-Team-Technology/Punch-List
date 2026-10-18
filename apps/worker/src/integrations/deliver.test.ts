@@ -40,7 +40,7 @@ const githubArgs = {
     type: 'annotation.pushed' as const,
     items: [{ kind: 'Comment', author: 'Ada', text: 'Contrast fails' }],
   },
-  roomUrl: 'https://marklayer.app/s/abc',
+  roomUrl: 'https://feedback.smbteam.com/s/abc',
   pageUrl: 'https://example.com',
 };
 

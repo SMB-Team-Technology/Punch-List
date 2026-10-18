@@ -43,7 +43,7 @@ export const FIREWALL_ADVICE = {
       "Own this site? It's SiteGround's Anti-Bot AI, which runs on their servers. You can't switch it off in Site Tools or your security plugin, and it doesn't show up in your logs. SiteGround support can whitelist",
     after: 'for you.',
     request: ({ ip, host }: { ip: string; host: string }) =>
-      `Hi, please whitelist the IP address ${ip} from the Anti-Bot AI (sgcaptcha) challenge for ${host}. It belongs to MarkLayer, a review tool that loads my pages so my team can annotate them.`,
+      `Hi, please whitelist the IP address ${ip} from the Anti-Bot AI (sgcaptcha) challenge for ${host}. It belongs to Punch List by SMB Team, a review tool that loads my pages so we can leave feedback on them.`,
   },
 } as const satisfies Record<Firewall, unknown>;
 

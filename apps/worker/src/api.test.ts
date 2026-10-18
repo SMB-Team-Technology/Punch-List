@@ -50,7 +50,7 @@ describe('POST /{id} — expires_in ceiling', () => {
 });
 
 describe('POST /{id} — share id entropy floor', () => {
-  // Guards the old bare-`z.string()` bug: `POST /api/a` squatted marklayer.app/s/a,
+  // Guards the old bare-`z.string()` bug: `POST /api/a` squatted feedback.smbteam.com/s/a,
   // and a short keyspace made the whole room set enumerable.
   const insertsA = (db: ReturnType<typeof fakeDb>) => db.calls.some((call) => call.sql.includes('INSERT'));
 

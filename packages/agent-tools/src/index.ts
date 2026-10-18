@@ -324,7 +324,7 @@ export const TOOLS: ToolSpec[] = [
   },
   {
     name: 'marklayer_connect_room',
-    description: 'Connect to a MarkLayer room (annotation session) by URL or bare room id. Disconnects any prior room.',
+    description: 'Connect to a Punch List room (feedback session) by URL or bare room id. Disconnects any prior room.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -332,7 +332,7 @@ export const TOOLS: ToolSpec[] = [
       properties: {
         room: {
           type: 'string',
-          description: 'Room URL like https://marklayer.app/s/abc123 or a bare room id like abc123.',
+          description: 'Room URL like https://feedback.smbteam.com/s/abc123 or a bare room id like abc123.',
         },
         password: {
           type: 'string',

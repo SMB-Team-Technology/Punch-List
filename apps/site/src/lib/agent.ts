@@ -11,13 +11,13 @@ import { ORIGIN } from './site';
  * spec, tool list or digest than the site does.
  */
 
-/** Read from apps/mcp/package.json at build time so a release can't leave the server card advertising a stale version. */
+/** The tool contract's version, read from apps/mcp/package.json; this fork publishes nothing to npm. */
 export const MCP_VERSION: string = mcpPkg.version;
 
 export const SKILL_PATH = '/.well-known/agent-skills/marklayer-annotations/SKILL.md';
 
 const SKILL_DESCRIPTION =
-  'Create MarkLayer annotation share links over a no-auth HTTP API, and process a human’s webpage annotations as a work queue over MCP, at the share link’s own /mcp address or via the marklayer-mcp package.';
+  'Create Punch List feedback links over a no-auth HTTP API, and work through the comments left on a website as a queue over MCP, at the share link’s own /mcp address.';
 
 /** RFC 9727 API catalog: points agents at the share API's spec, docs and health check. */
 export const API_CATALOG = {
@@ -31,23 +31,16 @@ export const API_CATALOG = {
   ],
 };
 
-/** The stdio install, roomless: the agent is handed a room later by link. The landing shows it too. */
-export const MCP_INSTALL = 'claude mcp add marklayer -- npx -y marklayer-mcp';
+/** The install for one share link, with the id left for the reader to fill. */
+export const MCP_INSTALL = `claude mcp add --transport http marklayer ${ORIGIN}/s/<id>/mcp`;
 
 /**
- * MCP Server Card (SEP-1649). The stdio package is the one fixed address; the
- * Streamable-HTTP endpoint is per room, so it goes in the registry's `remotes`
- * shape with the room as a URL variable. server-card.test.ts pins `tools`.
+ * MCP Server Card (SEP-1649). The endpoint is per room, so it goes in the
+ * registry's `remotes` shape with the room as a URL variable; this fork ships no
+ * stdio package. server-card.test.ts pins `tools`.
  */
 export const MCP_SERVER_CARD = {
-  serverInfo: { name: 'marklayer-mcp', version: MCP_VERSION },
-  transport: {
-    type: 'stdio',
-    command: 'npx',
-    args: ['-y', 'marklayer-mcp'],
-    install: MCP_INSTALL,
-    package: 'https://www.npmjs.com/package/marklayer-mcp',
-  },
+  serverInfo: { name: 'marklayer-mcp', title: 'Punch List by SMB Team', version: MCP_VERSION },
   remotes: [
     {
       type: 'streamable-http',
@@ -81,7 +74,7 @@ export const MCP_SERVER_CARD = {
     'marklayer_ask',
     'marklayer_get_feedback',
   ],
-  documentation: 'https://github.com/thevrus/MarkLayer/tree/main/apps/mcp',
+  documentation: `${ORIGIN}/mcp`,
 };
 
 /**

@@ -139,7 +139,7 @@ function OwnerFix({ ip }: { ip: string }) {
   return (
     <div class="flex flex-col items-center gap-2 max-w-md">
       <p class="text-ui text-ml-fg/70 leading-snug m-0">
-        {advice?.before ?? 'Own this site? Your host can allow MarkLayer with one address:'}{' '}
+        {advice?.before ?? 'Own this site? Your host can allow Punch List with one address:'}{' '}
         <code class="px-1.5 py-0.5 rounded bg-ml-fg/8 font-mono text-meta text-ml-fg">{ip}</code>
         {advice ? ` ${advice.after}` : '.'}
       </p>

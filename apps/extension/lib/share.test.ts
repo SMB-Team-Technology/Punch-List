@@ -26,10 +26,10 @@ describe('parseRoomRef', () => {
   });
 
   test('takes a share link, with or without its scheme or query', () => {
-    expect(parseRoomRef('https://marklayer.app/s/abc123')).toBe('abc123');
-    expect(parseRoomRef('marklayer.app/s/abc123')).toBe('abc123');
-    expect(parseRoomRef('https://marklayer.app/s/abc123?ref=ext')).toBe('abc123');
-    expect(parseRoomRef('https://marklayer.app/s/abc123/')).toBe('abc123');
+    expect(parseRoomRef('https://feedback.smbteam.com/s/abc123')).toBe('abc123');
+    expect(parseRoomRef('feedback.smbteam.com/s/abc123')).toBe('abc123');
+    expect(parseRoomRef('https://feedback.smbteam.com/s/abc123?ref=ext')).toBe('abc123');
+    expect(parseRoomRef('https://feedback.smbteam.com/s/abc123/')).toBe('abc123');
   });
 
   // The floor on `isNewShareId` guards minting, not joining, so a short legacy id
@@ -42,7 +42,7 @@ describe('parseRoomRef', () => {
     expect(parseRoomRef('')).toBeNull();
     expect(parseRoomRef('   ')).toBeNull();
     expect(parseRoomRef('has spaces')).toBeNull();
-    expect(parseRoomRef('https://marklayer.app/help')).toBeNull();
+    expect(parseRoomRef('https://feedback.smbteam.com/help')).toBeNull();
     expect(parseRoomRef('a'.repeat(65))).toBeNull();
   });
 });
@@ -107,9 +107,9 @@ describe('MCP connect commands', () => {
   // Both surfaces offer these verbatim for copy-paste; a dropped flag or a room
   // id that never reaches the string hands the user a command that just fails.
   test('point at the room’s own endpoint, so nothing has to be installed', () => {
-    expect(mcpEndpoint('room-42')).toBe('https://marklayer.app/s/room-42/mcp');
+    expect(mcpEndpoint('room-42')).toBe('https://feedback.smbteam.com/s/room-42/mcp');
     expect(claudeMcpCommand('room-42')).toBe(
-      'claude mcp add --transport http marklayer https://marklayer.app/s/room-42/mcp',
+      'claude mcp add --transport http marklayer https://feedback.smbteam.com/s/room-42/mcp',
     );
   });
 
@@ -122,13 +122,13 @@ describe('room identity', () => {
   test('reuses one id across share surfaces so collaborators land on one canvas', () => {
     const first = getRoomId();
     expect(getRoomId()).toBe(first);
-    expect(getShareUrl()).toBe(`https://marklayer.app/s/${first}?ref=ext`);
+    expect(getShareUrl()).toBe(`https://feedback.smbteam.com/s/${first}?ref=ext`);
   });
 
   test('adopting an existing id repoints the share url at it', () => {
     setAnnotationId('adopted-id');
     expect(getRoomId()).toBe('adopted-id');
-    expect(getShareUrl()).toBe('https://marklayer.app/s/adopted-id?ref=ext');
+    expect(getShareUrl()).toBe('https://feedback.smbteam.com/s/adopted-id?ref=ext');
   });
 });
 
@@ -146,39 +146,39 @@ describe('share attribution', () => {
 
   test('keeps the params a share link already carries', () => {
     // A `readonly` dropped here is a view-only link handed out as editable.
-    expect(withShareRef({ url: 'https://marklayer.app/s/abc?readonly=1', ref: 'web' })).toBe(
-      'https://marklayer.app/s/abc?readonly=1&ref=web',
+    expect(withShareRef({ url: 'https://feedback.smbteam.com/s/abc?readonly=1', ref: 'web' })).toBe(
+      'https://feedback.smbteam.com/s/abc?readonly=1&ref=web',
     );
-    expect(withShareRef({ url: 'https://marklayer.app/p/xyz?page=2', ref: 'dash' })).toBe(
-      'https://marklayer.app/p/xyz?page=2&ref=dash',
+    expect(withShareRef({ url: 'https://feedback.smbteam.com/p/xyz?page=2', ref: 'dash' })).toBe(
+      'https://feedback.smbteam.com/p/xyz?page=2&ref=dash',
     );
   });
 
   test('replaces an existing ref rather than appending a second', () => {
     // Re-sharing a link that arrived from somewhere else credits the surface it
     // is leaving from now, not the one it came in on.
-    expect(withShareRef({ url: 'https://marklayer.app/s/abc?ref=ext', ref: 'web' })).toBe(
-      'https://marklayer.app/s/abc?ref=web',
+    expect(withShareRef({ url: 'https://feedback.smbteam.com/s/abc?ref=ext', ref: 'web' })).toBe(
+      'https://feedback.smbteam.com/s/abc?ref=web',
     );
   });
 });
 
 describe('shareUrl', () => {
   test('routes a project to /p and a page to /s', () => {
-    expect(shareUrl({ origin: 'https://marklayer.app', kind: 'project', id: 'xyz', ref: 'web' })).toBe(
-      'https://marklayer.app/p/xyz?ref=web',
+    expect(shareUrl({ origin: 'https://feedback.smbteam.com', kind: 'project', id: 'xyz', ref: 'web' })).toBe(
+      'https://feedback.smbteam.com/p/xyz?ref=web',
     );
-    expect(shareUrl({ origin: 'https://marklayer.app', kind: 'page', id: 'abc', ref: 'dash' })).toBe(
-      'https://marklayer.app/s/abc?ref=dash',
+    expect(shareUrl({ origin: 'https://feedback.smbteam.com', kind: 'page', id: 'abc', ref: 'dash' })).toBe(
+      'https://feedback.smbteam.com/s/abc?ref=dash',
     );
   });
 
   // The viewer copies this string and the share popover displays it; a readonly
   // lost between them hands out a view-only link as editable.
   test('carries readonly through alongside the ref', () => {
-    expect(shareUrl({ origin: 'https://marklayer.app', kind: 'page', id: 'abc', readonly: true, ref: 'web' })).toBe(
-      'https://marklayer.app/s/abc?readonly=1&ref=web',
-    );
+    expect(
+      shareUrl({ origin: 'https://feedback.smbteam.com', kind: 'page', id: 'abc', readonly: true, ref: 'web' }),
+    ).toBe('https://feedback.smbteam.com/s/abc?readonly=1&ref=web');
   });
 });
 
@@ -260,7 +260,7 @@ describe('saveAnnotations and loadAnnotations', () => {
       },
     );
 
-    expect(calls[0]?.url).toBe(`https://marklayer.app/api/${id}`);
+    expect(calls[0]?.url).toBe(`https://feedback.smbteam.com/api/${id}`);
     expect(calls[0]?.init?.method).toBe('POST');
     const sent: unknown = JSON.parse(String(calls[0]?.init?.body));
     expect(sent).toMatchObject({ ops: [op], url: 'https://example.com/page', width: window.innerWidth });

@@ -37,14 +37,14 @@ describe('mailerFor', () => {
         return { messageId: 'x' };
       },
     };
-    await mailerFor({ EMAIL: capture, MAIL_FROM: 'login@marklayer.app' }).send({
+    await mailerFor({ EMAIL: capture, MAIL_FROM: 'login@feedback.smbteam.com' }).send({
       to: 'someone@example.com',
       subject: 'Sign in',
       text: 'plain',
       html: '<p>rich</p>',
     });
     expect(sent[0]).toEqual({
-      from: { email: 'login@marklayer.app', name: 'MarkLayer' },
+      from: { email: 'login@feedback.smbteam.com', name: 'Punch List by SMB Team' },
       to: 'someone@example.com',
       subject: 'Sign in',
       text: 'plain',
@@ -69,11 +69,11 @@ describe('mailerFor', () => {
 });
 
 describe('signInTemplate', () => {
-  const rendered = signInTemplate.render({ link: 'https://marklayer.app/auth/verify?token=abc' });
+  const rendered = signInTemplate.render({ link: 'https://feedback.smbteam.com/auth/verify?token=abc' });
 
   test('applies the app brand token rather than a stock default', () => {
-    // --color-ml-fg is the brand navy #003a59 in apps/worker/web/style.css. If
-    // the build's token parsing silently stops working, the link reverts to React
+    // --color-ml-fg is #003a59 (brand navy) in apps/worker/web/style.css. If the
+    // build's token parsing silently stops working, the link reverts to React
     // Email's default blue and nothing else fails — so assert the colour directly.
     expect(rendered.html).toContain('color:rgb(0,58,89)');
   });
@@ -81,9 +81,9 @@ describe('signInTemplate', () => {
   test('carries the link in both the anchor and as bare text', () => {
     // Some clients strip the anchor; a login email with no visible URL is a
     // dead end for the person holding it.
-    expect(rendered.html).toContain('href="https://marklayer.app/auth/verify?token=abc"');
-    expect(rendered.html.split('https://marklayer.app/auth/verify?token=abc').length - 1).toBeGreaterThan(1);
-    expect(rendered.text).toContain('https://marklayer.app/auth/verify?token=abc');
+    expect(rendered.html).toContain('href="https://feedback.smbteam.com/auth/verify?token=abc"');
+    expect(rendered.html.split('https://feedback.smbteam.com/auth/verify?token=abc').length - 1).toBeGreaterThan(1);
+    expect(rendered.text).toContain('https://feedback.smbteam.com/auth/verify?token=abc');
   });
 
   test('produces a plain-text alternative that is not markup', () => {

@@ -53,8 +53,13 @@ export const AGENT_TOOL_GROUPS: { group: string; tools: AgentTool[] }[] = [
     ],
   },
   {
-    group: 'npm only',
-    tools: [{ name: 'connect_room', does: 'Switch to another share link by URL or id.' }],
+    group: 'Not on a link’s endpoint',
+    tools: [
+      {
+        name: 'connect_room',
+        does: 'Switch to another share link by URL or id. A link’s own endpoint is bound to that link, so it leaves this one out.',
+      },
+    ],
   },
 ];
 

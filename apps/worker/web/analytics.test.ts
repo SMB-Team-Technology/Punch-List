@@ -29,7 +29,7 @@ describe('analytics privacy', () => {
   beforeAll(() => {
     stub({
       name: 'location',
-      value: { href: 'https://marklayer.app/s/abc', search: '', pathname: '/s/abc', hash: '' },
+      value: { href: 'https://feedback.smbteam.com/s/abc', search: '', pathname: '/s/abc', hash: '' },
     });
     stub({ name: 'history', value: { replaceState: () => {} } });
     stub({ name: 'localStorage', value: { getItem: () => null } });
@@ -56,11 +56,11 @@ describe('analytics privacy', () => {
     const sanitize = (await boot('viewer'))?.sanitize_properties;
     expect(sanitize).toBeDefined();
     const out = sanitize?.({
-      $current_url: 'https://marklayer.app/s/abc?url=https%3A%2F%2Fx.com#id=sec',
+      $current_url: 'https://feedback.smbteam.com/s/abc?url=https%3A%2F%2Fx.com#id=sec',
       $referrer: 'https://google.com/search?q=private',
       $browser: 'Chrome',
     });
-    expect(out?.$current_url).toBe('https://marklayer.app/s/:id');
+    expect(out?.$current_url).toBe('https://feedback.smbteam.com/s/:id');
     expect(out?.$referrer).toBe('https://google.com/search');
     expect(out?.$browser).toBe('Chrome');
   });

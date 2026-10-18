@@ -2,7 +2,7 @@ import { Body, Container, Head, Hr, Html, Preview, Section, Text } from '@react-
 import type { ReactNode } from 'react';
 
 /**
- * The shell every MarkLayer email shares. Templates supply a body and a preview
+ * The shell every Punch List email shares. Templates supply a body and a preview
  * line; framing, width and footer live here so a new template cannot drift.
  *
  * Everything is authored in px and hex on purpose — the build rejects `rem`
@@ -28,14 +28,14 @@ export function Layout({ preview, children }: { preview: string; children: React
           {/* The wordmark as type, not an image: a remote logo is blocked by
               default in most clients, and a sign-in email that opens with a
               broken-image icon is the wrong first impression. */}
-          <Text className="text-ml-fg m-0 mb-8 text-[15px] font-semibold tracking-[-0.045em]">MarkLayer</Text>
+          <Text className="text-ml-fg m-0 mb-8 text-[15px] font-semibold tracking-[-0.045em]">Punch List</Text>
           {children}
           <Hr className="my-8 border-0 border-t border-solid border-[#eaeaea]" />
           <Section>
             <Text className="m-0 text-[12px] leading-[18px] text-[#8f8f8f]">
-              MarkLayer ·{' '}
-              <a href="https://marklayer.app" className="text-[#8f8f8f]">
-                marklayer.app
+              Punch List by SMB Team ·{' '}
+              <a href="https://feedback.smbteam.com" className="text-[#8f8f8f]">
+                feedback.smbteam.com
               </a>
             </Text>
           </Section>

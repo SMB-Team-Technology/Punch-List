@@ -18,7 +18,7 @@ const API_BASE = `${APP_ORIGIN}/api/`;
 /**
  * The reviewer help page. The path is what the landing page links to (same
  * origin); the absolute URL is what the extension dialog and the web info panel
- * need, since neither is guaranteed to be running on marklayer.app.
+ * need, since neither is guaranteed to be running on feedback.smbteam.com.
  */
 export const HOW_IT_WORKS_PATH = '/help';
 export const HOW_IT_WORKS_URL = `${APP_ORIGIN}${HOW_IT_WORKS_PATH}`;
@@ -157,7 +157,7 @@ export function npxMcpCommand(roomId: string): string {
 }
 
 /**
- * Share links round-trip through marklayer.app/s/<id>, which fetches the original page
+ * Share links round-trip through feedback.smbteam.com/s/<id>, which fetches the original page
  * server-side. Localhost / private addresses / file:// pages are unreachable from there,
  * so the link would resolve to a broken viewer.
  */

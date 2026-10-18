@@ -17,7 +17,7 @@ describe('parseCompareUrl', () => {
 describe('compareHref', () => {
   it('round-trips both addresses through the query', () => {
     const href = compareHref({ a: 'https://a.test/?x=1&y=2', b: 'https://b.test' });
-    const params = new URL(href, 'https://marklayer.app').searchParams;
+    const params = new URL(href, 'https://feedback.smbteam.com').searchParams;
     expect(params.get('a')).toBe('https://a.test/?x=1&y=2');
     expect(params.get('b')).toBe('https://b.test');
   });

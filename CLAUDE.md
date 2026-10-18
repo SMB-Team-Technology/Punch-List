@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MarkLayer — free annotation/collaboration tool for any webpage. Monorepo with a Chrome extension, a Cloudflare Worker backend + web app, a static Astro marketing/SEO site, and an MCP server that bridges annotations to AI coding agents.
 
+## Punch List fork
+
+- This repo is **Punch List by SMB Team** (https://feedback.smbteam.com): SMB Team's clients leave feedback on the websites the agency builds. Clients use it with no account; SMB Team staff sign in. Brand: navy `#003a59`, green `#69cd2b` (open), blue `#0091c9`, pale `#f1f6f9`, Poppins; navy = done.
+- `main` mirrors upstream MarkLayer; fork work lives on `deploy/feedback`. Merge upstream into it, never the reverse.
+- Upstream identifiers are kept on purpose so those merges stay cheap: `marklayer_*` MCP tool ids, `@marklayer/*` packages, `ml-` classes, `data-marklayer`, D1/R2 names, localStorage keys, analytics events, file names. Only user-visible text, origins and branding change.
+- The site is cut to home, help, privacy, `/mcp` and 404. Removed or unwired: the donation/support card (`SupportDialog.tsx`, `support*.ts` are dead code), extension prompts (no extension is offered), the demo-board cron and the landing demo. Nothing is published to npm; agents connect over `https://feedback.smbteam.com/s/<id>/mcp`.
+- Deploy: `bun run deploy` loses the `CLOUDFLARE_*` env through Turbo. Run `bun run build`, then `bunx wrangler deploy` in `apps/worker`.
+- Apache-2.0 attribution is required: keep "Built on MarkLayer, Apache-2.0" linking https://github.com/thevrus/MarkLayer wherever it appears (footer, privacy, llms files, SKILL.md).
+
 ## Commands
 
 ```bash
@@ -79,12 +88,12 @@ apps/worker/        # CF Worker API + web app (Hono + Vite + Preact)
                     # useRealtimeSync, useVoiceRoom, signals)
   migrations/       # D1 schema, as ordered `wrangler d1 migrations` files
   wrangler.jsonc    # Worker bindings (D1, DO, R2) + `assets.run_worker_first`
-apps/site/          # Astro static marketing/SEO site (marklayer.app content pages)
-  src/content/      # Markdown collections: compare/, alternatives/, use-cases/
-  src/content.config.ts  # Zod frontmatter schemas for those collections
-  src/pages/        # Hubs (compare, alternatives, use-cases, pricing, about,
-                    # privacy) + programmatic routes /vs/[slug], /alternatives/[slug],
-                    # /for/[slug], plus sitemap.xml.ts and pricing.md.ts
+apps/site/          # Astro static site for feedback.smbteam.com (home, help, privacy, /mcp, 404)
+  src/content/      # agent/ (llms.txt, llms-full.txt, SKILL.md, robots.txt) and
+                    # releases/ (upstream data, unrendered in this fork)
+  src/content.config.ts  # Zod frontmatter schema for releases
+  src/pages/        # index, help (+ help.md), privacy, mcp (+ mcp.md), 404,
+                    # plus llms*.txt, robots.txt and sitemap.xml routes
   src/lib/          # site.ts (constants), collections.ts (ordered reads),
                     # schema.ts (JSON-LD), markdown.ts, docs-nav.ts (sidebar,
                     # ⌘K search and pager, one read of the collections),
@@ -145,8 +154,8 @@ packages/agent-tools/  # The agent tool contract with no transport in it: the MC
 - **Public share API**: `apps/worker/src/api.ts` mounts an `OpenAPIHono` at `/api` — anonymous by design (the id you POST *is* the access token), with a lazily built, memoized spec at `/api/openapi.json`.
 - **Agent-facing surface**: the worker serves `llms.txt`, `llms-full.txt`, `/.well-known/api-catalog`, `security.txt`, an agent-skill `SKILL.md` + index, and an MCP server card, all as inlined constants in `src/index.ts`.
 - **OG cards**: two composers, one pipeline. Hand-written SVG rasterized by `@resvg/resvg-wasm`, cached in R2. The share card names the annotated site, counts what was left on it (`og-tally.ts`) and carries the mark as a watermark — it deliberately does **not** draw the annotation geometry. It used to: an OG image is fetched and cached by every chat app, crawler and link previewer that sees a URL, so sharing an internal page once republished whatever was drawn on it into Slack, iMessage and search indexes. That removal deleted the mark parsing, colour lifting and crop math wholesale (og-marks.ts, 386 lines, gone). `og-card.ts` is pure so it can be rendered offline; `og.ts` owns the wasm and the favicon fetch. Geist is bundled as base64 TTFs (`og-fonts.ts`, regenerate with `scripts/build-og-fonts.py`) — the previous runtime fetch from the Google Fonts CSS API broke silently when Google switched that response to `.woff`. Disabled for localhost / private hosts.
-- **Marketing page cards**: `/og/page.png?h=<heading>&p=<path>` draws a card for one content page — its h1 set large, with a pen stroke under the operative word and a comment pinned to it, which is the product performed on the page's own words. `og-page-card.ts` is pure like `og-card.ts`; `og-svg.ts` holds what both share (the mark, the axes, the tones, the separator). The heading travels in the query because `apps/site` is prerendered and the Worker has no copy of its content, so the text is caller-supplied and escaped — the same exposure `?domain=` already carries. Wired in via `pageOgImage()` in `apps/site/src/lib/site.ts` and the `ogImage` prop on `BaseHead`; `ArticleLayout` covers all 55 content pages, and `/` keeps its bespoke `og.jpg`. The heading is measured, not estimated: `build-og-fonts.py` emits Geist bold's real advance widths beside the TTFs, because a guessed width puts the stroke under the wrong word.
+- **Marketing page cards**: `/og/page.png?h=<heading>&p=<path>` draws a card for one content page — its h1 set large, with a pen stroke under the operative word and a comment pinned to it, which is the product performed on the page's own words. `og-page-card.ts` is pure like `og-card.ts`; `og-svg.ts` holds what both share (the mark, the axes, the tones, the separator). The heading travels in the query because `apps/site` is prerendered and the Worker has no copy of its content, so the text is caller-supplied and escaped — the same exposure `?domain=` already carries. Wired in via `pageOgImage()` in `apps/site/src/lib/site.ts` and the `ogImage` prop on `BaseHead`; `/help`, `/privacy` and `/mcp` call it, and `/` keeps its bespoke `og.jpg`. The heading is measured, not estimated: `build-og-fonts.py` emits Geist bold's real advance widths beside the TTFs, because a guessed width puts the stroke under the wrong word.
 - **MCP integration**: annotation rooms are MCP tools (`marklayer_watch_annotations`, `acknowledge`, `resolve`, `reply`, …) so an agent can poll a room and act on comments while the human sees live status. Two transports, one contract (`packages/agent-tools`): every share link answers Streamable HTTP at `/s/:id/mcp` with nothing installed, and `apps/mcp` is the stdio package for clients that only run local servers. The well-known server card's tool list is pinned to that contract by `apps/worker/src/server-card.test.ts`.
 - **Cleanup**: daily cron (3 AM UTC, configured in `wrangler.jsonc`) deletes annotations 90 days after their last access, plus any past an explicit `expires_at` or `owner_expires_at`.
-- **The landing page's live demo**: the product screenshot on `/` is a poster over an iframe of the real viewer on a fixed public room (`DEMO_ROOM` in `packages/types`), so visitors draw on live Wikipedia with the actual toolbar and see each other. `GET /s/:id` mints that room if it is missing; an hourly cron (`0 * * * *`) wipes it through the Durable Object's `POST /reset` (never straight in D1 — a warm room would flush the old ops back). The room is embedded with `?still=1`, which stops the page inside from scrolling so a wheel over the window chains to the landing page (one scroller per screen). The landing's own overlays drop to `navigate` when the pointer crosses into the window, and its fixed toolbar and nav step aside while half the window is in view (`embedInView`), so only one toolbar is ever on screen.
+- **No landing demo in this fork**: upstream's live demo board on `/` and its hourly reset cron are gone; only the 3 AM cleanup cron runs. `DEMO_ROOM` and `web/landing/DemoWindow.tsx` remain as unwired upstream code.
 - **D1 migrations, and the two names for one database**: `migrations/` replaced a hand-maintained `schema.sql` whose `ALTER TABLE`s were applied to production by hand. Prod never held wrangler's `d1_migrations` bookkeeping table, so `scripts/bootstrap-migrations.mjs` (`bun run migrations:bootstrap -- --remote`) reconstructed it from the live schema — that ran on 2026-09-08 and recorded 0001–0006, so a plain `migrations apply --remote` is the normal path now. The script stays because it is idempotent and answers "what does prod actually have" in one read. The naming trap is live, though: `d1 execute` and `d1 export` need Cloudflare's registered name `annotateweb`, while every `d1 migrations` subcommand resolves `database_name` from `wrangler.jsonc` and so wants `marklayer`.

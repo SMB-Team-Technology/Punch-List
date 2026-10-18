@@ -192,10 +192,10 @@ const WORKER_PREFIXES = workerFirst.filter((e) => e.endsWith('/*')).map((e) => e
 // "/" is worker-first, so the bare origin is skipped; it resolves anyway.
 for (const [rel, text] of agentText) {
   if (!rel.startsWith('dist/')) continue;
-  for (const [, raw = ''] of text.matchAll(/https:\/\/marklayer\.app(\/[^\s)\]>"'`]*)?/g)) {
+  for (const [, raw = ''] of text.matchAll(/https:\/\/feedback\.smbteam\.com(\/[^\s)\]>"'`]*)?/g)) {
     const path = raw.replace(/[?#].*$/, '').replace(/[.,:;]+$/, '') || '/';
     if (WORKER_EXACT.has(path) || WORKER_PREFIXES.some((p) => path.startsWith(p))) continue;
-    if (!resolves(path)) errors.push(`${rel}: broken absolute link -> https://marklayer.app${path}`);
+    if (!resolves(path)) errors.push(`${rel}: broken absolute link -> https://feedback.smbteam.com${path}`);
   }
 }
 

@@ -424,7 +424,7 @@ const github: Provider = {
         // decides it is next, and a create call should not change under us.
         'X-GitHub-Api-Version': '2022-11-28',
         // GitHub refuses a request with no User-Agent.
-        'User-Agent': 'MarkLayer',
+        'User-Agent': 'PunchList',
       },
       body: JSON.stringify({ title: content.title, body: content.body }),
     };

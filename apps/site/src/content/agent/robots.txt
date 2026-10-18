@@ -44,5 +44,5 @@ Disallow: /px/
 Disallow: /s/
 Disallow: /p/
 
-# Security contact: https://marklayer.app/.well-known/security.txt
-Sitemap: https://marklayer.app/sitemap.xml
+# Security contact: https://feedback.smbteam.com/.well-known/security.txt
+Sitemap: https://feedback.smbteam.com/sitemap.xml

@@ -6,9 +6,9 @@ describe('fill', () => {
     // A real value would never carry markup, but the escaping exists precisely
     // so a value that does (an `&` in a query string, say) can't break the
     // markup around it — assert that guard directly, not just the happy path.
-    const link = 'https://marklayer.app/a?x=1&y=2&name=<b>"quote"</b>';
+    const link = 'https://feedback.smbteam.com/a?x=1&y=2&name=<b>"quote"</b>';
     const { html, text } = fill({ template: signInEmail, values: { link } });
-    expect(html).toContain('https://marklayer.app/a?x=1&amp;y=2&amp;name=&lt;b&gt;&quot;quote&quot;&lt;/b&gt;');
+    expect(html).toContain('https://feedback.smbteam.com/a?x=1&amp;y=2&amp;name=&lt;b&gt;&quot;quote&quot;&lt;/b&gt;');
     expect(html).not.toContain(link);
     expect(text).toContain(link);
   });

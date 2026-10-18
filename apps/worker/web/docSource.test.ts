@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import { bytesUrl, frameSrc, liveRoomUrl } from './docSource';
 
-const origin = 'https://marklayer.app';
+const origin = 'https://feedback.smbteam.com';
 
 describe('document source', () => {
   it('reads an uploaded file straight from this origin', () => {
@@ -10,7 +10,7 @@ describe('document source', () => {
 
   it('sends a remote document through the proxy', () => {
     expect(bytesUrl({ url: 'https://example.com/a.pdf', origin })).toBe(
-      'https://marklayer.app/proxy?url=https%3A%2F%2Fexample.com%2Fa.pdf&raw=1',
+      'https://feedback.smbteam.com/proxy?url=https%3A%2F%2Fexample.com%2Fa.pdf&raw=1',
     );
   });
 
@@ -24,7 +24,7 @@ describe('document source', () => {
   it('refuses to read any other same-origin path directly', () => {
     // Each of these would make the viewer fetch something it must never fetch.
     for (const url of ['/f/../../api/openapi.json', '/api/openapi.json', '/f/short', '/f/V1StGXR8Z5jdHi6BmyTaa/x']) {
-      expect(bytesUrl({ url, origin }).startsWith('https://marklayer.app/proxy?')).toBe(true);
+      expect(bytesUrl({ url, origin }).startsWith('https://feedback.smbteam.com/proxy?')).toBe(true);
     }
   });
 });

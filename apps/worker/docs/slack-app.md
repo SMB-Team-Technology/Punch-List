@@ -27,7 +27,7 @@ it these paths never reach the Worker.
 ## App manifest
 
 Create the app at <https://api.slack.com/apps> → **Create New App** → **From a
-manifest**, and paste this. For a staging deploy, replace `marklayer.app` in
+manifest**, and paste this. For a staging deploy, replace `feedback.smbteam.com` in
 both URLs.
 
 ```yaml
@@ -40,7 +40,7 @@ features:
     always_online: false
 oauth_config:
   redirect_urls:
-    - https://marklayer.app/integrations/slack/callback
+    - https://feedback.smbteam.com/integrations/slack/callback
   scopes:
     bot:
       - chat:write         # post parents and threaded replies
@@ -51,7 +51,7 @@ oauth_config:
       - incoming-webhook   # the channel picker on the install screen
 settings:
   event_subscriptions:
-    request_url: https://marklayer.app/integrations/slack/events
+    request_url: https://feedback.smbteam.com/integrations/slack/events
     bot_events:
       - message.channels
       - message.groups

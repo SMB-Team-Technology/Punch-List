@@ -32,7 +32,7 @@ const build = (ops: DrawOp[], meta: Parameters<typeof buildMarkdownExport>[1] = 
 describe('buildMarkdownExport', () => {
   test('produces a header and nothing else for an empty canvas', () => {
     const md = build([]);
-    expect(md).toContain('# MarkLayer annotations');
+    expect(md).toContain('# Punch List feedback');
     expect(md).not.toContain('Totals');
     expect(md).not.toContain('## Comments');
   });
@@ -45,8 +45,8 @@ describe('buildMarkdownExport', () => {
 
   test('links a video note when it can resolve one, and stays silent when it cannot', () => {
     const ops = [comment({ video: 'abc123def456ghi789jkl' })];
-    const fileUrl = (id: string) => `https://marklayer.app/f/${id}`;
-    expect(build(ops, { fileUrl })).toContain('[Video note](https://marklayer.app/f/abc123def456ghi789jkl)');
+    const fileUrl = (id: string) => `https://feedback.smbteam.com/f/${id}`;
+    expect(build(ops, { fileUrl })).toContain('[Video note](https://feedback.smbteam.com/f/abc123def456ghi789jkl)');
     expect(build(ops)).not.toContain('Video note');
     expect(build([comment()], { fileUrl })).not.toContain('Video note');
   });
@@ -103,7 +103,7 @@ describe('buildMarkdownExport', () => {
 
   test('omits a kind with nothing in it from the totals', () => {
     expect(build([comment()])).toBe(
-      `${['# MarkLayer annotations', '', `**Generated:** ${new Date(Date.UTC(2026, 0, 2)).toLocaleString()}`, '**Totals:** 1 comment', '', '## Comments', '', '### #1 — Anonymous _(Open)_', '', 'Nav feels cramped'].join('\n')}\n`,
+      `${['# Punch List feedback', '', `**Generated:** ${new Date(Date.UTC(2026, 0, 2)).toLocaleString()}`, '**Totals:** 1 comment', '', '## Comments', '', '### #1 — Anonymous _(Open)_', '', 'Nav feels cramped'].join('\n')}\n`,
     );
   });
 
@@ -146,8 +146,8 @@ describe('defaultExportFilename', () => {
   });
 
   test('falls back to the product name for a missing or unparseable url', () => {
-    expect(defaultExportFilename()).toBe(`marklayer-annotations-${today}.md`);
-    expect(defaultExportFilename('not a url')).toBe(`marklayer-annotations-${today}.md`);
+    expect(defaultExportFilename()).toBe(`punch-list-annotations-${today}.md`);
+    expect(defaultExportFilename('not a url')).toBe(`punch-list-annotations-${today}.md`);
   });
 });
 

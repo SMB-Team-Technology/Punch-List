@@ -137,7 +137,7 @@ describe('routing', () => {
     const res = await call('/health');
     expect(res.status).toBe(200);
     const body: unknown = await res.json();
-    expect(body).toMatchObject({ ok: true, userAgent: expect.stringContaining('MarkLayer') });
+    expect(body).toMatchObject({ ok: true, userAgent: expect.stringContaining('PunchList') });
   });
 
   test('404s an unknown path', async () => {

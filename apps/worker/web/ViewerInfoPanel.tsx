@@ -1,6 +1,6 @@
 import { PanelSection } from '@ext/components/PanelSection';
 import { geist } from '@ext/lib/geist';
-import { claudeMcpCommand, HOW_IT_WORKS_URL, mcpEndpoint, npxMcpCommand } from '@ext/lib/share';
+import { claudeMcpCommand, HOW_IT_WORKS_URL, mcpEndpoint } from '@ext/lib/share';
 import { annotationPanelOpen, copyText, operations, peerCount } from '@ext/lib/state';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn, type DrawOp, deletionDeadline } from '@marklayer/types';
@@ -194,14 +194,6 @@ function AgentSection({ id }: { id: string }) {
             </p>
           </div>
         </PanelSection>
-        <PanelSection label="Local server (npx)">
-          <div class="flex flex-col gap-1.5">
-            <CommandField label="npx command" value={npxMcpCommand(id)} />
-            <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
-              For a client that cannot reach a remote MCP server yet.
-            </p>
-          </div>
-        </PanelSection>
       </div>
     </PanelSection>
   );
@@ -302,7 +294,7 @@ function InfoPanelBody() {
         )}
         <a href={HOW_IT_WORKS_URL} target="_blank" rel="noopener" class={panelLinkRow}>
           <BookOpen size={14} strokeWidth={1.5} class="shrink-0" aria-hidden="true" />
-          <span class="flex-1">How MarkLayer works</span>
+          <span class="flex-1">How Punch List works</span>
           <ArrowUpRight size={14} strokeWidth={1.5} class="shrink-0" aria-hidden="true" />
         </a>
       </div>

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { areaOpSchema, commentOpSchema, inspectOpSchema, selectionOpSchema } from '@marklayer/types';
 import { projectAnnotation } from './index';
 
-const API_BASE = 'https://marklayer.app';
+const API_BASE = 'https://feedback.smbteam.com';
 
 describe('projectAnnotation — comment', () => {
   const comment = commentOpSchema.parse({
@@ -111,7 +111,7 @@ describe('projectAnnotation — comment', () => {
       url: null,
       target: null,
       pageErrors: [],
-      attachments: ['https://marklayer.app/f/abc123def456ghi789jkl'],
+      attachments: ['https://feedback.smbteam.com/f/abc123def456ghi789jkl'],
       voice: null,
       video: null,
     });
@@ -131,7 +131,7 @@ describe('projectAnnotation — comment', () => {
       voice: 'abc123def456ghi789jkl',
     });
     expect(projectAnnotation(voiced, API_BASE)).toMatchObject({
-      voice: 'https://marklayer.app/f/abc123def456ghi789jkl',
+      voice: 'https://feedback.smbteam.com/f/abc123def456ghi789jkl',
     });
   });
 });
@@ -152,7 +152,7 @@ describe('projectAnnotation — video', () => {
     });
     expect(projectAnnotation(recorded, API_BASE)).toMatchObject({
       voice: null,
-      video: 'https://marklayer.app/f/abc123def456ghi789jkl',
+      video: 'https://feedback.smbteam.com/f/abc123def456ghi789jkl',
     });
   });
 });

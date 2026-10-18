@@ -199,8 +199,8 @@ describe('postBatchToSlack', () => {
       roomId: ROOM,
       items: [parent, reply],
       ops: () => [parent, reply],
-      roomUrl: `https://marklayer.app/s/${ROOM}`,
-      origin: 'https://marklayer.app',
+      roomUrl: `https://feedback.smbteam.com/s/${ROOM}`,
+      origin: 'https://feedback.smbteam.com',
     });
     expect(result).toEqual({ sent: 2, failed: 0 });
     const [first, second] = calls.map((c) => JSON.parse(c.body));

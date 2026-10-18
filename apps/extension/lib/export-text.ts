@@ -118,7 +118,7 @@ function renderSection({
 
 export function buildMarkdownExport(ops: DrawOp[], meta: ExportMeta = {}): string {
   const out: string[] = [];
-  out.push('# MarkLayer annotations', '');
+  out.push('# Punch List feedback', '');
   if (meta.url) out.push(`**URL:** ${meta.url}`);
   const generated = new Date(meta.generatedAt ?? Date.now()).toLocaleString();
   out.push(`**Generated:** ${generated}`);
@@ -182,7 +182,7 @@ export function downloadMarkdown(content: string, filename: string) {
 }
 
 export function defaultExportFilename(url?: string): string {
-  let stub = 'marklayer';
+  let stub = 'punch-list';
   if (url) {
     try {
       stub = new URL(url).hostname.replace(/^www\./, '') || stub;

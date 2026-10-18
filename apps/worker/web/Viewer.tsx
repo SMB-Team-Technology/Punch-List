@@ -222,7 +222,7 @@ export default function Viewer() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `marklayer-${Date.now()}.png`;
+        a.download = `punch-list-${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
       };

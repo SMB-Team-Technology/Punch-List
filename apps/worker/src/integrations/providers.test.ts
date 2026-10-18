@@ -5,7 +5,7 @@ import { PROVIDERS, providerList } from './providers';
 import { type Notifiable, notifiableFrom, type RoomEvent } from './types';
 
 const base = { id: 'op1', color: '#fff', lineWidth: 2 };
-const args = { roomUrl: 'https://marklayer.app/s/abc', pageUrl: 'https://example.com' };
+const args = { roomUrl: 'https://feedback.smbteam.com/s/abc', pageUrl: 'https://example.com' };
 const item: Notifiable = { kind: 'Comment', author: 'Ada', text: 'Contrast fails', priority: 'high' };
 const config = { url: 'https://hooks.slack.com/services/T/B/x' };
 
@@ -80,7 +80,7 @@ describe('every provider', () => {
       expect(rendered).not.toBeNull();
       expect(rendered?.body).toContain('Ada');
       expect(rendered?.body).toContain('Contrast fails');
-      expect(rendered?.body).toContain('marklayer.app/s/abc');
+      expect(rendered?.body).toContain('feedback.smbteam.com/s/abc');
     }
   });
 
@@ -170,7 +170,7 @@ describe('github', () => {
   test('pins the API version and identifies itself', () => {
     const headers = render(configs.github)?.headers;
     expect(headers?.['X-GitHub-Api-Version']).toBe('2022-11-28');
-    expect(headers?.['User-Agent']).toBe('MarkLayer');
+    expect(headers?.['User-Agent']).toBe('PunchList');
   });
 
   test('reads html_url, the one a person can open, not the API url', () => {
@@ -238,7 +238,7 @@ describe('discord', () => {
     expect(content.length).toBeLessThanOrEqual(2000);
     // Trimmed, but still says how much was left out and where to see it.
     expect(content).toContain('more');
-    expect(content).toContain('marklayer.app/s/abc');
+    expect(content).toContain('feedback.smbteam.com/s/abc');
   });
 });
 
@@ -252,7 +252,7 @@ describe('webhook', () => {
     const body = JSON.parse(rendered?.body ?? '{}');
     expect(body).toMatchObject({
       type: 'annotations.created',
-      room: 'https://marklayer.app/s/abc',
+      room: 'https://feedback.smbteam.com/s/abc',
       page: 'https://example.com',
     });
     expect(body.items[0]).toMatchObject({ author: 'Ada', kind: 'Comment' });
@@ -271,7 +271,7 @@ describe('screenshots', () => {
     ts: 0,
     attachments: ['shot1234567'],
   };
-  const shotUrl = 'https://marklayer.app/f/shot1234567';
+  const shotUrl = 'https://feedback.smbteam.com/f/shot1234567';
 
   test('reach a webhook as URLs on the room origin', () => {
     const shot = notifiableFrom(comment);

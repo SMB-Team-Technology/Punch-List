@@ -3,14 +3,14 @@ import BaseHead from '../components/BaseHead.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import SiteFooter from '../components/SiteFooter.astro';
 import SiteHeader from '../components/SiteHeader.astro';
-import { ORIGIN, pageOgImage, REPO_URL } from '../lib/site';
+import { AGENCY_NAME, AGENCY_URL, ORIGIN, pageOgImage, REPO_URL } from '../lib/site';
 
 // One string: the card is keyed by a hash of the heading, so an h1 edited
 // without its twin would serve the old wording forever.
 const h1 = 'Privacy Policy';
-const title = 'Privacy Policy · MarkLayer';
+const title = 'Privacy Policy · Punch List';
 const description =
-  'MarkLayer collects no personal information. No account, email, or sign-up. Annotations are stored only when you share them, and are deleted automatically.';
+  'What Punch List by SMB Team stores when you leave feedback on a website, how long it keeps it, and who to contact. No tracking, and your data is never sold.';
 ---
 
 <html lang="en">
@@ -26,69 +26,73 @@ const description =
   <body>
     <SiteHeader path="/privacy" />
     <div class="ml-shell">
-      <Breadcrumbs crumbs={[{ name: 'MarkLayer', path: '/' }, { name: 'Privacy' }]} />
+      <Breadcrumbs crumbs={[{ name: 'Punch List', path: '/' }, { name: 'Privacy' }]} />
       <h1>{h1}</h1>
       {/* Stated review date of the policy itself. It changes when the policy
           changes, not when the page is rebuilt. */}
-      <p class="ml-meta mt-0 mb-8">Last updated: March 2026</p>
+      <p class="ml-meta mt-0 mb-8">Last updated: October 2026</p>
 
-      <h2>What we collect</h2>
-      <p>MarkLayer does not collect personal information. No account, email, or sign-up is required.</p>
       <p>
-        When you use the annotation tools, a randomly generated display name and cursor color are stored in your browser's
-        local storage. These are never sent to our servers except as part of real-time collaboration sessions you
-        initiate.
+        Punch List (<a href={ORIGIN}>{ORIGIN.replace('https://', '')}</a>) is run by
+        <a href={AGENCY_URL}>{AGENCY_NAME}</a> so our clients can leave feedback on the websites we build for them. This
+        page explains what it stores and why.
       </p>
 
-      <h2>Annotation data</h2>
-      <p>
-        Annotations you create (drawings, comments, text) are sent to our server only when you choose to share them.
-        Shared annotations are stored temporarily and automatically deleted after their expiration period.
-      </p>
-
-      <h2>Page content</h2>
-      <p>
-        The extension does not read, collect, or transmit the content of any webpage you visit. It only renders its own
-        overlay on top of the page.
-      </p>
-
-      <h2>Analytics</h2>
-      <p>
-        The MarkLayer web app uses <a href="https://posthog.com">PostHog</a> to count page views and a small number of
-        aggregate product events, such as how many annotations a session produced and which tools were used. Our
-        marketing pages (comparisons, use cases, pricing) ship no JavaScript at all and are not tracked.
-      </p>
-      <p>We deliberately collect as little as possible, because you point MarkLayer at pages we have no business seeing:</p>
+      <h2>What we store</h2>
       <ul>
         <li>
-          Session replay records only MarkLayer's own interface, to help us fix bugs. The page you annotate is blocked
-          from recording and appears as an empty box, and anything you type is masked. No heatmaps, no autocapture of
-          clicks or keystrokes.
+          <strong>Feedback boards.</strong> The address of the page being reviewed and everything left on it: comments,
+          replies, drawings, highlights, statuses and suggested edits.
         </li>
         <li>
-          No URLs of the pages you annotate, no share-link IDs, and no page content. Diagnostic events record a reason
-          code and a duration, nothing more.
+          <strong>Your display name.</strong> Clients do not need an account. The name you type, or a randomly generated
+          one, is kept in your browser and shown next to what you leave on a board.
         </li>
-        <li>No cookies and no user profiles. Events are counters, so there is no per-person record to build or hand over.</li>
-        <li>IP addresses are discarded rather than stored.</li>
-        <li>The browser extension collects no analytics whatsoever.</li>
+        <li>
+          <strong>Files you add.</strong> Screenshots, images, PDFs and voice or video notes attached to a comment.
+        </li>
+        <li>
+          <strong>Team sign-in.</strong> {AGENCY_NAME} staff sign in with an emailed link, so we keep their email address
+          and a session cookie. Clients never sign in.
+        </li>
+        <li>
+          <strong>Invitations.</strong> When someone invites a person to a board by email, that address is kept so the
+          same invitation is not sent twice.
+        </li>
       </ul>
       <p>
-        We honour <a href="https://en.wikipedia.org/wiki/Do_Not_Track">Do Not Track</a>. To opt out regardless, run
-        <code>localStorage.setItem('marklayer:no-analytics', '1')</code> in your browser console, and nothing further will
-        be sent. MarkLayer is open source, so you can verify all of this in
-        <a href={`${REPO_URL}/blob/main/apps/worker/web/analytics.ts`}>analytics.ts</a> and
-        <a href={`${REPO_URL}/blob/main/apps/worker/src/posthog.ts`}>posthog.ts</a>.
+        If a board is locked with a password, we store only a hash of the password, and a hash of the address of anyone
+        who gets it wrong, briefly, to stop guessing. Voice and video calls on a board go directly between the
+        people on it and are not recorded.
       </p>
 
-      <h2>Third parties</h2>
+      <h2>How long we keep it</h2>
       <p>
-        We use PostHog for analytics as described above. We do not sell, share, or transfer any data to other third
-        parties.
+        A board, and the files attached to it, is deleted automatically 90 days after anyone last opened it. Boards that a
+        team member has saved to their dashboard are kept until they delete them or set an expiry. Sign-in links expire
+        after 15 minutes. To have anything removed sooner, email us.
+      </p>
+
+      <h2>Analytics and cookies</h2>
+      <p>
+        Punch List runs no analytics and no advertising. The only cookie is the sign-in session for {AGENCY_NAME} staff.
+      </p>
+
+      <h2>Where it lives</h2>
+      <p>
+        Punch List runs on <a href="https://www.cloudflare.com">Cloudflare</a>, which hosts the app, stores the data and
+        sends the sign-in emails. To show the page being reviewed, our server fetches it from its own address. Cloudflare
+        processes this on our behalf; we do not sell, rent or share your data with anyone else.
       </p>
 
       <h2>Contact</h2>
-      <p>Questions? Open an issue on our <a href={REPO_URL}>GitHub repository</a>.</p>
+      <p>
+        Questions, or a request to see or delete your data: <a href="mailto:support@smbteam.com">support@smbteam.com</a>.
+      </p>
+
+      <p class="ml-meta">
+        Punch List is built on <a href={REPO_URL}>MarkLayer</a>, open source under the Apache-2.0 licence.
+      </p>
     </div>
     <SiteFooter />
   </body>

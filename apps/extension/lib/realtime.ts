@@ -210,7 +210,7 @@ export interface ConnectRoomHooks {
 
 export interface ConnectRoomOptions {
   roomId: string;
-  /** Absolute http(s) origin the WebSocket and REST fallback are built against, e.g. `https://marklayer.app`. */
+  /** Absolute http(s) origin the WebSocket and REST fallback are built against, e.g. `https://feedback.smbteam.com`. */
   origin: string;
   hooks: ConnectRoomHooks;
 }

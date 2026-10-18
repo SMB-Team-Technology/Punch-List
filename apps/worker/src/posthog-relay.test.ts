@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { relayTarget } from './posthog-relay';
 
 const target = (path: string, host?: string) =>
-  relayTarget({ url: new URL(`https://marklayer.app${path}`), host }).href;
+  relayTarget({ url: new URL(`https://feedback.smbteam.com${path}`), host }).href;
 
 describe('relayTarget', () => {
   // A wrong host here 404s the lazily loaded recorder, so replays stop with no error anywhere.

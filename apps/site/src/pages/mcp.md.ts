@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
-import { MCP_VERSION } from '../lib/agent';
-import { AGENT_TOOL_GROUPS, AGENT_TOOLS } from '../lib/agent-tools';
+import { AGENT_TOOL_GROUPS } from '../lib/agent-tools';
 import { MCP_CLIENTS, MCP_HABIT, MCP_PROMPTS, ROOM_MCP_URL } from '../lib/mcp-setup';
+import { ORIGIN } from '../lib/site';
 
 /**
  * The MCP setup as plain text, for an agent to read and act on. Prerendered to
@@ -18,22 +18,18 @@ const tools = AGENT_TOOL_GROUPS.map(
   (g) => `### ${g.group}\n\n${g.tools.map((t) => `- \`marklayer_${t.name}\`: ${t.does}`).join('\n')}`,
 ).join('\n\n');
 
-const body = `# Connect MarkLayer to your coding agent
+const body = `# Connect Punch List to your coding agent
 
-Every MarkLayer share link is a remote MCP server (Streamable HTTP) at the
-link's own address plus \`/mcp\`:
+Punch List by SMB Team (${ORIGIN}) is where SMB Team's clients
+leave feedback on their websites. Every Punch List share link is a remote MCP
+server (Streamable HTTP) at the link's own address plus \`/mcp\`:
 
     ${ROOM_MCP_URL}
 
 Replace \`<id>\` with the id in the share link. No account, no API key: the
 link is the credential. Add \`?agent=<name>\` so reviewers see which agent
-picked up their comment; it defaults to "agent".
-
-The same ${AGENT_TOOLS.length} tools ship on npm as \`marklayer-mcp\` (v${MCP_VERSION}), a local
-stdio server, for clients that cannot reach remote servers or want one install
-that covers every link. Set \`MARKLAYER_AGENT\` to the client's name, and
-\`MARKLAYER_PASSWORD\` for a password-protected link. Over HTTP a protected
-link takes the password as a header instead: \`Authorization: Bearer <password>\`
+picked up their comment; it defaults to "agent". A password-protected link
+takes the password as a header: \`Authorization: Bearer <password>\`
 (\`--header\` on \`claude mcp add\`).
 
 Before adding a server, inspect the client's active MCP configuration. If a
@@ -45,8 +41,8 @@ ${clients}
 
 Seeing the server listed is not proof. Call \`marklayer_room_info\`; it answers
 with the URL the link annotates. A 401 means the link is password protected:
-send the bearer header above, or use the npm package with \`MARKLAYER_PASSWORD\`. If no MarkLayer tools are
-listed, the session predates the configuration; start a new one.
+send the bearer header above. If no \`marklayer_*\` tools are listed, the
+session predates the configuration; start a new one.
 
 ## Tools
 

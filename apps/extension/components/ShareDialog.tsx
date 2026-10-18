@@ -191,7 +191,7 @@ export function ShareDialog() {
             </Dialog.Close>
           </div>
 
-          {/* Share link — only when the page can actually be proxied through marklayer.app */}
+          {/* Share link — only when the page can actually be proxied through feedback.smbteam.com */}
           {shareable ? (
             <div class="flex flex-col gap-1.5">
               <div class="flex items-center gap-1.5 text-meta font-medium text-(--ds-gray-900)">
@@ -287,7 +287,7 @@ export function ShareDialog() {
             rel="noopener"
             class="text-meta text-(--ds-gray-900) hover:text-(--ds-gray-1000) no-underline hover:underline transition-colors"
           >
-            How MarkLayer works
+            How Punch List works
           </a>
         </Dialog.Popup>
       </Dialog.Portal>

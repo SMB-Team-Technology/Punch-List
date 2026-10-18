@@ -1,7 +1,7 @@
 ---
 import claudeSvg from '@lobehub/icons-static-svg/icons/claude.svg?raw';
 import codexSvg from '@lobehub/icons-static-svg/icons/codex.svg?raw';
-import { siClaude, siCline, siCursor, siGithubcopilot, siGooglegemini, siNpm, siWindsurf, siZedindustries } from 'simple-icons';
+import { siClaude, siCline, siCursor, siGithubcopilot, siGooglegemini, siWindsurf, siZedindustries } from 'simple-icons';
 import BaseHead from '../components/BaseHead.astro';
 import CodeBlock from '../components/CodeBlock.astro';
 import Faq from '../components/Faq.astro';
@@ -17,9 +17,9 @@ const { published, modified } = dates.mcp;
 
 const path = '/mcp';
 const h1 = 'Give the review to your agent.';
-const title = 'MarkLayer MCP: Let Claude Code, Cursor or Codex Work Your Review';
+const title = 'Punch List MCP: Let Claude Code, Cursor or Codex Work Your Review';
 const description =
-  'Every MarkLayer share link is a remote MCP server. Add it to Claude Code, Claude, Codex, Cursor or VS Code in one line and your coding agent reads what reviewers marked on the page, fixes it, and ticks each comment off while they watch.';
+  'Every Punch List share link is a remote MCP server. Add it to Claude Code, Claude, Codex, Cursor or VS Code in one line and your coding agent reads what reviewers marked on the page, fixes it, and ticks each comment off while they watch.';
 
 /* Real marks only, on one 24-grid: simple-icons where it has the brand, and
    the set the footer already uses for Codex. VS Code wears the Copilot mark,
@@ -35,7 +35,6 @@ const marks: Record<string, Mark> = {
   codex: CODEX,
   cursor: CURSOR,
   vscode: COPILOT,
-  npm: { path: siNpm.path },
 };
 
 /* The agents whose marks the product draws when they join a room. */
@@ -52,45 +51,45 @@ const agents: { label: string; mark: Mark }[] = [
 
 const qa: QA[] = [
   {
-    q: 'Does MarkLayer have an MCP server?',
-    a: `Yes, two ways in to the same ${AGENT_TOOLS.length} tools. Every share link answers MCP over Streamable HTTP at its own address plus /mcp, so a client that supports remote servers connects with one command and nothing installed. For clients that only run local servers, the same tools ship on npm as marklayer-mcp.`,
+    q: 'Does Punch List have an MCP server?',
+    a: `Yes. Every share link answers MCP over Streamable HTTP at its own address plus /mcp, with ${AGENT_TOOLS.length} tools. A client that supports remote servers connects with one command and nothing installed.`,
   },
   {
     q: 'Do I need an API key or an account to connect an agent?',
-    a: 'No. A MarkLayer share link is its own access token: whoever holds the link can open it, and the MCP endpoint follows the same rule. There is no OAuth step and no key to paste. If the owner has locked the link with a password, send it as a header (Authorization: Bearer <password>; in Claude Code, --header) or use the npm package with MARKLAYER_PASSWORD.',
+    a: 'No. A Punch List share link is its own access token: whoever holds the link can open it, and the MCP endpoint follows the same rule. There is no OAuth step and no key to paste. If the link is locked with a password, send it as a header (Authorization: Bearer <password>; in Claude Code, --header).',
   },
   {
-    q: 'Which coding agents work with MarkLayer?',
-    a: 'Any MCP client. This page has setup for Claude Code, Claude, Codex, Cursor and VS Code. Windsurf, Zed, Cline, Gemini CLI and anything else that reads an mcpServers config work through either the remote URL or the npm package.',
+    q: 'Which coding agents work with Punch List?',
+    a: 'Any MCP client that can reach a remote server. This page has setup for Claude Code, Claude, Codex, Cursor and VS Code. Windsurf, Zed, Cline, Gemini CLI and anything else that takes a remote MCP URL work the same way.',
   },
   {
-    q: 'Can the agent change the website I annotated?',
-    a: 'Not through MarkLayer. MarkLayer never touches the page’s source. The agent reads the comments, edits your code with its own tools, and reports back in the room. What it can change in MarkLayer is the review itself: statuses, replies, its own comments, suggested edits, a checklist and polls.',
+    q: 'Can the agent change the website that was reviewed?',
+    a: 'Not through Punch List. Punch List never touches the page’s source. The agent reads the comments, edits your code with its own tools, and reports back on the link. What it can change in Punch List is the review itself: statuses, replies, its own comments, suggested edits, a checklist and polls.',
   },
   {
-    q: 'Why connect over the remote URL instead of npm?',
-    a: 'You have nothing to install or update, because the endpoint ships with the site. What you give up is scope. The remote URL is bound to one share link, so a new link means a new connection. The npm package is installed once and switches between links with marklayer_connect_room.',
+    q: 'Why does each link need its own connection?',
+    a: 'The endpoint is bound to one share link, so there is nothing to install or update, and an agent can only see the review it was given. A new link means a new connection.',
   },
   {
     q: 'How do I know the connection worked?',
-    a: 'Seeing the server listed is not proof. Ask the agent to call marklayer_room_info: it should answer with the URL the link annotates. A 401 means the link’s owner has locked it, and it wants the password. If the agent says it has no MarkLayer tools, the session predates the config; start a new one.',
+    a: 'Seeing the server listed is not proof. Ask the agent to call marklayer_room_info: it should answer with the URL the link reviews. A 401 means the link is locked, and it wants the password. If the agent says it has no Punch List tools, the session predates the config; start a new one.',
   },
 ];
 
 const schema = [
   articleSchema({ h1, description, path, published, modified }),
   howToSchema({
-    name: 'Connect Claude Code to a MarkLayer share link',
-    description: 'Add a MarkLayer room as a remote MCP server and let the agent work its annotations.',
+    name: 'Connect Claude Code to a Punch List share link',
+    description: 'Add a Punch List link as a remote MCP server and let the agent work its annotations.',
     steps: [
-      { name: 'Copy the MCP address', text: 'Open the Details panel on any MarkLayer link. The MCP address is the link plus /mcp.' },
+      { name: 'Copy the MCP address', text: 'Open the Details panel on any Punch List link. The MCP address is the link plus /mcp.' },
       { name: 'Add the server', text: `Run: claude mcp add --transport http marklayer ${ROOM_MCP_URL}` },
       { name: 'Load the tools', text: 'Run /mcp in Claude Code, or start a new session, so the tools are listed.' },
       { name: 'Check it', text: 'Ask the agent to call marklayer_room_info. It answers with the URL under review.' },
     ],
   }),
   faqSchema(qa),
-  breadcrumbSchema([{ name: 'MarkLayer', path: '/' }, { name: 'MCP' }]),
+  breadcrumbSchema([{ name: 'Punch List', path: '/' }, { name: 'MCP' }]),
 ];
 ---
 
@@ -113,7 +112,7 @@ const schema = [
       <section class="mx-auto max-w-[760px] pt-10 text-center sm:pt-16">
         <h1 class="mcp-voice text-display text-ink text-balance">{h1}</h1>
         <p class="mcp-voice mx-auto mt-5 max-w-[560px] text-lede text-meta text-pretty">
-          Every MarkLayer link is an MCP server. Your coding agent reads what reviewers marked on the page, fixes it,
+          Every Punch List link is an MCP server. Your coding agent reads what reviewers marked on the page, fixes it,
           and ticks each comment off while they watch.
         </p>
       </section>
@@ -300,7 +299,7 @@ const schema = [
         </p>
         <p class="mt-4 text-body text-ink text-pretty">
           Agents forget a tool exists unless something reminds them. Paste this into <code>CLAUDE.md</code> or
-          <code>AGENTS.md</code> and yours will reach for MarkLayer on its own:
+          <code>AGENTS.md</code> and yours will reach for Punch List on its own:
         </p>
         <CodeBlock code={MCP_HABIT} lang="markdown" label="CLAUDE.md / AGENTS.md" />
         <p class="text-body text-ink text-pretty">Or just say it:</p>
@@ -316,7 +315,7 @@ const schema = [
       </section>
 
       <section class="mx-auto mt-20 mb-24 max-w-[760px] text-center sm:mt-28">
-        <p class="mcp-voice m-0 text-title text-ink text-balance">Free, with no account, for everyone on the link.</p>
+        <p class="mcp-voice m-0 text-title text-ink text-balance">No account needed for anyone on the link.</p>
         <p class="mt-4 text-body text-meta">
           <a href="/">Annotate a page</a> · <a href="/help">How reviewers leave feedback</a>
         </p>

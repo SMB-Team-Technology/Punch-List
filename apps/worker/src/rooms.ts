@@ -88,7 +88,7 @@ rooms.get('/s/:id/page.json', async (c) => {
  * Remote MCP endpoint for a room — the share link is the address, so connecting
  * an agent is one line and needs no package installed:
  *
- *   claude mcp add --transport http marklayer https://marklayer.app/s/<id>/mcp
+ *   claude mcp add --transport http marklayer https://feedback.smbteam.com/s/<id>/mcp
  *
  * A protected room also takes `--header "Authorization: Bearer <password>"`.
  * Checked on every request: the transport is stateless, so a changed password

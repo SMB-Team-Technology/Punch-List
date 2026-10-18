@@ -29,7 +29,7 @@ const TOKEN = process.env.FETCHER_TOKEN;
  * to be a browser we are not is what gets a fetcher blocked; saying what we are,
  * with a URL that explains it, is what gets it allowed.
  */
-const USER_AGENT = 'MarkLayer/1.0 (+https://marklayer.app/bot; page renderer for user-requested annotations)';
+const USER_AGENT = 'PunchList/1.0 (+https://feedback.smbteam.com; page renderer for user-requested annotations)';
 
 const MAX_REDIRECTS = 5;
 const FETCH_TIMEOUT_MS = 20_000;
