@@ -4,7 +4,7 @@ import { claudeMcpCommand, HOW_IT_WORKS_URL, mcpEndpoint, npxMcpCommand } from '
 import { annotationPanelOpen, copyText, operations, peerCount } from '@ext/lib/state';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn, type DrawOp, deletionDeadline } from '@marklayer/types';
-import { ArrowUpRight, BookOpen, Bot, Check, Columns2, Copy, Heart, X } from 'lucide-preact';
+import { ArrowUpRight, BookOpen, Bot, Check, Columns2, Copy, X } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { DOCK_GUTTER, DOCKED_ANNOTATION_WIDTH, DockedPanel, PANEL_SIDEBAR, PANEL_TRANSITION } from './AnnotationPanel';
 import { compareHref } from './compare/url';
@@ -12,7 +12,6 @@ import { isUploadPath } from './docSource';
 import { IntegrationsSection } from './IntegrationsSection';
 import { PresenceDot } from './shared';
 import { annotationId, infoPanelOpen, isReadonly, pageUrl, panelsDocked, showInfoPanel, timeAgo } from './signals';
-import { openSupportCard } from './support-ui';
 import { connected, createdAt, expiresAt, isOwned } from './useRealtimeSync';
 
 export const INFO_PANEL_WIDTH = 300;
@@ -306,17 +305,6 @@ function InfoPanelBody() {
           <span class="flex-1">How MarkLayer works</span>
           <ArrowUpRight size={14} strokeWidth={1.5} class="shrink-0" aria-hidden="true" />
         </a>
-        {/* Authors only, because the card itself is: `SupportDialog` renders
-            inside the authoring chrome, so a guest clicking this would set the
-            signal and watch nothing happen. No trailing glyph either — in this
-            panel the chevron means "expands" and the arrow means "leaves", and
-            this does neither. */}
-        {!readonly && (
-          <button type="button" onClick={() => openSupportCard('panel')} class={cn(panelLinkRow, 'w-full text-left')}>
-            <Heart size={14} strokeWidth={1.5} class="shrink-0" aria-hidden="true" />
-            <span class="flex-1">Support MarkLayer</span>
-          </button>
-        )}
       </div>
     </>
   );

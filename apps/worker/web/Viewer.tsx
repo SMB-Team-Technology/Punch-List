@@ -20,7 +20,6 @@ import {
   lineWidth,
   onCursorMove,
   onExportPng,
-  onSupport,
   operations,
   panScrollBy,
   peers,
@@ -47,7 +46,6 @@ import type { ExportData } from './AnnotationPanel';
 import { capture } from './analytics';
 import { frameViewport, isElementNode, sameOriginWindow } from './iframeOverlay';
 import { ProjectTabs } from './ProjectTabs';
-import { SupportDialog } from './SupportDialog';
 import {
   API_BASE,
   annotationId,
@@ -82,8 +80,6 @@ import {
   textInput,
   viewerZoom,
 } from './signals';
-import { noteSupportSignal } from './support';
-import { maybeOfferSupport, openSupportCard, watchAgentWork, watchNotes, watchSupportPaid } from './support-ui';
 import { useCheckFix } from './useCheckFix';
 import { connected, emitRipple, localPeerId, serverUrl, serverWidth, useRealtimeSync } from './useRealtimeSync';
 import { ViewerTopBar } from './ViewerChrome';
@@ -103,35 +99,6 @@ const AnnotationBoard = lazy(() => import('./AnnotationBoard').then((m) => ({ de
 
 /** Narrowest space auto-fit will size a device frame into before letting it overflow and scroll. */
 const MIN_DEVICE_FIT_WIDTH = 320;
-
-/** Authoring-only chrome. A guest is somebody else's visitor and gets none of it. */
-function AuthoringChrome() {
-  // The settings panel is the extension's, and the card is not. Publishing the
-  // opener from the same component that renders the card is what keeps that row
-  // honest: it exists exactly as long as there is something for it to open.
-  useEffect(() => {
-    onSupport.value = () => openSupportCard('menu');
-    // The thank-you is watched for on the same lifecycle, and for the same
-    // reason: only somebody who could be asked can have paid, so a read-only
-    // guest neither sees the card nor hears back about one.
-    const stopWatchingPaid = watchSupportPaid();
-    const stopWatchingAgents = watchAgentWork();
-    const stopWatchingNotes = watchNotes();
-    return () => {
-      onSupport.value = null;
-      stopWatchingPaid();
-      stopWatchingAgents();
-      stopWatchingNotes();
-    };
-  }, []);
-
-  return (
-    <>
-      {/* Never for a read-only visitor: they did not make any of this. */}
-      <SupportDialog />
-    </>
-  );
-}
 
 /**
  * The one place that knows how the viewer is wired. Every ref, local signal and
@@ -446,12 +413,6 @@ export default function Viewer() {
     };
   }, []);
 
-  // Distinct days of use, the slowest of the support signals. Authors only: a
-  // read-only visitor is looking at somebody else's work, not using the tool.
-  useEffect(() => {
-    if (!readonly) noteSupportSignal('used');
-  }, []);
-
   // Link interception from proxy, plus the proxy's own "this page never arrived"
   // signal — a firewall challenge or an upstream error status, which the load
   // event alone reports as a perfectly successful render of nothing.
@@ -636,11 +597,6 @@ export default function Viewer() {
         ops: operations.value.length,
         expires: Boolean(opts?.expiresIn),
       });
-      // Only a link that actually saved counts as the tool having worked.
-      noteSupportSignal('shared');
-      // A beat after the toast, so the card arrives at a pause rather than on
-      // top of the thing that just succeeded.
-      window.setTimeout(maybeOfferSupport, 1200);
     } catch {
       // A copied link that never saved is the worst failure the product has: the
       // person walks away believing they shared something.
@@ -1139,7 +1095,6 @@ export default function Viewer() {
         <ContextMenu />
         {/* One bar at the bottom: the phone's, or the desktop toolbar (a guest's badge in its place). */}
         {!chromeHidden && (compactChrome.value ? <PhoneBar /> : readonly ? <ViewOnlyBadge /> : <Toolbar />)}
-        {!chromeHidden && !readonly && <AuthoringChrome />}
 
         {/* Call controls stay: losing the mute button behind a shortcut with no
             visible way back is a different kind of problem than a busy screen. */}

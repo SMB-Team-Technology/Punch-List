@@ -15,7 +15,6 @@ import {
 import type { TextOp } from '@ext/lib/types';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
 import { cn } from '@marklayer/types';
-import { CHROME_STORE_URL } from '@site/lib/site';
 import { Loader2 } from 'lucide-preact';
 import { nanoid } from 'nanoid';
 import { classifyProxyError } from '../src/proxy-errors';
@@ -189,19 +188,6 @@ function PageFailure() {
           >
             {upload ? 'Open the file' : 'Open on the live site'}
           </a>
-          {!upload && (
-            <p class="text-meta text-ml-fg/60 max-w-xs leading-snug m-0">
-              Then click the MarkLayer extension's icon to load these annotations there.{' '}
-              <a
-                href={CHROME_STORE_URL}
-                target="_blank"
-                rel="noreferrer"
-                class="text-ml-fg/70 underline underline-offset-2 hover:text-ml-fg"
-              >
-                Get the extension
-              </a>
-            </p>
-          )}
           <a
             {...HOME_LINK_PROPS}
             class="text-ui text-ml-fg/70 underline underline-offset-2 hover:text-ml-fg transition-colors"

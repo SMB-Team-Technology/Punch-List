@@ -1,5 +1,4 @@
 import {
-  DEMO_ROOM,
   isUploadId,
   isVideoType,
   MAX_UPLOAD_BYTES,
@@ -157,24 +156,13 @@ app.get('/s/:id', async (c) => {
     });
   }
 
-  // The landing's embedded board: nothing unfurls an iframe, so the tags below
-  // are never read. It still mints the demo room, being what first asks for one.
+  // An embedded board: nothing unfurls an iframe, so the tags below are never read.
   if (reqUrl.searchParams.get('still') === '1') {
-    if (annotationId === DEMO_ROOM.id && !(await annotations.getUrl(annotationId))) {
-      await ensureDemoRoom(annotations);
-    }
     return c.env.ASSETS.fetch(new Request(new URL('/', reqUrl)));
   }
 
   let domain = 'a webpage';
-  let [pageUrl, ops] = await Promise.all([annotations.getUrl(annotationId), annotations.getOps(annotationId)]);
-  // The demo board mints itself on first visit, so a fresh database (local dev,
-  // a new deployment) never serves the landing page an empty window.
-  if (!pageUrl && annotationId === DEMO_ROOM.id) {
-    await ensureDemoRoom(annotations);
-    pageUrl = DEMO_ROOM.url;
-    ops = [];
-  }
+  const [pageUrl, ops] = await Promise.all([annotations.getUrl(annotationId), annotations.getOps(annotationId)]);
   if (pageUrl) {
     try {
       domain = new URL(pageUrl).hostname;
@@ -544,32 +532,7 @@ app.get('/app/*', appShell);
 app.route('/', proxy);
 
 // Scheduled cleanup: delete stale and expired annotations + their OG images
-/** Seeds the landing page's shared board if it is missing. Idempotent. */
-async function ensureDemoRoom(annotations: ReturnType<typeof annotationStore>) {
-  if (await annotations.exists(DEMO_ROOM.id)) return;
-  await annotations.put({ id: DEMO_ROOM.id, ops: [], url: DEMO_ROOM.url, width: DEMO_ROOM.width, expiresAt: null });
-}
-
-/** Wipes the landing page's shared board and keeps it out of the retention sweep. */
-async function resetDemoRoom(env: Env['Bindings']) {
-  const annotations = annotationStore(env.DB);
-  await ensureDemoRoom(annotations);
-  await env.ANNOTATION_ROOM.get(env.ANNOTATION_ROOM.idFromName(DEMO_ROOM.id)).fetch(
-    new Request(`https://room/reset?id=${encodeURIComponent(DEMO_ROOM.id)}`, { method: 'POST' }),
-  );
-  await annotations.touch(DEMO_ROOM.id);
-}
-
-const RETENTION_CRON = '0 3 * * *';
-
-const scheduled: ExportedHandlerScheduledHandler<Env['Bindings']> = async (event, env) => {
-  // Both crons match at 03:00 and Cloudflare fires one invocation per
-  // expression, so the reset rides the hourly tick or it happens twice.
-  if (event.cron !== RETENTION_CRON) {
-    await resetDemoRoom(env);
-    return;
-  }
-
+const scheduled: ExportedHandlerScheduledHandler<Env['Bindings']> = async (_event, env) => {
   const staleBefore = nowInSeconds() - RETENTION_DAYS * 24 * 60 * 60;
 
   // R2 caps a batch delete at 1000 keys.

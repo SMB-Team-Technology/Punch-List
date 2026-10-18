@@ -15,21 +15,21 @@ export type RenderFailure = 'timeout' | 'no-marker' | 'iframe-error' | 'firewall
 export const FAILURE_COPY = {
   firewall: {
     title: "This site's firewall blocked us",
-    body: 'The host answered our request with a security challenge instead of the page, so there was nothing to show. The annotations are saved — open them with the MarkLayer extension on the live site, which loads the page in your own browser.',
+    body: 'The host answered our request with a security challenge instead of the page, so there was nothing to show. The comments are saved. Let your SMB Team contact know so they can get the page loading here again.',
   },
   hostile: {
     title: 'This site blocks embedding',
-    body: 'Sites like YouTube, TikTok, Instagram, and X refuse to load inside other pages. The annotations are saved — install the MarkLayer extension to view them on the live site.',
+    body: "Sites like YouTube, TikTok, Instagram, and X refuse to load inside other pages. The comments are saved, but this page can't be reviewed here.",
   },
   'upstream-error': {
     // Distinct from `firewall` on purpose: telling someone a firewall blocked us
     // when the site simply 404'd sends them arguing with their host over nothing.
     title: 'This page returned an error',
-    body: 'The site answered our request with an error rather than the page, so there was nothing to show. The annotations are saved — check the URL is still live, or open them with the extension.',
+    body: 'The site answered our request with an error rather than the page, so there was nothing to show. The comments are saved. Check the address is still live.',
   },
   generic: {
     title: "We couldn't load this page",
-    body: 'The page took too long, was blocked, or returned an error. The annotations are saved — try the extension on the live page, or share a different URL.',
+    body: 'The page took too long, was blocked, or returned an error. The comments are saved. Try again in a moment, or let your SMB Team contact know.',
   },
 } as const;
 

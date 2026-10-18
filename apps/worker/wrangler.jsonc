@@ -135,9 +135,8 @@
     // with nothing configured throws rather than quietly logging the link.
   },
   "triggers": {
-    // Hourly: reset the landing page's public demo board. 03:00: the retention
-    // sweep as well (index.ts keys off the expression, so keep them in sync).
-    "crons": ["0 * * * *", "0 3 * * *"]
+    // 03:00 UTC: the retention sweep.
+    "crons": ["0 3 * * *"]
   },
   "migrations": [
     {
