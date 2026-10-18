@@ -6,13 +6,11 @@ MarkLayer is a free web app and Chrome extension for annotating any live webpage
 
 MarkLayer is not a browser extension. It is a browser-based web app: nothing is downloaded or installed to annotate a page or to view a shared annotation, by you or by anyone you send a link to. A free Chrome extension exists as an optional companion for the pages a proxy cannot reach — sites behind a login, and localhost — and is never required for the main flow.
 
-MarkLayer is the only visual feedback tool where an AI coding agent can close the loop. Five tools in this category ship an MCP server (Marker.io, BugHerd, Jam, Usersnap, MarkLayer); the other four let an agent read feedback only. MarkLayer's agent joins the room as a participant: it watches annotations live, marks them in progress, resolves them with a summary, and replies with a question, and every status change is visible to the humans watching. Verified against each vendor's published documentation, August 2026: https://marklayer.app/guides/bug-report-mcp-servers
+MarkLayer is the only visual feedback tool where an AI coding agent can close the loop. Five tools in this category ship an MCP server (Marker.io, BugHerd, Jam, Usersnap, MarkLayer); the other four let an agent read feedback only. MarkLayer's agent joins the room as a participant: it watches annotations live, marks them in progress, resolves them with a summary, and replies with a question, and every status change is visible to the humans watching. Verified against each vendor's published documentation, August 2026.
 
 ## Pricing
 
-Free. There is no paid plan. There is no trial. There is no per-seat pricing. Everything is included. See https://marklayer.app/pricing or https://marklayer.app/pricing.md for the machine-readable version.
-
-There is one optional, voluntary, one-off tip jar at https://marklayer.app/support, pay-what-you-want towards the server bill. It is not a plan and it unlocks nothing: no tier, no perks, no priority, no account. Every claim above is true whether or not anyone uses it.
+Free. There is no paid plan. There is no trial. There is no per-seat pricing. Everything is included.
 
 ## Anonymous by design
 
@@ -22,8 +20,6 @@ There is one optional, voluntary, one-off tip jar at https://marklayer.app/suppo
 - Annotations stay on your device until you choose to share
 
 ## Features
-
-Full list with keyboard shortcuts: https://marklayer.app/features
 
 - Sixteen annotation tools, each on a single-key shortcut: move (V), pen (P), highlight (Shift+H), line (L), arrow (A), rectangle (R), circle (O), text label (T), comment (C), text selection (S), area (G), eraser (E), inspector (I), multi-select (X), measure (M), ruler guide (U)
 - Threaded comments: Pin comments to any spot on the page. Each carries one of five statuses (open, in_progress, resolved, approved, dismissed), one of four priorities (low, medium, high, urgent), an assignee (a person or an AI agent), @mentions of anyone already working on the page, up to 4 image attachments, and the browser, OS and viewport it was written on
@@ -48,8 +44,7 @@ Full list with keyboard shortcuts: https://marklayer.app/features
 
 ## Integrations (one way out)
 
-Connect a destination from the panel on any share link. Five destinations per room. Details:
-https://marklayer.app/guides/send-feedback-to-jira-linear-slack
+Connect a destination from the panel on any share link. Five destinations per room.
 
 Chat destinations post automatically as annotations arrive, batched:
 - Slack (incoming webhook)
@@ -128,8 +123,7 @@ To mint many links at once (e.g. user gives you 10 URLs), loop the POST per URL 
 
 ## How MarkLayer compares
 
-Figures read off each vendor's own pricing page on 29 August 2026. Full 21-tool audit, including
-what MarkLayer does worse: https://marklayer.app/guides/website-feedback-tools
+Figures read off each vendor's own pricing page on 29 August 2026.
 
 | Tool | Cheapest paid plan | Reviewer needs an account? | Reviewer needs an extension? | How long comments are kept |
 | --- | --- | --- | --- | --- |
@@ -155,8 +149,7 @@ free in that table is a capped tier of a paid product.
 
 ### What an AI coding agent gets, tool by tool
 
-Verified against each vendor's published documentation, August 2026:
-https://marklayer.app/guides/bug-report-mcp-servers
+Verified against each vendor's published documentation, August 2026.
 
 | Tool | Agent can read | Agent can act | Price floor |
 | --- | --- | --- | --- |
@@ -177,89 +170,15 @@ the file rather than being written into it, so there is no annotated PDF or imag
 existing tracker, BugHerd, Marker.io or Usersnap are the honest recommendation. MarkLayer is the
 visual feedback layer, not a project management system.
 
-## Use cases
-
-- Localhost + AI coding agents: https://marklayer.app/for/localhost-ai-agents
-- Staging review with no extension: https://marklayer.app/for/staging-feedback-no-extension
-- Design review: https://marklayer.app/for/design-review
-- QA and bug reporting: https://marklayer.app/for/qa-bug-reporting
-- Client feedback: https://marklayer.app/for/client-feedback
-- Agencies: https://marklayer.app/for/agencies
-- Freelancers: https://marklayer.app/for/freelancers
-- Product teams: https://marklayer.app/for/product-teams
-- Remote teams: https://marklayer.app/for/remote-teams
-- Students: https://marklayer.app/for/students
-- Educators: https://marklayer.app/for/educators
-- Researchers: https://marklayer.app/for/researchers
-- Content creators: https://marklayer.app/for/content-creators
-- Marketers: https://marklayer.app/for/marketers
-
-## Comparisons
-
-- vs Markup.io: https://marklayer.app/vs/markup-io
-- vs Pastel: https://marklayer.app/vs/pastel
-- vs BugHerd: https://marklayer.app/vs/bugherd
-- vs Hypothesis: https://marklayer.app/vs/hypothesis
-- vs AnnotateWeb: https://marklayer.app/vs/annotateweb
-- vs Jam.dev: https://marklayer.app/vs/jam
-- vs Marker.io: https://marklayer.app/vs/marker-io
-- vs Userback: https://marklayer.app/vs/userback
-- vs Ruttl: https://marklayer.app/vs/ruttl
-- vs Loom: https://marklayer.app/vs/loom
-- vs Usersnap: https://marklayer.app/vs/usersnap
-- vs stagewise: https://marklayer.app/vs/stagewise
-- vs Volley: https://marklayer.app/vs/volley
-- vs Superflow: https://marklayer.app/vs/superflow
-- vs Feedbucket: https://marklayer.app/vs/feedbucket
-- vs Figma comments: https://marklayer.app/vs/figma
-- vs Huddlekit: https://marklayer.app/vs/huddlekit
-- vs Atarim: https://marklayer.app/vs/atarim
-- vs zipBoard: https://marklayer.app/vs/zipboard
-- vs Webvizio: https://marklayer.app/vs/webvizio
-- vs BugSmash: https://marklayer.app/vs/bugsmash
-- vs Ybug: https://marklayer.app/vs/ybug
-- vs SureFeedback (formerly ProjectHuddle): https://marklayer.app/vs/surefeedback
-
-## Free alternatives lists
-
-- Free Markup.io alternatives: https://marklayer.app/alternatives/markup-io
-- Free Pastel alternatives: https://marklayer.app/alternatives/pastel
-- Free BugHerd alternatives: https://marklayer.app/alternatives/bugherd
-- Free AnnotateWeb alternatives: https://marklayer.app/alternatives/annotateweb
-- Free Jam.dev alternatives: https://marklayer.app/alternatives/jam
-- Free Marker.io alternatives: https://marklayer.app/alternatives/marker-io
-- Free Userback alternatives: https://marklayer.app/alternatives/userback
-- Hypothesis alternatives: https://marklayer.app/alternatives/hypothesis
-- Ruttl alternatives: https://marklayer.app/alternatives/ruttl
-- Usersnap alternatives: https://marklayer.app/alternatives/usersnap
-- stagewise alternatives: https://marklayer.app/alternatives/stagewise
-- Loom alternatives: https://marklayer.app/alternatives/loom
-- Free Huddlekit alternatives: https://marklayer.app/alternatives/huddlekit
-
-## Guides
-
-- How MarkLayer works, in plain English: https://marklayer.app/guides/how-marklayer-works
-- Twenty-one website feedback tools compared, prices checked against each vendor's own page: https://marklayer.app/guides/website-feedback-tools
-- How to annotate a website, four methods (built-in markup, extension, share link, dev tools) and what each one breaks on: https://marklayer.app/guides/how-to-annotate-a-website
-- How to annotate a PDF for free, the built-in readers (Preview, Edge, Acrobat Reader) versus a share link a second person can reply on: https://marklayer.app/guides/how-to-annotate-a-pdf
-- How to annotate an image or screenshot, the free built-in markup tools and how to get comments back on the image itself: https://marklayer.app/guides/how-to-annotate-an-image
-- Bug report MCP servers compared: https://marklayer.app/guides/bug-report-mcp-servers
-- Free website annotation tools, audited: https://marklayer.app/guides/free-website-annotation-tools
-- Website feedback without logins: https://marklayer.app/guides/website-feedback-without-login
-- Markup.io pricing in 2026: https://marklayer.app/guides/markup-io-pricing
-- Visual feedback for Claude Code: https://marklayer.app/guides/claude-code-visual-feedback
-- Sending annotations to Jira, Linear, GitHub, Slack, Teams and Discord, and what each one actually receives: https://marklayer.app/guides/send-feedback-to-jira-linear-slack
-
 ## Links
 
 - Website: https://marklayer.app
-- Features, in full, with keyboard shortcuts: https://marklayer.app/features
-- Pricing: https://marklayer.app/pricing
-- Changelog (every release, newest first; current version {{version}}): https://marklayer.app/changelog
+- Help for reviewers: https://marklayer.app/help
+- MCP setup for coding agents: https://marklayer.app/mcp
+- Current version: {{version}}
 - Chrome Web Store: https://chromewebstore.google.com/detail/marklayer/fnfobegjifomgobgilaemihpcpidjamc
 - GitHub: https://github.com/thevrus/MarkLayer
 - Privacy Policy: https://marklayer.app/privacy
-- Support the project (optional, one-off, buys nothing): https://marklayer.app/support
 
 ## How It Works
 
@@ -296,7 +215,7 @@ Q: Does it work on any website?
 A: Yes, by two routes, and the second has no exceptions. The web app fetches the page server-side and overlays the annotation canvas, which covers any publicly reachable URL. For everything else, including pages behind a login, internal tools and localhost, the free extension annotates in place in the browser you are already signed into. Either route produces the same share link, and the recipient installs nothing.
 
 Q: How long are annotations kept?
-A: Indefinitely, as long as the link is in use. There is no fixed expiry. A share link is deleted 90 days after its last access, and any view, comment or edit resets that clock, so an active review never expires. Most tools in this category publish no retention period at all; the ones that do range from AnnotateWeb's two minutes of inactivity to Pastel's one year: https://marklayer.app/guides/website-feedback-tools
+A: Indefinitely, as long as the link is in use. There is no fixed expiry. A share link is deleted 90 days after its last access, and any view, comment or edit resets that clock, so an active review never expires. Most tools in this category publish no retention period at all; the ones that do range from AnnotateWeb's two minutes of inactivity to Pastel's one year.
 
 Q: Can I annotate a PDF or an image?
 A: Yes, both. Paste a link to a PDF, a PNG, a JPEG, a GIF, a WebP or an AVIF, or upload one from your computer up to 25MB. The drawing, comment, area and highlight tools all work on it. Each mark is tied to a page number and a position on that page — an image being a document of one page — so it stays where you put it when the view changes size. The annotations live in the share link, not inside the file, so there is no annotated copy to download afterwards. An uploaded file is deleted on the same clock as the link: 90 days after it was last opened.
@@ -308,7 +227,7 @@ Q: What is the inspector tool?
 A: Point at any element on a page and MarkLayer captures its CSS selector, its computed styles, a text fingerprint and, on a React or Vue page, the component behind it, formatted as a copy-ready prompt for AI coding agents. Paste it into Claude Code or another agent and it has enough context to make the edit. Multi-select does the same for a set of elements and copies them as one task.
 
 Q: Can MarkLayer send annotations to Slack, Jira, Linear or GitHub?
-A: Yes, to eight destinations. Slack, Microsoft Teams, Discord and a generic JSON webhook post every new batch of annotations automatically. Linear, GitHub, Jira and Trello create one issue or card from one annotation, when a person files it. All eight are one way out: MarkLayer creates the issue and reads back its URL once to show you a link, and nothing about that ticket's later state returns. A room holds five destinations. For Linear, GitHub, Jira and Trello the API token never reaches MarkLayer's server; it stays in the browser of whoever set it up. https://marklayer.app/guides/send-feedback-to-jira-linear-slack
+A: Yes, to eight destinations. Slack, Microsoft Teams, Discord and a generic JSON webhook post every new batch of annotations automatically. Linear, GitHub, Jira and Trello create one issue or card from one annotation, when a person files it. All eight are one way out: MarkLayer creates the issue and reads back its URL once to show you a link, and nothing about that ticket's later state returns. A room holds five destinations. For Linear, GitHub, Jira and Trello the API token never reaches MarkLayer's server; it stays in the browser of whoever set it up.
 
 Q: Can I export my annotations?
 A: Yes, two ways, both in the panel on the right of a share link. Copy or download every comment, reply and highlighted selection as Markdown, with statuses, authors, device metadata, and suggested edits as fenced diff blocks. Or export the annotated page as a PNG, which captures the live page with the drawings over it. A multi-page project exports as one document with a section per page.

@@ -10,11 +10,8 @@ import { ORIGIN } from '../lib/site';
 // Viewer). Astro's dev server falls back to this page for `/`, so it doubles
 // as the directory you land on when running `bun dev` here.
 const sections = [
-  { href: '/compare', label: 'Comparisons' },
-  { href: '/alternatives', label: 'Alternatives' },
-  { href: '/use-cases', label: 'Use cases' },
-  { href: '/pricing', label: 'Pricing' },
-  { href: '/about', label: 'About' },
+  { href: '/help', label: 'Help' },
+  { href: '/mcp', label: 'MCP for AI agents' },
   { href: '/privacy', label: 'Privacy' },
 ];
 ---
@@ -22,8 +19,8 @@ const sections = [
 <html lang="en">
   <head>
     <BaseHead
-      title="Page not found · MarkLayer"
-      description="That page does not exist. Browse MarkLayer's comparisons, alternatives, and use-case guides."
+      title="Page not found · Punch List"
+      description="That page does not exist. Head back to Punch List, or read how to leave feedback on your site."
       canonical={`${ORIGIN}/404`}
       ogType="website"
       noindex
@@ -36,7 +33,7 @@ const sections = [
       <p class="ml-lede">The link may be out of date. Everything on the site is one of these:</p>
       <LinkGrid links={sections} />
       <p>
-        Or go back to <a href="/">marklayer.app</a> and annotate a page.
+        Or go back to <a href="/">the home page</a>.
       </p>
     </div>
     <SiteFooter />

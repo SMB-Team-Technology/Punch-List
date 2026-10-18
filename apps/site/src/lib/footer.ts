@@ -3,7 +3,7 @@ import geminiSvg from '@lobehub/icons-static-svg/icons/gemini.svg?raw';
 import grokSvg from '@lobehub/icons-static-svg/icons/grok.svg?raw';
 import openaiSvg from '@lobehub/icons-static-svg/icons/openai.svg?raw';
 import perplexitySvg from '@lobehub/icons-static-svg/icons/perplexity.svg?raw';
-import { AUTHOR_EMAIL, CHROME_STORE_URL, REPO_URL } from './site';
+import { CMS_URL, REPO_URL } from './site';
 
 /**
  * The site's floor, as data.
@@ -32,53 +32,22 @@ export interface FooterColumn {
 }
 
 /** Mirrors `HOW_IT_WORKS_PATH` in apps/extension/lib/share.ts, which apps/site cannot import. */
-const HOW_IT_WORKS = '/guides/how-marklayer-works';
+const HELP = '/help';
 
-/**
- * Four columns, hub-level. The landing's footer used to list eleven individual
- * comparison and use-case pages; picking four of sixteen competitors to name
- * there was arbitrary, and every one of them is one click away through the hub
- * that replaces them. The prerendered `/` (HomeContent.astro) still links them
- * all inline for the crawlers that never run the SPA.
- */
 export const FOOTER_COLUMNS: FooterColumn[] = [
   {
-    heading: 'Product',
+    heading: 'Punch List',
     links: [
       { href: '/', label: 'Home' },
-      { href: '/features', label: 'Features' },
-      { href: HOW_IT_WORKS, label: 'How it works' },
-      { href: '/pricing', label: 'Pricing' },
-      { href: CHROME_STORE_URL, label: 'Chrome extension', external: true },
+      { href: HELP, label: 'Help' },
+      { href: '/mcp', label: 'MCP for AI agents' },
     ],
   },
   {
-    heading: 'Compare',
+    heading: 'SMB Team',
     links: [
-      { href: '/compare', label: 'Comparisons' },
-      { href: '/alternatives', label: 'Alternatives' },
-      { href: '/use-cases', label: 'Use cases' },
-    ],
-  },
-  {
-    heading: 'Resources',
-    links: [
-      { href: '/guides', label: 'Guides' },
-      { href: '/changelog', label: "What's new" },
-      { href: REPO_URL, label: 'GitHub', external: true },
-      { href: 'https://www.producthunt.com/products/marklayer', label: 'Product Hunt', external: true },
-      { href: '/llms-full.txt', label: 'llms-full.txt' },
-    ],
-  },
-  {
-    heading: 'Company',
-    links: [
-      { href: '/about', label: 'About' },
-      /* Named "Support the project", not "Support": in a footer column headed
-         Company, beside About and Contact, the bare word reads as a help desk. */
-      { href: '/support', label: 'Support the project' },
+      { href: CMS_URL, label: 'smbCMS', external: true },
       { href: '/privacy', label: 'Privacy' },
-      { href: `mailto:${AUTHOR_EMAIL}`, label: 'Contact' },
     ],
   },
 ];
@@ -127,23 +96,17 @@ const PROVIDERS: { label: string; url: (encodedQuestion: string) => string; path
 export const askAi = (question: string): { href: string; label: string; path: string }[] =>
   PROVIDERS.map(({ label, url, path }) => ({ label, href: url(encodeURIComponent(question)), path }));
 
-/**
- * A prefilled question to the assistants people actually ask before they trust
- * a tool. Plain `<a href>` deep links, so the zero-JS build is unchanged. The
- * query is neutral on purpose — it points at the comparison pages the site
- * already answers rather than fishing for a pitch.
- */
+/** A prefilled question to the assistants, as plain `<a href>` deep links. Only the app shell's footer shows it. */
 export const ASK_AI = askAi(
   'What is MarkLayer (marklayer.app), and how does it compare to other web annotation and visual feedback tools?',
 );
 
-/**
- * The site names 27 competitors across /vs and /alternatives. Naming a
- * trademark in honest comparison is nominative fair use, but the attribution
- * and the no-affiliation line are what keep it plainly that.
- */
+/** Apache-2.0 grants no trademark rights, so the fork says plainly whose name MarkLayer is. */
 export const TRADEMARK_NOTICE =
-  'BugHerd, Marker.io, Pastel, Usersnap, Userback, Markup.io, Loom, and Jam.dev are trademarks of their respective owners, as are the other product names on this site. MarkLayer is independent and is not affiliated with, endorsed by, or sponsored by any of them.';
+  'Punch List is built on MarkLayer, open source under the Apache-2.0 licence. SMB Team is not affiliated with, endorsed by, or sponsored by the MarkLayer project.';
 
-/** The colophon, after the year. */
-export const COLOPHON = 'Free, anonymous webpage annotation · Open source, Apache-2.0.';
+/** The licence attribution the colophon carries. Required: do not drop it. */
+export const ATTRIBUTION = { label: 'Built on MarkLayer, Apache-2.0', href: REPO_URL };
+
+/** The colophon, after the year, as plain text for renderers that do not link the attribution. */
+export const COLOPHON = `Punch List by SMB Team · ${ATTRIBUTION.label}.`;

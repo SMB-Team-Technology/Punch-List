@@ -1,5 +1,7 @@
 {
-  "_comment": "Homepage copy rendered twice: prerendered by apps/site (HomeContent.astro, what crawlers read) and live by apps/worker/web/Landing.tsx, where the channel word cycles. Both read this file so the two can never drift; apps/site/scripts/verify-build.mjs checks the prerendered markup against it. pricingFacts carries the competitor pricing claims (sourced from the August 2026 audit in /guides/free-website-annotation-tools) \u2014 update it here when a vendor's pricing changes.",
+  "_comment": "Homepage copy. headline and lede are what HomeContent.astro prerenders for crawlers and first paint; apps/site/scripts/verify-build.mjs checks the prerendered h1 against headline. The headline* and pricingFacts keys are still read by apps/worker/web/Landing.tsx and ChannelCycle.tsx until the landing rebuild replaces them.",
+  "headline": "Mark it up. We’ll knock it out.",
+  "lede": "Click anywhere on your new site and tell us what needs fixing. Every note lands on your team’s list, and you watch each one get checked off.",
   "headlinePrefix": "Website Feedback Without",
   "headlineJoiner": "the",
   "headlineChannel": "Email",

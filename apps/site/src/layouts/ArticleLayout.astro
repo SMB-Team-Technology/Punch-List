@@ -11,21 +11,20 @@ import { getDocsNav } from '../lib/docs-nav';
 import { askAi } from '../lib/footer';
 import { outline } from '../lib/outline';
 import { breadcrumbSchema, type Crumb } from '../lib/schema';
-import { CHROME_STORE_URL, formatLastUpdated, ORIGIN, pageOgImage } from '../lib/site';
+import { formatLastUpdated, ORIGIN, pageOgImage } from '../lib/site';
 
 interface Props {
   title: string;
   description: string;
   path: string;
   h1: string;
-  bottomLine?: string;
   breadcrumbs?: Crumb[];
   schema?: (object | null)[];
   /** ISO day (YYYY-MM-DD) of the last content review. Rendered as "April 2026". */
   modified: string;
 }
 
-const { title, description, path, h1, bottomLine, breadcrumbs, schema = [], modified } = Astro.props;
+const { title, description, path, h1, breadcrumbs, schema = [], modified } = Astro.props;
 
 const crumbs: Crumb[] = breadcrumbs ?? [{ name: 'MarkLayer', path: '/' }, { name: h1 }];
 // The card carries the h1, not the SEO title: the h1 is what the page calls
@@ -108,37 +107,11 @@ const OPEN_IN = askAi(`Read ${ORIGIN}${path} and help me with questions about it
         </div>
 
         <h1>{h1}</h1>
-        {/* The byline is overridable because not every page is an article reviewed on
-            a date. A release page states the version and the day it shipped, which is
-            the fact a reader came for; "Last updated: August 2026" under a changelog
-            entry is both vaguer and less true. */}
-        <p class="ml-meta mt-0 mb-7" data-ml-copy-skip>
-          {
-            Astro.slots.has('byline') ? (
-              <slot name="byline" />
-            ) : (
-              <Fragment>
-                By <a href="/about">Dean Rusin</a> &middot; Last updated: {formatLastUpdated(modified)}
-              </Fragment>
-            )
-          }
-        </p>
+        <p class="ml-meta mt-0 mb-7" data-ml-copy-skip>Last updated: {formatLastUpdated(modified)}</p>
         {/* A div, not a p: the intro arrives as rendered Markdown that already emits
             its own <p>, and Astro 7's compiler no longer silently repairs nested
             paragraphs. The child margin reset keeps the spacing identical. */}
         <div class="ml-lede"><slot name="intro" /></div>
-        {/* Top rule only. The next section's heading draws its own rule, and a
-            closing rule here left two hairlines stacked with dead space between
-            them, which reads as a mistake rather than a frame. */}
-        {
-          bottomLine && (
-            <div class="ml-bottom-line">
-              <p class="ml-meta m-0 mb-2">Bottom line</p>
-              <p class="text-lede m-0 text-pretty text-ink">{bottomLine}</p>
-            </div>
-          )
-        }
-
         {
           toc.length > 2 && (
             <details class="ml-toc-inline">
@@ -167,25 +140,9 @@ const OPEN_IN = askAi(`Read ${ORIGIN}${path} and help me with questions about it
 
         <Fragment set:html={body.html} />
 
-        {/* The web app leads. This block is the closing CTA on ~50 static pages,
-            and it used to offer only the Chrome Store — which is what taught
-            crawlers and answer engines that MarkLayer is "the extension one",
-            the disqualifying read on any "no install" query. The no-install path
-            is the real product surface; the extension is the fallback. */}
-        <h2 id="try-marklayer" data-ml-copy-end>Try MarkLayer</h2>
-        <p>
-          Paste any URL at <a href={ORIGIN}>marklayer.app</a> and annotate the live page in your browser. No install, no
-          account, no sign-up. Recipients of your share links don't need to install anything either.
-        </p>
-        <a class="ml-cta mt-2" href={ORIGIN}>Annotate a page</a>
-        <p class="ml-meta mt-4">
-          Or <a href={CHROME_STORE_URL}>add the free Chrome extension</a> for sites the web app cannot embed, such as
-          pages behind a login.
-        </p>
-
         {
           (prev || next) && (
-            <nav class="ml-pager" aria-label="Previous and next page">
+            <nav class="ml-pager" aria-label="Previous and next page" data-ml-copy-end>
               {PAGER.map(({ link, dir, label }) =>
                 link ? (
                   <a class="ml-pager-cell" href={link.href} data-dir={dir} rel={dir}>

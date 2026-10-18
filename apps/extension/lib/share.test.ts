@@ -42,7 +42,7 @@ describe('parseRoomRef', () => {
     expect(parseRoomRef('')).toBeNull();
     expect(parseRoomRef('   ')).toBeNull();
     expect(parseRoomRef('has spaces')).toBeNull();
-    expect(parseRoomRef('https://marklayer.app/guides/how-marklayer-works')).toBeNull();
+    expect(parseRoomRef('https://marklayer.app/help')).toBeNull();
     expect(parseRoomRef('a'.repeat(65))).toBeNull();
   });
 });

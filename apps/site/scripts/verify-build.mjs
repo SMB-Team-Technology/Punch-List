@@ -103,7 +103,7 @@ if (shellHtml === null) {
 //    read src/data/home-copy.json, so this only has to confirm the prerendered
 //    markup really emitted it.
 const copy = JSON.parse(await readFile(resolve(DIST, '../src/data/home-copy.json'), 'utf8'));
-const headline = `${copy.headlinePrefix} ${copy.headlineJoiner} ${copy.headlineChannel} ${copy.headlineSuffix}`;
+const headline = copy.headline;
 
 const shellH1 = shellHtml
   ?.match(/<h1[^>]*>([\s\S]*?)<\/h1>/)?.[1]
@@ -125,9 +125,8 @@ if (shellHtml !== null && shellH1 !== headline) {
 //    h1 alone let the two homepages diverge on every other claim.
 const SHELL_CLAIMS = [
   { label: 'retention window', re: /90 days after their last activity/ },
-  { label: 'licence', re: /Apache-2\.0/ },
-  { label: 'competitor pricing proof', re: /\$79\/month/ },
-  { label: 'free-tools audit link', re: /\/guides\/free-website-annotation-tools/ },
+  { label: 'licence attribution', re: /Apache-2\.0/ },
+  { label: 'help link', re: /href="\/help"/ },
 ];
 
 if (shellHtml !== null) {
@@ -150,7 +149,8 @@ const AGENT_TEXT = [
   'src/content/agent/SKILL.md',
   'dist/llms.txt',
   'dist/llms-full.txt',
-  'dist/pricing.md',
+  'dist/mcp.md',
+  'dist/help.md',
 ];
 const agentText = new Map(
   await Promise.all(AGENT_TEXT.map(async (rel) => [rel, await readFile(join(SITE, rel), 'utf8')])),

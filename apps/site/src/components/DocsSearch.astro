@@ -9,11 +9,8 @@ interface Props {
 const { nav } = Astro.props;
 
 /* The sidebar's sections, plus the pages that live outside it, so a search for
-   "price" or "privacy" still lands somewhere. */
+   "privacy" still lands somewhere. */
 const OUTSIDE: DocLink[] = [
-  { href: '/pricing', label: 'Pricing', title: 'Pricing', keywords: 'free cost price plans self-host' },
-  { href: '/support', label: 'Support', title: 'Support the project', keywords: 'donate sponsor pay' },
-  { href: '/about', label: 'About', title: 'About MarkLayer', keywords: 'author editorial who' },
   { href: '/privacy', label: 'Privacy', title: 'Privacy', keywords: 'data retention tracking' },
 ];
 const sections = nav.map((g, i) => ({ label: g.label, links: i === 0 ? [...g.links, ...OUTSIDE] : g.links }));
@@ -34,7 +31,7 @@ const key = (l: DocLink, group: string) => `${l.title} ${l.label} ${group} ${l.k
       class="ml-search-input"
       type="text"
       enterkeyhint="go"
-      placeholder="Search guides, comparisons, use cases"
+      placeholder="Search help"
       autocomplete="off"
       spellcheck="false"
       autofocus

@@ -11,111 +11,11 @@ const isoDate = z
   .union([z.string(), z.date()])
   .transform((value) => (typeof value === 'string' ? value : value.toISOString().slice(0, 10)));
 
-const faq = z.array(z.object({ q: z.string(), a: z.string() }));
-
-/**
- * Alternatives can point at an external product or back at one of our own
- * comparison pages, so both absolute URLs and root-relative paths are valid —
- * but a bare `markup.io` or a typo'd `htps://` is not.
- */
-const href = z
-  .string()
-  .refine(
-    (v) => v.startsWith('/') || /^https?:\/\//.test(v),
-    'Must be an absolute http(s) URL or a root-relative path',
-  );
-
-/** Fields every article-shaped page shares. */
-const articleBase = {
-  /**
-   * Position in the hub listings and in "related" grids. Editorial, not
-   * alphabetical — the flagship comparison leads. Lower sorts first.
-   */
-  order: z.number().int(),
-  title: z.string(),
-  description: z.string(),
-  bottomLine: z.string(),
-  published: isoDate,
-  modified: isoDate,
-  /** YouTube video id or full watch/embed URL for an optional demo embed. */
-  video: z.string().optional(),
-  faq,
-};
-
-/** Per-page overrides for compare and alternatives, whose heading and lede are otherwise generated. */
-const overrides = {
-  /** Replaces the generated heading when the search phrase needs to be in it. */
-  h1: z.string().optional(),
-  /** Takes over the lede (styled for three sentences), so the body renders as ordinary sections. */
-  intro: z.string().optional(),
-};
-
-const compare = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/compare' }),
-  schema: z.object({
-    ...articleBase,
-    ...overrides,
-    competitor: z.string(),
-    competitorTagline: z.string(),
-    homepage: z.url().optional(),
-    quote: z.string().optional(),
-    rows: z.array(z.object({ feature: z.string(), ml: z.string(), them: z.string() })),
-    chooseMl: z.array(z.string()),
-    chooseThem: z.array(z.string()),
-  }),
-});
-
-const alternatives = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/alternatives' }),
-  schema: z.object({
-    ...articleBase,
-    ...overrides,
-    target: z.string(),
-    homepage: z.url().optional(),
-    /** One-liner for the /alternatives hub, so the hub does not duplicate this page's intro. */
-    hubBlurb: z.string().optional(),
-    options: z.array(z.object({ name: z.string(), url: href.optional(), pitch: z.string(), bestFor: z.string() })),
-  }),
-});
-
-const useCases = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/use-cases' }),
-  schema: z.object({
-    ...articleBase,
-    h1: z.string(),
-    /** Short sidebar label, for a heading too long to sit in a 240px column. */
-    nav: z.string().optional(),
-    audience: z.string(),
-    problem: z.string(),
-    why: z.array(z.string()),
-    steps: z.array(z.object({ name: z.string(), text: z.string() })),
-  }),
-});
-
-/**
- * Long-form editorial pages that don't fit the compare/alternatives/use-case
- * molds: roundups, pricing explainers, category guides. The body markdown IS
- * the article; `intro` is the styled lead paragraph above it.
- */
-const guides = defineCollection({
-  loader: glob({ pattern: '**/*.md', base: './src/content/guides' }),
-  schema: z.object({
-    ...articleBase,
-    h1: z.string(),
-    /** Short sidebar label, for a heading too long to sit in a 240px column. */
-    nav: z.string().optional(),
-    intro: z.string(),
-  }),
-});
-
 /**
  * Shipped releases, one file per public version. The extension's version is the
  * product's public version number, so `version` here must match the value in
- * apps/extension/package.json for that release.
- *
- * The filename is the URL slug, as in every other collection: `v0-5-0.md` serves
- * `/changelog/v0-5-0`. Dots are avoided in the path segment because the asset
- * server treats a trailing `.0` as a file extension.
+ * apps/extension/package.json for that release. No page renders them any more;
+ * they are what `getCurrentVersion()` reads.
  *
  * These notes cover the TOOL only: what an annotator, a reviewer or an agent
  * can now do that they could not before. Infrastructure, refactors, CI, the
@@ -153,4 +53,4 @@ const releases = defineCollection({
   }),
 });
 
-export const collections = { compare, alternatives, useCases, guides, releases };
+export const collections = { releases };

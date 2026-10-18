@@ -458,15 +458,8 @@
      are capped at 560px by the prose rule in the base layer and are deliberately
      not repeated here — naming them again would override that cap and widen
      every line on the site. */
-  .ml-shell > :is(h1, h2, h3, h4, hr, .ml-bottom-line, .ml-video) {
+  .ml-shell > :is(h1, h2, h3, h4, hr) {
     max-width: var(--container-column);
-  }
-
-  /* The verdict block above the fold on every comparison and alternatives page.
-     A component rather than four utilities in the layout, so the measure rule
-     above has something to name. */
-  .ml-bottom-line {
-    @apply my-10 border-t border-rule pt-5;
   }
 
   /* Wide content must scroll inside itself, never the page. The cap is the
@@ -597,81 +590,6 @@
     @apply text-ink decoration-meta;
   }
 
-  /* Primary action: a flat black pill, the one filled control on the site, and
-     the same object the landing page installs from — same height, same padding,
-     same 15px medium label, same Chrome mark beside it. No gradient, no glow, no
-     shadow and no lift; hover and press are value steps on the surface. */
-  .ml-cta {
-    @apply inline-flex h-12 items-center gap-2 rounded-full bg-ink px-7 text-ui font-medium text-surface no-underline transition-colors duration-150;
-  }
-  .ml-cta:hover {
-    @apply bg-ink-hover text-surface no-underline;
-  }
-  .ml-cta:active {
-    @apply bg-ink-press;
-  }
-
-  /* ── The support pair ──
-     `/support` and `/thanks` are one moment split across a payment: the last
-     thing seen before paying is the first thing seen after. So they share the
-     painting and they share the gesture, from here, rather than each carrying
-     its own copy of the CSS.
-
-     The painting is a public park, and it is the argument rather than
-     decoration: a park is free to walk into and expensive to keep open, which is
-     the whole case the copy makes. It is a background rather than an <img>
-     because it has nothing to say to a screen reader, and a missing file then
-     degrades to the sky tone instead of a broken-image glyph. */
-  .ml-park {
-    aspect-ratio: 760 / 279;
-    /* The prose measure exactly: 560px is where every paragraph on this site
-       caps, so the picture shares its right-hand edge instead of running the
-       full column while the copy stops halfway. */
-    max-width: 560px;
-    /* The painting's own averaged sky, so the wait (or a missing file) reads as
-       a picture arriving rather than a hole in the page. */
-    background-color: #9bc8e4;
-    /* The file ships from BOTH public dirs — apps/site/public for this workspace
-       and its standalone Pages deploy, apps/worker/static for the app's own
-       support card and the Worker's dev server — the same way the favicons do.
-       It is a finished painting and will not change. */
-    background-image: url("/support-park.webp");
-    background-position: center;
-    background-size: cover;
-    @apply mb-10 rounded-xl;
-  }
-
-  /* One pen stroke under a word — the same mark the OG page cards draw under a
-     heading's operative word, and the one flourish either page carries. Put it
-     on the word, never on the whole heading: an underline under a full line is a
-     rule, and a rule beside or under a label is the decorative tic this site
-     avoids everywhere else. */
-  .ml-drawn {
-    position: relative;
-    display: inline-block;
-  }
-  /* Placed on the word rather than in the text flow, so it cannot move anything.
-     The heading's own bottom padding is what clears the cut at the overshoot. */
-  .ml-drawn::after {
-    content: "";
-    position: absolute;
-    inset-inline: -0.04em -0.05em;
-    bottom: -0.16em;
-    height: 0.16em;
-    /* Bowed away from the letters through the middle and off level end to end,
-       exactly the way the OG page cards draw it. The stroke keeps its own weight
-       while the path stretches to the word, so a wide viewport does not fatten
-       it. */
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 14' preserveAspectRatio='none'%3E%3Cpath d='M2.4 5.2C28 10 52 11.6 84 10.9 128 10 160 8 197.6 4.2' fill='none' stroke='%239e77dc' stroke-width='3.2' stroke-linecap='round' vector-effect='non-scaling-stroke'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-size: 100% 100%;
-  }
-  /* Room for the stroke under the words without the paragraph below crowding it,
-     and without the heading's own box clipping it. */
-  .ml-drawn-head {
-    padding-bottom: 0.14em;
-  }
-
   /* Row list, not a card grid: a hairline per row and a diagonal that travels
      on hover. Nothing lifts and nothing glows. */
   /* Two columns once the page container has the room for them. One column of
@@ -697,81 +615,6 @@
   .ml-row:hover svg {
     @apply text-ink;
     transform: translate(2px, -2px);
-  }
-
-  /* The assistant marks in the footer. `faint` is the documented step for a row
-     icon, and it travels to ink on hover like every other link here. Padding is
-     hit area, not a tile — nothing draws behind the mark. */
-  .ml-ask-ai {
-    @apply inline-flex items-center justify-center rounded-md p-2 text-faint no-underline transition-colors duration-150 pointer-coarse:size-11 pointer-coarse:p-0;
-  }
-  .ml-ask-ai:hover {
-    @apply text-ink no-underline;
-  }
-
-  /* A changelog entry. Two columns: a quiet stamp rail carrying the version and
-     the ship date, and the notes beside it. The rail and the title are aligned
-     on their FIRST BASELINES, not on their box tops — a 15px version and a 28px
-     title have different half-leading, so a top-aligned pair sits visibly out of
-     step and no hand-tuned margin fixes it across the title's clamp. Below `sm`
-     the rail becomes the entry's own dateline above the title.
-
-     One hairline per entry and nothing else: no card, no fill, no badge. The
-     hierarchy is the title's size against the rail's silence. */
-  .ml-release {
-    @apply grid items-baseline gap-x-10 gap-y-2 border-t border-rule py-10 first:border-t-0 first:pt-0 sm:grid-cols-[8.5rem_1fr];
-  }
-  .ml-release-version {
-    @apply block text-ui font-medium tabular-nums text-ink;
-  }
-  /* 8.5rem holds the longest date this format can produce — "September 30,
-     2026" measures 124.2px at 13px Geist. A wrapped date would push its own row
-     to two lines and break the rail's alignment with every other row, so the
-     column is sized to the worst case rather than to the dates that happen to
-     be in the collection today. `nowrap` makes that guarantee visible. */
-  .ml-release-date {
-    @apply block whitespace-nowrap text-label text-meta;
-  }
-  /* `mt-0` because the title opens a grid cell: the global h2 rhythm measures
-     the gap to a PREVIOUS section, and there isn't one inside a row. */
-  .ml-release-title {
-    @apply mt-0 mb-3 text-balance text-title text-ink;
-  }
-  .ml-release-body > :last-child {
-    @apply mb-0;
-  }
-
-  /* A lazy-loaded demo embed on a comparison or alternatives page. Native
-     `loading="lazy"` defers the iframe until it nears the viewport, so no
-     facade script is needed for the handful of pages that carry one. Its width
-     comes from the measure rule above, like every other block-level component. */
-  .ml-video {
-    @apply my-10 aspect-video w-full overflow-hidden rounded-xl border border-rule;
-  }
-  .ml-video iframe {
-    @apply size-full border-0;
-  }
-
-  /* A hub entry: a linked h3 and its blurb, ruled off from the next one. The
-     hub pages were sixteen identical heading/paragraph pairs running edge to
-     edge with nothing for the eye to land on between them. The rule is
-     structural — it bounds a list item — not an ornament beside a label. */
-  .ml-entry {
-    @apply border-t border-rule py-6 first:border-t-0 first:pt-0;
-  }
-  .ml-entry > h3 {
-    @apply mt-0 mb-2;
-  }
-  /* The heading sets the gap to the first paragraph; any paragraphs after it
-     keep the normal body rhythm, and the container's padding — not a margin on
-     the last child — carries the space to the rule. That way an entry with a
-     pitch AND a "Best for" line separates its own two paragraphs less than it
-     separates itself from the next entry, which a flat margin could not do. */
-  .ml-entry > h3 + p {
-    @apply mt-0;
-  }
-  .ml-entry > :last-child {
-    @apply mb-0;
   }
 
   /* ── The header ──
@@ -898,12 +741,6 @@
   }
   .ml-docnav-label {
     @apply m-0 max-w-none px-2.5 pb-1 text-side font-medium text-ink;
-  }
-
-  /* The menu's tail: the two sections that are not documentation, set apart by
-     space alone. */
-  .ml-menu-rest {
-    @apply mt-8;
   }
 
   /* ── The outline ──

@@ -16,11 +16,11 @@ import type { DrawOp } from './types';
 const API_BASE = `${APP_ORIGIN}/api/`;
 
 /**
- * Plain-English explainer. The path is what the landing page links to (same
+ * The reviewer help page. The path is what the landing page links to (same
  * origin); the absolute URL is what the extension dialog and the web info panel
  * need, since neither is guaranteed to be running on marklayer.app.
  */
-export const HOW_IT_WORKS_PATH = '/guides/how-marklayer-works';
+export const HOW_IT_WORKS_PATH = '/help';
 export const HOW_IT_WORKS_URL = `${APP_ORIGIN}${HOW_IT_WORKS_PATH}`;
 
 export { nanoid };

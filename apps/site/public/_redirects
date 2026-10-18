@@ -1,1 +1,20 @@
 /security /privacy 301
+# Upstream marketing pages this fork does not ship. Without these they would fall
+# through to the Worker's proxy catch-all.
+/guides/how-marklayer-works /help 301
+/guides /help 301
+/guides/* /help 301
+/features /help 301
+/changelog / 301
+/changelog/* / 301
+/pricing / 301
+/pricing.md / 301
+/support / 301
+/thanks / 301
+/about / 301
+/compare / 301
+/vs/* / 301
+/alternatives / 301
+/alternatives/* / 301
+/use-cases / 301
+/for/* / 301

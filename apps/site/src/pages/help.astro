@@ -1,0 +1,50 @@
+---
+import dates from '../data/page-dates.json';
+import ArticleLayout from '../layouts/ArticleLayout.astro';
+import { HELP_COMMENT_STEPS, HELP_H1, HELP_INTRO, HELP_SECTIONS } from '../lib/help';
+import { articleSchema, howToSchema } from '../lib/schema';
+
+const { published, modified } = dates.help;
+
+const path = '/help';
+const title = 'Help · Punch List by SMB Team';
+const description =
+  'How to review your new website with Punch List: leave a comment anywhere on the page, reply, and watch each note get checked off. Nothing to install, no account.';
+---
+
+<ArticleLayout
+  title={title}
+  description={description}
+  path={path}
+  h1={HELP_H1}
+  breadcrumbs={[{ name: 'Punch List', path: '/' }, { name: 'Help' }]}
+  modified={modified}
+  schema={[
+    articleSchema({ h1: HELP_H1, description, path, published, modified }),
+    howToSchema({
+      name: 'Leave a comment on your new website',
+      description: 'Pin a note to any spot on the page so the SMB Team can fix it.',
+      steps: HELP_COMMENT_STEPS.map((text, i) => ({ name: `Step ${i + 1}`, text })),
+    }),
+  ]}
+>
+  <link slot="extra-links" rel="alternate" type="text/markdown" href="/help.md" title="This page as Markdown" />
+  <Fragment slot="intro"><p>{HELP_INTRO}</p></Fragment>
+
+  {
+    HELP_SECTIONS.map((s) => (
+      <Fragment>
+        <h2>{s.heading}</h2>
+        {s.lead?.map((p) => <p>{p}</p>)}
+        {s.steps && (
+          <ol>
+            {s.steps.map((step) => (
+              <li>{step}</li>
+            ))}
+          </ol>
+        )}
+        {s.after?.map((p) => <p>{p}</p>)}
+      </Fragment>
+    ))
+  }
+</ArticleLayout>
