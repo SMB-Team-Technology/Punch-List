@@ -99,4 +99,4 @@ escaped = packed.replace("\\", "\\\\").replace("'", "\\'")
 # Split across two lines: Biome's formatter breaks after `=` at this width.
 lines.append("export const OG_HEADING_ADVANCES_PACKED =")
 lines.append(f"  '{escaped}';")
-OUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
+OUT.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")

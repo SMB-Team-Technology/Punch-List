@@ -72,10 +72,10 @@ describe('signInTemplate', () => {
   const rendered = signInTemplate.render({ link: 'https://marklayer.app/auth/verify?token=abc' });
 
   test('applies the app brand token rather than a stock default', () => {
-    // --color-ml-fg is #1a1a1a in apps/worker/web/style.css. If the build's
-    // token parsing silently stops working, the link reverts to React Email's
-    // default blue and nothing else fails — so assert the colour directly.
-    expect(rendered.html).toContain('color:rgb(26,26,26)');
+    // --color-ml-fg is the brand navy #003a59 in apps/worker/web/style.css. If
+    // the build's token parsing silently stops working, the link reverts to React
+    // Email's default blue and nothing else fails — so assert the colour directly.
+    expect(rendered.html).toContain('color:rgb(0,58,89)');
   });
 
   test('carries the link in both the anchor and as bare text', () => {
