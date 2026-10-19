@@ -107,11 +107,24 @@ export function fileUrl(id: string): string {
   return uploadPath(id);
 }
 
-/** Create an empty annotation row for a URL and return its id. */
-export async function createAnnotationFor(url: string): Promise<string | null> {
+/** What a refused page add says: outside the team, a new page must stay on the board's own site. */
+export const OTHER_SITE_TOAST = 'That page is on another site. Only the SMB Team can start a board there.';
+
+/** The room the viewer is on now, which a new page is opened from. */
+function currentRoomId(): string | undefined {
+  if (projectId.value) return projectPages.value[currentPageIdx.value]?.id;
+  return annotationId.value || undefined;
+}
+
+/**
+ * Create an empty annotation row for a URL. `from` lets someone outside the team
+ * add a page on the same site as the room they are in; a 403 means it was not.
+ */
+export async function createAnnotationFor(url: string): Promise<{ id: string } | { error: string }> {
   const id = nanoid();
-  const res = await postJson(`${API_BASE}${id}`, { ops: [], url, width: window.innerWidth });
-  return res?.ok ? id : null;
+  const res = await postJson(`${API_BASE}${id}`, { ops: [], url, width: window.innerWidth, from: currentRoomId() });
+  if (res?.ok) return { id };
+  return { error: res?.status === 403 ? OTHER_SITE_TOAST : 'Failed to add page' };
 }
 
 /** A typed address as a fetchable URL: `example.com` means https, and an Outlook Safe Link means its target. */
@@ -132,13 +145,14 @@ export async function navigateTo({ url, source = 'viewer' }: { url: string; sour
   if (pid) {
     if (projectLoading.value) return;
     projectLoading.value = true;
-    const newPageId = await createAnnotationFor(url);
-    if (!newPageId) {
+    const created = await createAnnotationFor(url);
+    if ('error' in created) {
       projectLoading.value = false;
       capture('page_open_failed', { mode: 'project_page', step: 'create_page' });
-      showToast('Failed to add page', { type: 'error' });
+      showToast(created.error, { type: 'error' });
       return;
     }
+    const newPageId = created.id;
     const pages = projectPages.value;
     const idx = currentPageIdx.value;
     // Snapshot current page's live ops back into the cached list before switching
@@ -174,13 +188,14 @@ export async function navigateTo({ url, source = 'viewer' }: { url: string; sour
       url: currentUrl,
       width: originalWidth.value || window.innerWidth,
     });
-    const newPageId = await createAnnotationFor(url);
-    if (!newPageId) {
+    const created = await createAnnotationFor(url);
+    if ('error' in created) {
       projectLoading.value = false;
       capture('page_open_failed', { mode: 'promoted', step: 'create_page' });
-      showToast('Failed to add page', { type: 'error' });
+      showToast(created.error, { type: 'error' });
       return;
     }
+    const newPageId = created.id;
     const newProjectId = nanoid();
     const ok = await saveProject(newProjectId, [currentId, newPageId]);
     if (!ok) {
@@ -197,6 +212,13 @@ export async function navigateTo({ url, source = 'viewer' }: { url: string; sour
   const w = window.innerWidth;
   const id = nanoid();
   const res = await postJson(`${API_BASE}${id}`, { ops: [], url, width: w });
+  // Refused outright: there is no board to land on, so stay and say why.
+  if (res?.status === 403) {
+    showToast('Only the SMB Team can start a new board. Sign in with your smbteam.com email first.', {
+      type: 'error',
+    });
+    return;
+  }
   if (!res?.ok) {
     // Instrumented like the other two modes, so a drop at the top of the funnel
     // is a number rather than a mystery. The redirect still runs: the viewer

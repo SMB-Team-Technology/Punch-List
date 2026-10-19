@@ -63,6 +63,8 @@ export type Env = {
     TURN_KEY_TOKEN?: string;
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
+    /** Email domains allowed to start boards (auth/team.ts). Unset: anyone may. */
+    TEAM_EMAIL_DOMAINS?: string;
     /**
      * The fixed-IP relay (apps/fetcher) the proxy falls back to when a host
      * blocks Cloudflare's shared egress. Both unset — the default — means no

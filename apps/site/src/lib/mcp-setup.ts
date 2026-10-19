@@ -68,11 +68,7 @@ export const MCP_HABIT = `## Visual review
 
 When I share a feedback.smbteam.com/s/... link, connect to it over MCP and work the
 annotations: acknowledge each one before you start, resolve it with a one-line
-summary of what changed, and dismiss it with a reason if you cannot act on it.
-
-When you have built something for me to look at, open a review room on the
-preview URL with marklayer_share_preview and send me that link instead of
-describing the change.`;
+summary of what changed, and dismiss it with a reason if you cannot act on it.`;
 
 export const MCP_PROMPTS = {
   work: 'Watch my Punch List comments. For each one, acknowledge it, make the fix, then resolve it with a one-line summary of what changed.',

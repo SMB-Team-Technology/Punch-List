@@ -1,6 +1,9 @@
-import { cn } from '@marklayer/types';
+import { Toasts } from '@ext/components/Toasts';
+import { cn, sessionResponseSchema } from '@marklayer/types';
+import { useSignal } from '@preact/signals';
 import { ArrowUpRight, Check } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
+import { useEffect } from 'preact/hooks';
 import { Logo } from './shared';
 import { navigateTo, withScheme } from './signals';
 
@@ -67,6 +70,21 @@ function StartForm() {
         Start a list
       </button>
     </form>
+  );
+}
+
+/** In place of the form for anyone not signed in on the team: a client only ever needs the link they were sent. */
+function TeamOnly() {
+  return (
+    <div class="mt-9 flex max-w-[480px] flex-col items-start gap-5 rounded-2xl bg-white/10 p-6">
+      <p class="m-0 text-body leading-prose text-white/85">
+        <strong class="font-semibold text-white">Got a link from SMB Team?</strong> Just open it. There's no account to
+        make. Starting a new list is for the SMB Team.
+      </p>
+      <a href="/app" class={PILL_CLS}>
+        Team sign in
+      </a>
+    </div>
   );
 }
 
@@ -161,6 +179,19 @@ function FooterLink({ href, children }: { href: string; children: ComponentChild
 
 /** The front door: start a list from a site's address, and a short account of what happens next. */
 export function Landing() {
+  // Null until the session answers; the form shows meanwhile, since the server refuses a create either way.
+  const canStart = useSignal<boolean | null>(null);
+  useEffect(() => {
+    fetch('/auth/me')
+      .then((res) => res.json())
+      .then((json) => {
+        const parsed = sessionResponseSchema.safeParse(json);
+        canStart.value = parsed.success ? (parsed.data.canStartBoards ?? true) : null;
+      })
+      .catch(() => undefined);
+  }, []);
+  const teamOnly = canStart.value === false;
+
   return (
     <div class="ml-force-light min-h-screen bg-ml-bg font-ui text-ml-navy">
       <div class="bg-ml-navy text-white">
@@ -182,13 +213,15 @@ export function Landing() {
             <a href="/app" class={NAV_LINK_CLS}>
               Team sign in
             </a>
-            <button
-              type="button"
-              onClick={focusStart}
-              class={cn(PILL_CLS, 'ml-2 hidden h-11 cursor-pointer border-none sm:inline-flex')}
-            >
-              Start a list
-            </button>
+            {!teamOnly && (
+              <button
+                type="button"
+                onClick={focusStart}
+                class={cn(PILL_CLS, 'ml-2 hidden h-11 cursor-pointer border-none sm:inline-flex')}
+              >
+                Start a list
+              </button>
+            )}
           </nav>
         </header>
 
@@ -207,7 +240,7 @@ export function Landing() {
                 Click anywhere on your new site and tell us what needs fixing. Every note lands on your team's list, and
                 you watch each one get checked off.
               </p>
-              <StartForm />
+              {teamOnly ? <TeamOnly /> : <StartForm />}
               <p class="mt-5 mb-0 flex flex-wrap gap-x-5 gap-y-1 text-ui text-white/70">
                 <span>No account</span>
                 <span>Nothing to install</span>
@@ -234,9 +267,15 @@ export function Landing() {
           ))}
         </ol>
         <div class="mt-12 flex flex-wrap items-center gap-x-6 gap-y-3">
-          <button type="button" onClick={focusStart} class={cn(PILL_CLS, 'cursor-pointer border-none')}>
-            Start a list
-          </button>
+          {teamOnly ? (
+            <a href="/app" class={PILL_CLS}>
+              Team sign in
+            </a>
+          ) : (
+            <button type="button" onClick={focusStart} class={cn(PILL_CLS, 'cursor-pointer border-none')}>
+              Start a list
+            </button>
+          )}
           <a href="/help" class="text-ui-lg font-medium text-ml-navy underline underline-offset-4">
             Read the help page
           </a>
@@ -270,6 +309,7 @@ export function Landing() {
           , licensed under Apache-2.0.
         </p>
       </footer>
+      <Toasts />
     </div>
   );
 }

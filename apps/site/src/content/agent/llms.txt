@@ -41,7 +41,7 @@ Full setup per client (Claude Code, Claude, Codex, Cursor, VS Code): https://fee
 
 ## Share API
 
-A share link can be created with one HTTP POST. The id you choose is the access token, so use an unguessable one (nanoid, uuid).
+A share link is created with one HTTP POST. The id you choose is the access token, so use an unguessable one (nanoid, uuid). Creating a new link takes a signed-in SMB Team session (an smbteam.com email); a request that would create one without it is refused with 403. Anyone holding an existing link can still write to it.
 
     POST https://feedback.smbteam.com/api/{id}
     Content-Type: application/json

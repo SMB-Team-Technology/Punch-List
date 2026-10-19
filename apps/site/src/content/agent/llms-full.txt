@@ -85,6 +85,8 @@ Per-client setup (Claude Code, Claude, Codex, Cursor, VS Code): https://feedback
 
 A public HTTP API creates and reads share links. The id is caller-supplied and is the access token for the link, so generate it with a crypto-strength RNG (nanoid, crypto.randomUUID()) and give it only to the people meant to see the page.
 
+Creating a new link takes a signed-in SMB Team session (an smbteam.com email); a request that would create one without it is refused with 403. Anyone holding an existing link can still write to it. The same goes for a new project bundle that names pages which do not exist yet, and for marklayer_share_preview, which an agent cannot use here: it carries no session.
+
     POST https://feedback.smbteam.com/api/{id}
     Content-Type: application/json
 
