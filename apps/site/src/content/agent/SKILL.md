@@ -83,5 +83,5 @@ When a human opens a share link in a browser whose agent supports WebMCP, the
 same actions (list / get / acknowledge / resolve / dismiss / reply) are exposed
 on the page via `document.modelContext`.
 
-Punch List is run by SMB Team (support@smbteam.com) and built on MarkLayer
+Punch List is run by SMB Team (website@smbteam.com) and built on MarkLayer
 (https://github.com/thevrus/MarkLayer), Apache-2.0.

@@ -480,7 +480,7 @@ app.get('/.well-known/api-catalog', (c) =>
 // never goes stale.
 const securityTxt = once(() => {
   const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
-  return `Contact: mailto:support@smbteam.com
+  return `Contact: mailto:website@smbteam.com
 Expires: ${expires}
 Preferred-Languages: en
 Canonical: https://feedback.smbteam.com/.well-known/security.txt
