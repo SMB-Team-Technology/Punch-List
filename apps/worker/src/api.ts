@@ -285,8 +285,13 @@ async function sameSiteAs({
   if (!from || !url) return false;
   const roomUrl = await annotationStore(db).getUrl(from);
   if (!roomUrl || !(await roomAccess({ db, id: from, headers })).open) return false;
+  return sameOrigin({ a: roomUrl, b: url });
+}
+
+function sameOrigin({ a, b }: { a: string | null; b: string }): boolean {
+  if (!a) return false;
   try {
-    return new URL(roomUrl).origin === new URL(url).origin;
+    return new URL(a).origin === new URL(b).origin;
   } catch {
     return false;
   }
@@ -362,6 +367,12 @@ api.openapi(storeAnnotation, async (c) => {
     if (!canEditLink({ ...current, userId: user?.id })) {
       return c.json({ error: 'This link is view-only.' }, 403);
     }
+  }
+
+  // A room's site decides what the proxy will serve, so only the team may move
+  // a room to another one; anyone else's write keeps the room where it is.
+  if (current && url && !(await requestMayStartBoards({ env: c.env, cookie: c.req.header('cookie') }))) {
+    if (!sameOrigin({ a: await store.getUrl(id), b: url })) url = null;
   }
 
   // False: too weak an id to mint, and no existing room to update. The store
