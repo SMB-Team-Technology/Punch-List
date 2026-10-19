@@ -181,12 +181,14 @@ function FooterLink({ href, children }: { href: string; children: ComponentChild
 export function Landing() {
   // Null until the session answers; the form shows meanwhile, since the server refuses a create either way.
   const canStart = useSignal<boolean | null>(null);
+  const signedIn = useSignal(false);
   useEffect(() => {
     fetch('/auth/me')
       .then((res) => res.json())
       .then((json) => {
         const parsed = sessionResponseSchema.safeParse(json);
         canStart.value = parsed.success ? (parsed.data.canStartBoards ?? true) : null;
+        signedIn.value = parsed.success && parsed.data.user !== null;
       })
       .catch(() => undefined);
   }, []);
@@ -211,7 +213,7 @@ export function Landing() {
               smbCMS
             </a>
             <a href="/app" class={NAV_LINK_CLS}>
-              Team sign in
+              {signedIn.value ? 'My lists' : 'Team sign in'}
             </a>
             {!teamOnly && (
               <button
