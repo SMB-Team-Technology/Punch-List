@@ -1,4 +1,4 @@
-import { Body, Container, Head, Hr, Html, Preview, Section, Text } from '@react-email/components';
+import { Body, Container, Head, Hr, Html, Img, Preview, Section, Text } from '@react-email/components';
 import type { ReactNode } from 'react';
 
 /**
@@ -25,10 +25,15 @@ export function Layout({ preview, children }: { preview: string; children: React
       <Preview>{preview}</Preview>
       <Body className="bg-white font-sans text-ml-fg m-0 p-0">
         <Container className="mx-auto max-w-[480px] px-6 py-10">
-          {/* The wordmark as type, not an image: a remote logo is blocked by
-              default in most clients, and a sign-in email that opens with a
-              broken-image icon is the wrong first impression. */}
-          <Text className="text-ml-fg m-0 mb-8 text-[15px] font-semibold tracking-[-0.045em]">Punch List</Text>
+          {/* SMB Team's logo, served from this app's own origin. Where a client
+              blocks remote images, the alt text stands in, set as a wordmark. */}
+          <Img
+            src="https://feedback.smbteam.com/email-logo.png"
+            width="145"
+            height="30"
+            alt="SMB Team"
+            className="mb-8 block text-ml-fg text-[15px] font-semibold"
+          />
           {children}
           <Hr className="my-8 border-0 border-t border-solid border-[#eaeaea]" />
           <Section>
