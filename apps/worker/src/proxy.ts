@@ -429,7 +429,7 @@ function isViewableDocument(contentType: string): boolean {
 
 const proxy = new Hono<Env>();
 
-const NO_BOARD_FOR_HOST = 'This site has no board here. Only the SMB Team can start one.';
+const NO_BOARD_FOR_HOST = 'This site has no punch list here. Only the SMB Team can start one.';
 
 /** `mayProxyHost` for a request, falling back to the caller's session. */
 function mayProxy(c: Context<Env>, host: string): Promise<boolean> {

@@ -136,7 +136,7 @@ export function switchToPage(i: number) {
 }
 
 /** What a refused page add says: outside the team, a new page must stay on the board's own site. */
-export const OTHER_SITE_TOAST = 'That page is on another site. Only the SMB Team can start a board there.';
+export const OTHER_SITE_TOAST = 'That page is on another site. Only the SMB Team can start a list there.';
 
 /**
  * The width every new page is laid out at in desktop view. It used to be the
@@ -268,7 +268,7 @@ export async function navigateTo({ url: raw, source = 'viewer' }: { url: string;
   const res = await postJson(`${API_BASE}${id}`, { ops: [], url, width: DESKTOP_REFERENCE_WIDTH });
   // Refused outright: there is no board to land on, so stay and say why.
   if (res?.status === 403) {
-    showToast('Only the SMB Team can start a new board. Sign in with your smbteam.com email first.', {
+    showToast('Only the SMB Team can start a new list. Sign in with your smbteam.com email first.', {
       type: 'error',
     });
     return;

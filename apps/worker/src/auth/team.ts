@@ -47,4 +47,4 @@ export async function requestMayStartBoards({
 }
 
 /** What a refused create says, to a person in the app and to an agent alike. */
-export const TEAM_ONLY = 'Only the SMB Team can start a new board. Sign in with your smbteam.com email first.';
+export const TEAM_ONLY = 'Only the SMB Team can start a new list. Sign in with your smbteam.com email first.';
