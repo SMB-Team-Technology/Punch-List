@@ -89,6 +89,7 @@ import { dockedPanelsWidth } from './ViewerInfoPanel';
 import { ViewerStage } from './ViewerStage';
 import { PhoneBar } from './viewer/PhoneBar';
 import { useRenderOutcome } from './viewer/useRenderOutcome';
+import { useThumbnailCapture } from './viewer/useThumbnailCapture';
 import { FAILURE_COPY, type RenderFailure, type ViewerFrame, ViewerFrameProvider } from './viewerFrame';
 import { videoActive, voiceActive } from './voiceSignals';
 
@@ -212,6 +213,7 @@ export default function Viewer() {
     renderFailed,
     pageSlow,
   });
+  useThumbnailCapture({ frameRef, iframeLoaded, renderFailed });
 
   // Export PNG. Captures the live page (iframe content) plus the drawing canvas
   // composited together via modern-screenshot's `domToBlob`. The proxy serves

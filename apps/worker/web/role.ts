@@ -1,6 +1,6 @@
 import { allowedTools } from '@ext/lib/state';
 import { sessionResponseSchema } from '@marklayer/types';
-import { computed } from '@preact/signals';
+import { computed, signal } from '@preact/signals';
 import { PHONE_TOOLS } from './signals';
 
 /** A client moves around and comments — the same two tools a phone gets. */
@@ -8,6 +8,12 @@ const CLIENT_TOOLS = PHONE_TOOLS.map((t) => t.tool);
 
 /** True for anyone outside the team: the viewer shows them the page, their name and the comments, and little else. */
 export const isClient = computed(() => allowedTools.value !== null);
+
+/**
+ * Whether the visitor has an account, which is not the same question as
+ * `isClient`: with no team gate configured nobody is a client, signed in or not.
+ */
+export const signedIn = signal(false);
 
 /**
  * Start everyone as a client and lift it once the session says they may start
@@ -21,7 +27,9 @@ export function startViewerRole(): void {
     .then((res) => res.json())
     .then((json) => {
       const parsed = sessionResponseSchema.safeParse(json);
-      if (parsed.success && (parsed.data.canStartBoards ?? true)) allowedTools.value = null;
+      if (!parsed.success) return;
+      signedIn.value = parsed.data.user !== null;
+      if (parsed.data.canStartBoards ?? true) allowedTools.value = null;
     })
     .catch(() => undefined);
 }

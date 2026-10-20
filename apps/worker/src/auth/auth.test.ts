@@ -396,3 +396,97 @@ describe('PATCH /auth/me', () => {
     expect(body.user.name).toBe('Bailey');
   });
 });
+
+describe('list thumbnails', () => {
+  const cookie = `${SESSION_COOKIE}=tok`;
+  const sessionRow = {
+    id: 'owner1',
+    email: 'owner@example.com',
+    last_seen_at: nowInSeconds(),
+    expires_at: nowInSeconds() + 1000,
+  };
+  /** The slice of R2 the routes call: what was put, and a get that serves it back. */
+  function fakeBucket() {
+    const stored = new Map<string, { bytes: ArrayBuffer; type: string }>();
+    const bucket = {
+      stored,
+      put: async (key: string, bytes: ArrayBuffer, opts: { httpMetadata: { contentType: string } }) => {
+        stored.set(key, { bytes, type: opts.httpMetadata.contentType });
+      },
+      get: async (key: string) => {
+        const hit = stored.get(key);
+        return hit
+          ? { body: new Blob([hit.bytes]).stream(), httpMetadata: { contentType: hit.type }, httpEtag: '"e"' }
+          : null;
+      },
+    };
+    return bucket;
+  }
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+  const put = ({
+    db,
+    bucket,
+    type = 'image/jpeg',
+  }: {
+    db: ReturnType<typeof fakeDb>;
+    bucket: ReturnType<typeof fakeBucket>;
+    type?: string;
+  }) =>
+    auth.request(
+      '/links/abc/thumbnail',
+      { method: 'PUT', headers: { Cookie: cookie, 'Content-Type': type }, body: jpeg },
+      // biome-ignore lint/suspicious/noExplicitAny: a fake of only the bucket methods the route calls.
+      { DB: asDb(db), FILE_BUCKET: bucket as any },
+      testCtx,
+    );
+
+  test("the owner's capture is stored under the row's id", async () => {
+    const bucket = fakeBucket();
+    const res = await put({
+      db: fakeDb({ firstQueue: [sessionRow, { access: 'edit', owner_expires_at: null }] }),
+      bucket,
+    });
+    expect(await res.json<{ saved: boolean }>()).toEqual({ saved: true });
+    expect(bucket.stored.get('thumbs/abc')?.type).toBe('image/jpeg');
+  });
+
+  test("a signed-in non-owner cannot replace someone else's thumbnail", async () => {
+    const bucket = fakeBucket();
+    const res = await put({ db: fakeDb({ firstQueue: [sessionRow, null] }), bucket });
+    expect(await res.json<{ saved: boolean }>()).toEqual({ saved: false });
+    expect(bucket.stored.size).toBe(0);
+  });
+
+  test('anything but an image is refused before the owner check', async () => {
+    const db = fakeDb({ firstQueue: [sessionRow] });
+    const res = await put({ db, bucket: fakeBucket(), type: 'text/html' });
+    expect(res.status).toBe(415);
+    expect(db.calls).toHaveLength(1);
+  });
+
+  test('a list with no capture yet is a 404, which the card shows as its placeholder', async () => {
+    const res = await auth.request(
+      '/links/abc/thumbnail',
+      { headers: { Cookie: cookie } },
+      // biome-ignore lint/suspicious/noExplicitAny: as above.
+      { DB: asDb(fakeDb({ firstQueue: [sessionRow] })), FILE_BUCKET: fakeBucket() as any },
+      testCtx,
+    );
+    expect(res.status).toBe(404);
+  });
+
+  test('both routes need a session', async () => {
+    const db = fakeDb();
+    // biome-ignore lint/suspicious/noExplicitAny: as above.
+    const env = { DB: asDb(db), FILE_BUCKET: fakeBucket() as any };
+    expect((await auth.request('/links/abc/thumbnail', {}, env, testCtx)).status).toBe(401);
+    const res = await auth.request(
+      '/links/abc/thumbnail',
+      { method: 'PUT', headers: { 'Content-Type': 'image/jpeg' }, body: jpeg },
+      env,
+      testCtx,
+    );
+    expect(res.status).toBe(401);
+    expect(db.calls).toHaveLength(0);
+  });
+});

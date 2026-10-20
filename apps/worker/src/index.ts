@@ -18,7 +18,7 @@ import { Hono } from 'hono/tiny';
 import { nanoid } from 'nanoid';
 import type { AnnotationRoom } from './annotation-room';
 import { api } from './api';
-import { auth, authStore } from './auth';
+import { auth, authStore, thumbnailKey } from './auth';
 import type { EmailEnv } from './email';
 import { cachedPng, dayCached, once, overRateLimit, sha256Hex, toBase64 } from './http';
 import type { SlackEnv } from './integrations/slack-app';
@@ -559,7 +559,9 @@ const scheduled: ExportedHandlerScheduledHandler<Env['Bindings']> = async (_even
   const dropOgCards = (ids: string[]) => dropKeys({ bucket: env.OG_BUCKET, keys: ids.map((id) => `${id}.png`) });
 
   // Same retention policy for single annotations and project bundles.
-  await dropOgCards(await annotationStore(env.DB).deleteExpired({ unusedSince: staleBefore }));
+  const expiredRooms = await annotationStore(env.DB).deleteExpired({ unusedSince: staleBefore });
+  await dropOgCards(expiredRooms);
+  await dropKeys({ bucket: env.FILE_BUCKET, keys: expiredRooms.map(thumbnailKey) });
   await dropOgCards(await projectStore(env.DB).deleteExpired({ unusedSince: staleBefore }));
 
   // After the annotation sweep, which is what orphans them.

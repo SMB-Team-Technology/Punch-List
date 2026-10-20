@@ -120,9 +120,16 @@ export function Logo({
 export const ICON_LINK_CLS =
   'inline-flex items-center justify-center size-11 sm:size-9 rounded-lg transition-colors no-underline hover:bg-current/[0.04]';
 
+/** Where the brand mark leads: the team's own lists once signed in, the front door for a client. */
+export function homeHref(signedIn: boolean): string {
+  return signedIn ? '/app' : '/';
+}
+
 /* The landing page embeds a room in an iframe, so a bare `href="/"` loads the
    landing page inside its own screenshot. Every way out of the viewer spreads this. */
-export const HOME_LINK_PROPS = { href: '/', target: '_top' } as const;
+export function homeLinkProps(signedIn: boolean) {
+  return { href: homeHref(signedIn), target: '_top' } as const;
+}
 
 export function GithubLink({ dark }: { dark?: boolean }) {
   return (

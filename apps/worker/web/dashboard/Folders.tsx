@@ -4,14 +4,16 @@ import { submitBtn } from '@ext/lib/buttons';
 import { geist } from '@ext/lib/geist';
 import { portalContainer } from '@ext/lib/portal';
 import { cn, type Folder, MAX_FOLDER_NAME_LENGTH, type OwnedLink } from '@marklayer/types';
-import { signal, useSignal } from '@preact/signals';
-import { Check, Ellipsis, FolderInput, Plus } from 'lucide-preact';
+import { computed, signal, useSignal } from '@preact/signals';
+import { Check, Ellipsis, Folder as FolderIcon, FolderInput, FolderPlus } from 'lucide-preact';
+import { Link, useLocation } from 'wouter-preact';
 import {
   createFolder,
   deleteFolder,
   type FolderFilter,
-  folderFilter,
   folders,
+  type ListLayout,
+  links,
   moveLink,
   renameFolder,
 } from './session';
@@ -20,88 +22,204 @@ type DialogSpec = { kind: 'create' } | { kind: 'rename'; folder: Folder } | { ki
 
 const dialog = signal<DialogSpec | null>(null);
 
+export function openNewFolder(): void {
+  dialog.value = { kind: 'create' };
+}
+
 const MENU_ITEM =
   'flex items-center justify-between gap-2 px-2.5 py-2 rounded-md text-ui cursor-pointer border-none transition-colors bg-transparent text-(--ds-gray-1000) hover:bg-(--ds-gray-alpha-100) data-highlighted:bg-(--ds-gray-alpha-100)';
 
-/** The links a filter leaves on screen. */
+/** The links a filter leaves on screen. The folder index shows folders, not links. */
 export function inFilter({ link, filter }: { link: OwnedLink; filter: FolderFilter }): boolean {
   if (filter.kind === 'all') return true;
+  if (filter.kind === 'folders') return false;
   return filter.kind === 'unfiled' ? link.folderId === null : link.folderId === filter.id;
 }
 
-function Chip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+/** Case-insensitive substring match on any of the given fields; an empty query matches everything. */
+export function matchesQuery({ query, fields }: { query: string; fields: readonly string[] }): boolean {
+  const needle = query.trim().toLowerCase();
+  return needle === '' || fields.some((field) => field.toLowerCase().includes(needle));
+}
+
+/** Where each filter lives under `/app`. */
+export function filterPath(filter: FolderFilter): string {
+  if (filter.kind === 'all') return '/';
+  if (filter.kind === 'unfiled') return '/unfiled';
+  if (filter.kind === 'folders') return '/folders';
+  return `/folders/${encodeURIComponent(filter.id)}`;
+}
+
+/**
+ * All, Unfiled and Folders, and never one tab per folder: with a folder for every
+ * client the chips ran to hundreds. A folder is opened from the Folders tab.
+ */
+export function DashTabs({ filter }: { filter: FolderFilter }) {
+  const tabs: { label: string; target: FolderFilter; on: boolean }[] = [
+    { label: 'All', target: { kind: 'all' }, on: filter.kind === 'all' },
+    ...(folders.value.length > 0
+      ? [{ label: 'Unfiled', target: { kind: 'unfiled' } as const, on: filter.kind === 'unfiled' }]
+      : []),
+    { label: 'Folders', target: { kind: 'folders' }, on: filter.kind === 'folders' || filter.kind === 'folder' },
+  ];
+  return (
+    <nav aria-label="Lists" class={geist.track}>
+      {tabs.map((tab) => (
+        <Link
+          key={tab.label}
+          href={filterPath(tab.target)}
+          aria-current={tab.on ? 'page' : undefined}
+          data-pressed={tab.on ? '' : undefined}
+          class={cn(geist.segmentText, 'no-underline')}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** Per folder: how many lists, and how many threads are open across them. */
+const folderTallies = computed(() => {
+  const tallies = new Map<string, { lists: number; open: number }>();
+  for (const link of links.value) {
+    if (link.folderId === null) continue;
+    const tally = tallies.get(link.folderId) ?? { lists: 0, open: 0 };
+    tally.lists += 1;
+    tally.open += link.site?.openCount ?? 0;
+    tallies.set(link.folderId, tally);
+  }
+  return tallies;
+});
+
+function FolderTally({ id }: { id: string }) {
+  const tally = folderTallies.value.get(id) ?? { lists: 0, open: 0 };
+  return (
+    <span class="text-meta tabular-nums text-(--ds-gray-900)">
+      {tally.lists} {tally.lists === 1 ? 'list' : 'lists'}
+      {tally.open > 0 && (
+        <>
+          <span class="px-1.5" aria-hidden="true">
+            ·
+          </span>
+          <span class="font-medium text-(--ds-gray-1000)">
+            <span class="mr-1 inline-block size-2 rounded-full bg-ml-green align-middle" aria-hidden="true" />
+            {tally.open} open
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** 44px on touch, 28px from `sm` up — the list rows' own control size. */
+const FOLDER_CTL = 'size-11 sm:size-7';
+
+/**
+ * The Folders tab: every folder, as rows or as tiles. The whole row opens the
+ * folder (a stretched link); its menu sits above that, as on a list row.
+ */
+export function FolderIndex({ layout, query, panel }: { layout: ListLayout; query: string; panel: string }) {
+  const shown = folders.value.filter((folder) => matchesQuery({ query, fields: [folder.name] }));
+  if (folders.value.length === 0) {
+    return (
+      <div class={cn(panel, 'flex flex-col items-center gap-2 px-6 py-16 text-center')}>
+        <FolderIcon size={24} strokeWidth={1.5} class="text-(--ds-gray-700)" aria-hidden="true" />
+        <span class="text-ui font-medium text-(--ds-gray-1000)">No folders yet</span>
+        <span class="text-meta leading-body max-w-[28rem] text-balance text-(--ds-gray-900)">
+          Make one per client, then file their lists into it with{' '}
+          <span class="text-(--ds-gray-1000)">Move to folder</span>.
+        </span>
+        <button type="button" class={cn(submitBtn, 'mt-4')} onClick={openNewFolder}>
+          New folder
+        </button>
+      </div>
+    );
+  }
+  if (shown.length === 0) {
+    return (
+      <div class={cn(panel, 'text-meta px-6 py-12 text-center text-(--ds-gray-900)')}>
+        No folder matches “{query.trim()}”.
+      </div>
+    );
+  }
+  if (layout === 'grid') {
+    return (
+      <ul class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        {shown.map((folder) => (
+          <li
+            key={folder.id}
+            class={cn(panel, 'group relative flex flex-col gap-3 p-4 transition-colors hover:bg-(--ds-gray-alpha-100)')}
+          >
+            <div class="flex items-start justify-between gap-2">
+              <span class="inline-flex size-10 items-center justify-center rounded-lg bg-(--ds-gray-alpha-100) text-(--ds-gray-900)">
+                <FolderIcon size={20} strokeWidth={1.5} aria-hidden="true" />
+              </span>
+              <div class="relative -mt-1 -mr-1">
+                <FolderActions folder={folder} class={cn(geist.ctlSm, geist.ctlIdle, FOLDER_CTL)} />
+              </div>
+            </div>
+            <div class="flex min-w-0 flex-col gap-0.5">
+              <Link
+                href={filterPath({ kind: 'folder', id: folder.id })}
+                class="text-ui tracking-ui block truncate font-medium text-(--ds-gray-1000) no-underline after:absolute after:inset-0 group-hover:underline"
+              >
+                {folder.name}
+              </Link>
+              <FolderTally id={folder.id} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <ul class={cn(panel, 'divide-y divide-(--ds-gray-alpha-400)')}>
+      {shown.map((folder) => (
+        <li
+          key={folder.id}
+          class="group relative flex items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-(--ds-gray-alpha-100)"
+        >
+          <FolderIcon size={16} strokeWidth={1.5} class="shrink-0 text-(--ds-gray-900)" aria-hidden="true" />
+          <div class="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:gap-3">
+            <Link
+              href={filterPath({ kind: 'folder', id: folder.id })}
+              class="text-ui tracking-ui truncate font-medium text-(--ds-gray-1000) no-underline after:absolute after:inset-0 group-hover:underline"
+            >
+              {folder.name}
+            </Link>
+            <FolderTally id={folder.id} />
+          </div>
+          <div class="relative shrink-0">
+            <FolderActions folder={folder} class={cn(geist.ctlSm, geist.ctlIdle, FOLDER_CTL)} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function NewFolderButton() {
   return (
     <button
       type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      class={cn(
-        'text-ui h-7 max-w-48 shrink-0 cursor-pointer truncate rounded-md border-none px-2.5 font-medium transition-colors duration-150',
-        active
-          ? 'bg-(--ds-gray-alpha-200) text-(--ds-gray-1000)'
-          : 'bg-transparent text-(--ds-gray-900) hover:bg-(--ds-gray-alpha-100) hover:text-(--ds-gray-1000)',
-      )}
+      aria-label="New folder"
+      class={cn(geist.ctlSm, geist.ctlIdle, 'size-11 sm:size-8')}
+      onClick={openNewFolder}
     >
-      {label}
+      <FolderPlus size={16} strokeWidth={1.5} aria-hidden="true" />
     </button>
   );
 }
 
-/** Filter chips plus the way to make a folder. Folder-level actions live behind the active chip. */
-export function FolderBar() {
-  const filter = folderFilter.value;
-  const active = filter.kind === 'folder' ? folders.value.find((f) => f.id === filter.id) : undefined;
-  return (
-    <div class="mb-4 flex flex-wrap items-center gap-1">
-      <Chip
-        label="All"
-        active={filter.kind === 'all'}
-        onClick={() => {
-          folderFilter.value = { kind: 'all' };
-        }}
-      />
-      {folders.value.length > 0 && (
-        <Chip
-          label="Unfiled"
-          active={filter.kind === 'unfiled'}
-          onClick={() => {
-            folderFilter.value = { kind: 'unfiled' };
-          }}
-        />
-      )}
-      {folders.value.map((folder) => (
-        <Chip
-          key={folder.id}
-          label={folder.name}
-          active={filter.kind === 'folder' && filter.id === folder.id}
-          onClick={() => {
-            folderFilter.value = { kind: 'folder', id: folder.id };
-          }}
-        />
-      ))}
-      <button
-        type="button"
-        aria-label="New folder"
-        class={cn(geist.ctlSm, geist.ctlIdle, 'size-7')}
-        onClick={() => {
-          dialog.value = { kind: 'create' };
-        }}
-      >
-        <Plus size={14} strokeWidth={1.5} aria-hidden="true" />
-      </button>
-      {active && <FolderActions folder={active} />}
-    </div>
-  );
-}
-
-function FolderActions({ folder }: { folder: Folder }) {
+export function FolderActions({ folder, class: className }: { folder: Folder; class: string }) {
   return (
     <Menu.Root>
-      <Menu.Trigger aria-label={`Actions for ${folder.name}`} className={cn(geist.ctlSm, geist.ctlIdle, 'size-7')}>
+      <Menu.Trigger aria-label={`Actions for ${folder.name}`} className={className}>
         <Ellipsis size={14} strokeWidth={1.5} aria-hidden="true" />
       </Menu.Trigger>
       <Menu.Portal container={portalContainer.value ?? undefined}>
-        <Menu.Positioner side="bottom" align="start" sideOffset={6} className="z-2147483647">
+        <Menu.Positioner side="bottom" align="end" sideOffset={6} className="z-2147483647">
           <Menu.Popup className={cn(geist.surface, 'min-w-40 p-1 text-ui text-(--ds-gray-1000)')}>
             <Menu.Item
               className={MENU_ITEM}
@@ -206,6 +324,7 @@ function DialogBody({ spec }: { spec: DialogSpec }) {
   const name = useSignal(spec.kind === 'rename' ? spec.folder.name : '');
   const error = useSignal<string | null>(null);
   const busy = useSignal(false);
+  const [location, navigate] = useLocation();
 
   const submit = async (event: Event) => {
     event.preventDefault();
@@ -213,6 +332,8 @@ function DialogBody({ spec }: { spec: DialogSpec }) {
     if (spec.kind === 'delete') {
       await deleteFolder(spec.folder.id);
       dialog.value = null;
+      // Deleted from inside it: the page it was on no longer exists.
+      if (location === filterPath({ kind: 'folder', id: spec.folder.id })) navigate('/folders', { replace: true });
       return;
     }
     const failure =

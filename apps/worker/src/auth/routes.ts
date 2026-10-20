@@ -331,6 +331,52 @@ auth.put('/links/:id/folder', async (c) => {
   return c.json({ moved }, 200);
 });
 
+/** The R2 key of a list's thumbnail. Keyed by the row's id, so it needs no column of its own. */
+export function thumbnailKey(id: string): string {
+  return `thumbs/${id}`;
+}
+
+/** A 640px JPEG lands near 60KB; this leaves room for a busy page without storing a full screenshot. */
+const THUMBNAIL_MAX_BYTES = 512 * 1024;
+const THUMBNAIL_TYPES = new Set(['image/jpeg', 'image/webp', 'image/png']);
+
+/** The owner's viewer sends this after the first page renders. Anyone else is a silent no-op, as on PATCH. */
+auth.put('/links/:id/thumbnail', async (c) => {
+  const type = c.req.header('content-type')?.split(';')[0]?.trim() ?? '';
+  if (!THUMBNAIL_TYPES.has(type)) return c.json({ error: 'Send a JPEG, WebP or PNG.' }, 415);
+  if (Number(c.req.header('content-length') ?? 0) > THUMBNAIL_MAX_BYTES) {
+    return c.json({ error: 'Thumbnail too large.' }, 413);
+  }
+  const id = c.req.param('id');
+  if (!(await ownedStore(c.env.DB).getSettings({ id, ownerId: c.get('session').id }))) {
+    return c.json({ saved: false }, 200);
+  }
+  // The header can lie or be missing; the body cannot.
+  const body = await c.req.arrayBuffer();
+  if (body.byteLength > THUMBNAIL_MAX_BYTES) return c.json({ error: 'Thumbnail too large.' }, 413);
+  await c.env.FILE_BUCKET.put(thumbnailKey(id), body, { httpMetadata: { contentType: type } });
+  return c.json({ saved: true }, 200);
+});
+
+/**
+ * Behind the session, not the owner check: the id is already the link's access
+ * token, and a D1 read per card would put hundreds behind one dashboard load.
+ */
+auth.get('/links/:id/thumbnail', async (c) => {
+  const object = await c.env.FILE_BUCKET.get(thumbnailKey(c.req.param('id')), { onlyIf: c.req.raw.headers });
+  if (!object) return c.body(null, 404);
+  // A met If-None-Match comes back without a body.
+  if (!('body' in object)) return new Response(null, { status: 304, headers: { ETag: object.httpEtag } });
+  return new Response(object.body, {
+    headers: {
+      'Content-Type': object.httpMetadata?.contentType ?? 'image/jpeg',
+      // Revalidated each load, so a fresh capture shows the next time the dashboard opens.
+      'Cache-Control': 'private, no-cache',
+      ETag: object.httpEtag,
+    },
+  });
+});
+
 auth.use('/folders', requireSession);
 auth.use('/folders/*', requireSession);
 

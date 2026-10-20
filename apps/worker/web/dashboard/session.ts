@@ -28,8 +28,34 @@ export const links = signal<OwnedLink[]>([]);
 export const linksLoading = signal(false);
 export const folders = signal<Folder[]>([]);
 
-export type FolderFilter = { kind: 'all' } | { kind: 'unfiled' } | { kind: 'folder'; id: string };
-export const folderFilter = signal<FolderFilter>({ kind: 'all' });
+/** Which lists the dashboard shows. It lives in the URL (see dashboard-main), so Back walks out of a folder. */
+export type FolderFilter = { kind: 'all' } | { kind: 'unfiled' } | { kind: 'folders' } | { kind: 'folder'; id: string };
+
+export type ListLayout = 'list' | 'grid';
+const LAYOUT_KEY = 'marklayer:dash-layout';
+
+function storedLayout(): ListLayout {
+  try {
+    return localStorage.getItem(LAYOUT_KEY) === 'grid' ? 'grid' : 'list';
+  } catch {
+    return 'list';
+  }
+}
+
+/** A per-browser preference, so it is remembered here and nowhere else. */
+export const listLayout = signal<ListLayout>(storedLayout());
+
+export function setListLayout(layout: ListLayout): void {
+  listLayout.value = layout;
+  try {
+    localStorage.setItem(LAYOUT_KEY, layout);
+  } catch {
+    // Blocked storage only costs the choice on the next visit.
+  }
+}
+
+/** The search box. Kept across tabs, so a client found under All is still found inside their folder. */
+export const searchQuery = signal('');
 
 async function readJson(res: Response): Promise<unknown> {
   return res.json().catch(() => null);
@@ -98,7 +124,6 @@ export async function signOut(): Promise<void> {
   user.value = null;
   links.value = [];
   folders.value = [];
-  folderFilter.value = { kind: 'all' };
 }
 
 /** Returns an error message, or null when the folder exists. */
@@ -125,8 +150,6 @@ export async function renameFolder({ id, name }: { id: string; name: string }): 
 /** Its links are unfiled by the server, not deleted, so they are reloaded rather than patched. */
 export async function deleteFolder(id: string): Promise<void> {
   await fetch(`/auth/folders/${encodeURIComponent(id)}`, { method: 'DELETE' });
-  const current = folderFilter.value;
-  if (current.kind === 'folder' && current.id === id) folderFilter.value = { kind: 'all' };
   await Promise.all([loadFolders(), loadLinks()]);
 }
 

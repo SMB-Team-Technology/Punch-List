@@ -67,8 +67,15 @@ function Shell() {
       <AppBar />
       <Switch>
         <Route path="/claim/:id" component={Claim} />
+        <Route path="/unfiled">
+          <Dashboard filter={{ kind: 'unfiled' }} />
+        </Route>
+        <Route path="/folders">
+          <Dashboard filter={{ kind: 'folders' }} />
+        </Route>
+        <Route path="/folders/:id">{(params) => <Dashboard filter={{ kind: 'folder', id: params.id }} />}</Route>
         <Route>
-          <Dashboard />
+          <Dashboard filter={{ kind: 'all' }} />
         </Route>
       </Switch>
     </>

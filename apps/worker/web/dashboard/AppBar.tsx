@@ -3,12 +3,13 @@ import { geist } from '@ext/lib/geist';
 import { glass } from '@ext/lib/glass';
 import { cn } from '@marklayer/types';
 import { ChevronDown } from 'lucide-preact';
-import { Logo } from '../shared';
+import { homeHref, Logo } from '../shared';
 import { signOut, user } from './session';
 
 /** One measure for the bar and the page under it, so the wordmark and the first
  *  row of content sit on the same left edge at every width. */
-export const APP_MEASURE = 'mx-auto w-full max-w-[52rem] px-5 sm:px-6';
+/* Wide enough for a five-across grid on a large screen; the gutter grows with it so the edge never crowds. */
+export const APP_MEASURE = 'mx-auto w-full max-w-[96rem] px-5 sm:px-6 lg:px-10';
 
 function AccountMenu({ email }: { email: string }) {
   return (
@@ -57,7 +58,7 @@ export function AppBar() {
     <header class={cn(geist.bar, 'sticky top-0 z-10')}>
       <div class={cn(APP_MEASURE, 'flex h-14 items-center gap-3')}>
         <a
-          href="/"
+          href={homeHref(account !== null)}
           class={cn(
             // -mx-2 so the mark itself sits on the page's left margin and the hover
             // fill grows outward, rather than the padding pushing the lockup off it.

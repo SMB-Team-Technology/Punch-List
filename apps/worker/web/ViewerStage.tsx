@@ -25,7 +25,8 @@ import { audioConstraint } from './devicePrefs';
 import { frameSrc, isUploadPath, liveRoomUrl, stillFrame } from './docSource';
 import { shootFrame } from './frameShot';
 import { captureAnchors, frameViewport, sameOriginWindow, useFrameRectTracker } from './iframeOverlay';
-import { HOME_LINK_PROPS, Logo, TextInputOverlay } from './shared';
+import { signedIn } from './role';
+import { homeLinkProps, Logo, TextInputOverlay } from './shared';
 import {
   annotationId,
   commentPopover,
@@ -189,10 +190,10 @@ function PageFailure() {
             {upload ? 'Open the file' : 'Open on the live site'}
           </a>
           <a
-            {...HOME_LINK_PROPS}
+            {...homeLinkProps(signedIn.value)}
             class="text-ui text-ml-fg/70 underline underline-offset-2 hover:text-ml-fg transition-colors"
           >
-            Back home
+            {signedIn.value ? 'Back to my lists' : 'Back home'}
           </a>
         </div>
       </div>

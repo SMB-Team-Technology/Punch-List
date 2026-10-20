@@ -39,9 +39,9 @@ import { canvasFitted, canvasZoom, toggleCanvasFit } from './DeviceOverview';
 import { isUploadPath } from './docSource';
 import { PresenceMenu } from './PresenceMenu';
 import { type PreviewInfo, previewInfo } from './review';
-import { isClient } from './role';
+import { isClient, signedIn } from './role';
 import { SharePopover } from './SharePopover';
-import { DEVICE_ICONS, HOME_LINK_PROPS, Logo } from './shared';
+import { DEVICE_ICONS, homeLinkProps, Logo } from './shared';
 import {
   cssScale,
   deviceMode,
@@ -101,7 +101,7 @@ export function BarButton({
 function BrandLink() {
   return (
     <a
-      {...HOME_LINK_PROPS}
+      {...homeLinkProps(signedIn.value)}
       class={cn(
         'flex items-center gap-1.5 h-8 px-2 rounded-md no-underline shrink-0 cursor-pointer',
         'hover:bg-(--ds-gray-alpha-100) transition-colors duration-150',

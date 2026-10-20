@@ -12,6 +12,8 @@ export type AuthEnv = EmailEnv &
   TeamEnv & {
     DB: D1Database;
     ANNOTATION_ROOM: DurableObjectNamespace;
+    /** Holds the dashboard's list thumbnails under `thumbs/`, beside the uploads. */
+    FILE_BUCKET: R2Bucket;
     POSTHOG_KEY?: string;
     POSTHOG_HOST?: string;
     /** Caps mail to typed-in addresses per client IP. Absent in dev and tests, which then run unlimited. */
