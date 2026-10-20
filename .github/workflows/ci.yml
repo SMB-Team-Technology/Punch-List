@@ -38,6 +38,5 @@ jobs:
       - name: Build
         run: bun run build
 
-  # Deploys are run locally, not here: `bun run deploy` ships the Worker with
-  # apps/site's prerendered pages embedded in its asset bundle, and
-  # `bun run deploy:mcp` publishes marklayer-mcp to npm.
+  # The Worker deploys from deploy.yml on every push to deploy/feedback, not
+  # here; `bun run deploy:mcp` (npm) stays local.

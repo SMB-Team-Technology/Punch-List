@@ -1,0 +1,48 @@
+name: Deploy
+
+on:
+  push:
+    branches: [deploy/feedback]
+  workflow_dispatch:
+
+# One deploy at a time, and never cancel one mid-upload: a newer push queues
+# behind it and ships right after.
+concurrency:
+  group: deploy-feedback
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://feedback.smbteam.com
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+
+      - name: Install
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run check
+
+      - name: Test
+        run: bun run test
+
+      # `bun run deploy` drops the CLOUDFLARE_* env on its way through Turbo, so
+      # build first and call wrangler directly, as CLAUDE.md does by hand.
+      - name: Build
+        run: bun run build
+
+      # Migrations stay a manual step: the token has no D1 permission on purpose.
+      - name: Deploy worker
+        working-directory: apps/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: bunx wrangler deploy

@@ -12,7 +12,7 @@ MarkLayer — free annotation/collaboration tool for any webpage. Monorepo with 
 - `main` mirrors upstream MarkLayer; fork work lives on `deploy/feedback`. Merge upstream into it, never the reverse.
 - Upstream identifiers are kept on purpose so those merges stay cheap: `marklayer_*` MCP tool ids, `@marklayer/*` packages, `ml-` classes, `data-marklayer`, D1/R2 names, localStorage keys, analytics events, file names. Only user-visible text, origins and branding change.
 - The site is cut to home, help, privacy, `/mcp` and 404. Removed or unwired: the donation/support card (`SupportDialog.tsx`, `support*.ts` are dead code), extension prompts (no extension is offered), the demo-board cron and the landing demo. Nothing is published to npm; agents connect over `https://feedback.smbteam.com/s/<id>/mcp`.
-- Deploy: `bun run deploy` loses the `CLOUDFLARE_*` env through Turbo. Run `bun run build`, then `bunx wrangler deploy` in `apps/worker`.
+- Deploy: every push to `deploy/feedback` deploys the Worker via `.github/workflows/deploy.yml` (type-check, test, build, `wrangler deploy`; watch it in the Actions tab). It uses the `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` repo secrets — an account token with Workers Editor + R2 Storage Read, and Workers Routes Edit on `smbteam.com`; no D1, so migrations stay manual. By hand: `bun run deploy` loses the `CLOUDFLARE_*` env through Turbo, so run `bun run build`, then `bunx wrangler deploy` in `apps/worker`.
 - Apache-2.0 attribution is required: keep "Built on MarkLayer, Apache-2.0" linking https://github.com/thevrus/MarkLayer wherever it appears (footer, privacy, llms files, SKILL.md).
 
 ## Commands
