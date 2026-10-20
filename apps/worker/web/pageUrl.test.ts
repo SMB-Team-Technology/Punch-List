@@ -1,13 +1,18 @@
 import { describe, expect, test } from 'bun:test';
-import { cleanPageUrl } from './pageUrl';
+import { cleanPageUrl, pageKey } from './pageUrl';
 
 describe('cleanPageUrl', () => {
   test('drops the tracking tags a click adds, so one page stays one page', () => {
     const gl = '_gl=1*1sywdim*_ga*MTEzNjgyOTUxNi4xNzkyMjk4MTI4';
     expect(cleanPageUrl(`https://critandclattergames.com/?${gl}`)).toBe('https://critandclattergames.com/');
     expect(cleanPageUrl('https://site.example/about/?utm_source=x&utm_medium=y&fbclid=z')).toBe(
-      'https://site.example/about',
+      'https://site.example/about/',
     );
+  });
+
+  test('keeps the trailing slash, because the slashless path is a redirect stub', () => {
+    // GCS-hosted Astro sites answer `/about` with a stub; only `/about/` is the page.
+    expect(cleanPageUrl('https://site.example/about/')).toBe('https://site.example/about/');
   });
 
   test('keeps the parameters that pick what the page shows', () => {
@@ -17,7 +22,7 @@ describe('cleanPageUrl', () => {
   });
 
   test('treats a trailing slash and a fragment as the same page', () => {
-    expect(cleanPageUrl('https://site.example/about/#team')).toBe(cleanPageUrl('https://site.example/about'));
+    expect(pageKey('https://site.example/about/#team')).toBe(pageKey('https://site.example/about'));
   });
 
   test('leaves the site root alone', () => {

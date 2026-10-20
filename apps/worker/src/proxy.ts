@@ -287,6 +287,8 @@ export interface FetchedPage {
   firewall: Firewall | null;
   /** The relay's public address, when the relay is what answered. */
   egressIp: string | null;
+  /** A same-origin page this one bounces to at once — see `instantRefreshTarget`. */
+  refreshTo: string | null;
 }
 
 /**
@@ -308,13 +310,54 @@ async function describePage({
   const base = { status: resp.status, contentType, finalUrl, via, egressIp };
 
   if (!contentType.includes('text/html') || !resp.body) {
-    return { ...base, stream: resp.body, challenged: false, firewall: null };
+    return { ...base, stream: resp.body, challenged: false, firewall: null, refreshTo: null };
   }
   const { head, stream } = await peekBody(resp.body);
   const challenged = isChallenged({ status: resp.status, head });
   const firewall = challenged ? identifyFirewall({ headers: resp.headers, head }) : null;
-  return { ...base, stream, challenged, firewall };
+  const refreshTo = challenged ? null : instantRefreshTarget({ head, base: finalUrl });
+  return { ...base, stream, challenged, firewall, refreshTo };
 }
+
+const META_TAG = /<meta\b[^>]*>/gi;
+const REFRESH_CONTENT = /^\s*0+(?:\.\d*)?\s*[;,]\s*(?:url\s*=\s*)?(['"]?)(.+?)\1\s*$/i;
+
+/** One attribute of a single tag, quoted or bare. */
+function attrOf({ tag, name }: { tag: string; name: string }): string | null {
+  const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
+  return m ? (m[1] ?? m[2] ?? m[3] ?? '') : null;
+}
+
+/**
+ * Where a zero-delay `<meta http-equiv="refresh">` sends the page, when that is
+ * elsewhere on the same origin.
+ *
+ * Static hosts answer `/about` with a stub that bounces to `/about/` — a meta
+ * refresh plus `location.replace("/about/")`. Served through the proxy, that
+ * script resolves against our origin (the injected `replaceState` puts the
+ * target's path on it), so the frame walks out to our own 404 and the viewer
+ * reports a failure a second after the stub painted. Following it here, like
+ * the HTTP redirect it stands in for, never lets the stub reach the frame.
+ * Same-origin only: the host has already passed the gate, another one has not.
+ */
+function instantRefreshTarget({ head, base }: { head: string; base: string }): string | null {
+  for (const tag of head.match(META_TAG) ?? []) {
+    if (attrOf({ tag, name: 'http-equiv' })?.toLowerCase() !== 'refresh') continue;
+    const target = attrOf({ tag, name: 'content' })?.match(REFRESH_CONTENT)?.[2];
+    if (!target) continue;
+    try {
+      const next = new URL(target, base);
+      if (next.origin !== new URL(base).origin || next.href === base) return null;
+      return next.href;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/** A chain of stubs longer than this is a loop, not a page. */
+const MAX_REFRESH_HOPS = 3;
 
 /**
  * `fetch`, bounding the wait for response headers and nothing else.
@@ -352,7 +395,15 @@ export async function fetchWithHeaderTimeout({
  * served the full page to an ordinary connection. So there is nothing to retry
  * with here — only somewhere else to retry *from*.
  */
-export async function fetchPage({ url, env }: { url: string; env: Env['Bindings'] }): Promise<FetchedPage> {
+export async function fetchPage({
+  url,
+  env,
+  hops = 0,
+}: {
+  url: string;
+  env: Env['Bindings'];
+  hops?: number;
+}): Promise<FetchedPage> {
   const origin = new URL(url).origin;
   const resp = await fetchWithHeaderTimeout({
     url,
@@ -370,6 +421,10 @@ export async function fetchPage({ url, env }: { url: string; env: Env['Bindings'
   });
 
   const direct = await describePage({ resp, finalUrl: resp.url || url, via: 'direct' });
+  if (direct.refreshTo && hops < MAX_REFRESH_HOPS) {
+    void direct.stream?.cancel();
+    return fetchPage({ url: direct.refreshTo, env, hops: hops + 1 });
+  }
   if (!direct.challenged) return direct;
 
   const relayed = await relayFetch({ url, env });
@@ -404,6 +459,24 @@ function blockedNotice({ resp, env }: { resp: FetchedPage; env: Env['Bindings'] 
   const ipJs = ip ? `"${escapeForScript(ip)}"` : 'null';
   const firewallJs = resp.firewall ? `"${resp.firewall}"` : 'null';
   return `<script>window.parent.postMessage({type:"ml-blocked",reason:"${reason}",status:${resp.status},via:"${resp.via}",ip:${ipJs},firewall:${firewallJs}},"*")</script>`;
+}
+
+/**
+ * Hands a page's own attempt to leave the frame to the viewer, as a link click would.
+ *
+ * A redirect the proxy could not follow — a script-only stub, a delayed refresh,
+ * a stub pointing at another host — otherwise navigates the frame straight off
+ * the proxy: a root-relative `location.replace` resolves against our origin and
+ * lands on our 404, a meta refresh resolves against `<base>` and goes
+ * cross-origin. Either way the viewer was left with an unmarked document and
+ * called the page broken. The Navigation API is the one hook that sees all of
+ * them; where it is missing, the old behaviour stands.
+ *
+ * Our own frame routes pass untouched, so the viewer switching pages, a proxied
+ * form GET and a reload all still go through.
+ */
+export function redirectGuard({ selfOrigin, origin }: { selfOrigin: string; origin: string }): string {
+  return `<script>window.navigation&&navigation.addEventListener("navigate",function(e){if(!e.cancelable||e.destination.sameDocument||e.hashChange||e.formData||e.downloadRequest!==null)return;if(e.navigationType==="reload"||e.navigationType==="traverse")return;var u;try{u=new URL(e.destination.url)}catch(x){return}if(!/^https?:$/.test(u.protocol))return;if(u.origin==="${selfOrigin}"){if(/^\\/(proxy|doc|px)(\\/|$)/.test(u.pathname))return;u=new URL(u.pathname+u.search+u.hash,"${escapeForScript(origin)}")}e.preventDefault();window.parent.postMessage({type:"ml-navigate",url:u.href,redirect:true},"${selfOrigin}")})</script>`;
 }
 
 /** The shared gate's failure reasons, in the proxy's own error vocabulary. */
@@ -518,7 +591,7 @@ proxy.get('/proxy', async (c) => {
     const origPath = baseUrl.pathname + baseUrl.search;
     const selfOrigin = reqUrl.origin;
     // The last script is the compare view's scroll bridge: inert until the parent sends ml-scroll-sync.
-    const inject = `<script>document.documentElement.dataset.marklayer="1";history.replaceState(null,"","${escapeForScript(origPath)}");navigator.serviceWorker&&(navigator.serviceWorker.register=function(){return Promise.resolve()});(function(){var H="${selfOrigin}";var T="${escapeForScript(baseUrl.host)}";var F=window.fetch;function _pw(s){try{var u=new URL(s,location.href);if(/^https?:$/.test(u.protocol)){if(u.origin!==location.origin)return H+"/px/"+u.host+u.pathname+u.search;if(u.pathname!=="/"&&!/^\\/(px|api|ws|proxy|s|og)(\\/|$)/.test(u.pathname))return H+"/px/"+T+u.pathname+u.search}}catch(e){}return null}window.fetch=function(i,o){var s=typeof i==="string"?i:i instanceof Request?i.url:String(i);var p=_pw(s);if(p)i=typeof i==="string"?p:new Request(p,i);return F.call(this,i,o)};var O=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(){var p=_pw(String(arguments[1]));if(p)arguments[1]=p;return O.apply(this,arguments)}})()</script><base href="${origin}/">${errorRelayScript(selfOrigin)}<script>(function(){var r=history.replaceState,p=history.pushState;history.replaceState=function(){try{return r.apply(this,arguments)}catch(e){}};history.pushState=function(){try{return p.apply(this,arguments)}catch(e){}}; document.addEventListener("click",function(e){var a=e.target.closest?e.target.closest("a"):null;if(!a)return;var h=a.href;if(!h||h.indexOf("javascript:")===0||h.charAt(0)==="#")return;e.preventDefault();e.stopPropagation();window.parent.postMessage({type:"ml-navigate",url:h},"${selfOrigin}")},true)})();</script><script>(function(){var on=false,lock=null;function se(){return document.scrollingElement||document.documentElement}window.addEventListener("message",function(e){if(e.source!==window.parent)return;var d=e.data;if(!d)return;if(d.type==="ml-scroll-sync"){on=d.on===true;return}if(!on||d.type!=="ml-scroll-to"||typeof d.ratio!=="number")return;var s=se(),y=Math.round(Math.max(0,Math.min(1,d.ratio))*(s.scrollHeight-s.clientHeight));if(Math.abs(s.scrollTop-y)<2)return;lock=y;s.scrollTop=y});window.addEventListener("scroll",function(){if(!on)return;var s=se(),y=s.scrollTop;if(lock!==null&&Math.abs(y-lock)<2){lock=null;return}lock=null;var m=s.scrollHeight-s.clientHeight;window.parent.postMessage({type:"ml-scroll",ratio:m>0?y/m:0},"${selfOrigin}")},{passive:true})})();</script>${blockedNotice(
+    const inject = `<script>document.documentElement.dataset.marklayer="1";history.replaceState(null,"","${escapeForScript(origPath)}");navigator.serviceWorker&&(navigator.serviceWorker.register=function(){return Promise.resolve()});(function(){var H="${selfOrigin}";var T="${escapeForScript(baseUrl.host)}";var F=window.fetch;function _pw(s){try{var u=new URL(s,location.href);if(/^https?:$/.test(u.protocol)){if(u.origin!==location.origin)return H+"/px/"+u.host+u.pathname+u.search;if(u.pathname!=="/"&&!/^\\/(px|api|ws|proxy|s|og)(\\/|$)/.test(u.pathname))return H+"/px/"+T+u.pathname+u.search}}catch(e){}return null}window.fetch=function(i,o){var s=typeof i==="string"?i:i instanceof Request?i.url:String(i);var p=_pw(s);if(p)i=typeof i==="string"?p:new Request(p,i);return F.call(this,i,o)};var O=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(){var p=_pw(String(arguments[1]));if(p)arguments[1]=p;return O.apply(this,arguments)}})()</script><base href="${origin}/">${errorRelayScript(selfOrigin)}<script>(function(){var r=history.replaceState,p=history.pushState;history.replaceState=function(){try{return r.apply(this,arguments)}catch(e){}};history.pushState=function(){try{return p.apply(this,arguments)}catch(e){}}; document.addEventListener("click",function(e){var a=e.target.closest?e.target.closest("a"):null;if(!a)return;var h=a.href;if(!h||h.indexOf("javascript:")===0||h.charAt(0)==="#")return;e.preventDefault();e.stopPropagation();window.parent.postMessage({type:"ml-navigate",url:h},"${selfOrigin}")},true)})();</script>${redirectGuard({ selfOrigin, origin })}<script>(function(){var on=false,lock=null;function se(){return document.scrollingElement||document.documentElement}window.addEventListener("message",function(e){if(e.source!==window.parent)return;var d=e.data;if(!d)return;if(d.type==="ml-scroll-sync"){on=d.on===true;return}if(!on||d.type!=="ml-scroll-to"||typeof d.ratio!=="number")return;var s=se(),y=Math.round(Math.max(0,Math.min(1,d.ratio))*(s.scrollHeight-s.clientHeight));if(Math.abs(s.scrollTop-y)<2)return;lock=y;s.scrollTop=y});window.addEventListener("scroll",function(){if(!on)return;var s=se(),y=s.scrollTop;if(lock!==null&&Math.abs(y-lock)<2){lock=null;return}lock=null;var m=s.scrollHeight-s.clientHeight;window.parent.postMessage({type:"ml-scroll",ratio:m>0?y/m:0},"${selfOrigin}")},{passive:true})})();</script>${blockedNotice(
       { resp, env: c.env },
     )}`;
 

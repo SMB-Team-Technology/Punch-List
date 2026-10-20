@@ -11,7 +11,7 @@ import {
 import { signal } from '@preact/signals';
 import { nanoid } from 'nanoid';
 import { capture } from './analytics';
-import { cleanPageUrl } from './pageUrl';
+import { cleanPageUrl, pageKey } from './pageUrl';
 
 export interface ProjectPage {
   id: string;
@@ -185,7 +185,8 @@ export async function navigateTo({ url: raw, source = 'viewer' }: { url: string;
   const pid = projectId.value;
   // A page the board already has is switched to, not opened again.
   if (pid) {
-    const existing = projectPages.value.findIndex((p) => p.url !== null && cleanPageUrl(p.url) === url);
+    const key = pageKey(url);
+    const existing = projectPages.value.findIndex((p) => p.url !== null && pageKey(p.url) === key);
     if (existing !== -1) {
       switchToPage(existing);
       return;
@@ -233,7 +234,7 @@ export async function navigateTo({ url: raw, source = 'viewer' }: { url: string;
   const currentId = annotationId.value;
   const currentUrl = pageUrl.value;
   // A link back to the page already open (a logo, a "home" link) is no new page.
-  if (currentId && currentUrl && cleanPageUrl(currentUrl) === url) return;
+  if (currentId && currentUrl && pageKey(currentUrl) === pageKey(url)) return;
   if (currentId && currentUrl) {
     projectLoading.value = true;
     // Best-effort flush of current ops so the project's first page has them on first read

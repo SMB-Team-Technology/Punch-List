@@ -426,7 +426,7 @@ export default function Viewer() {
       // be able to write into a comment's meta.
       if (e.data?.type === 'ml-errors' && e.source === frameRef.current?.contentWindow) ingestPageErrors(e.data.errors);
       if (e.data?.type === 'ml-navigate' && typeof e.data.url === 'string')
-        navigateTo({ url: e.data.url, source: 'page_link' });
+        navigateTo({ url: e.data.url, source: e.data.redirect === true ? 'page_redirect' : 'page_link' });
       if (e.data?.type === 'ml-blocked') {
         // The proxy separates "a firewall refused us" from "the origin errored";
         // only the first is worth showing an allowlisting address for.

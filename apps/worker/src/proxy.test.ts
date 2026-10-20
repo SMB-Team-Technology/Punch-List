@@ -6,6 +6,7 @@ import {
   isRefusedSubResource,
   peekBody,
   proxy,
+  redirectGuard,
   relayFetch,
   resetRelayBreaker,
 } from './proxy';
@@ -390,5 +391,97 @@ describe('fetchPage — leaving a host alone once it refuses the relay too', () 
 
     await fetchPage({ url: 'https://flagged.example/', env });
     expect(relayCalls).toBe(2);
+  });
+});
+
+describe('fetchPage — following a static host’s redirect stub', () => {
+  // biome-ignore lint/suspicious/noExplicitAny: no relay bindings are read.
+  const env = {} as any;
+  // What the static host serves for a slashless path — the stub that walked the frame out to our 404.
+  const stub = (to: string) =>
+    `<!doctype html><html><head><meta http-equiv="refresh" content="0; url=${to}"><script>location.replace("${to}")</script></head></html>`;
+  const pages: Record<string, string> = {
+    'https://site.example/about': stub('/about/'),
+    'https://site.example/about/': '<html><head><title>About</title></head><body>About us</body></html>',
+    'https://site.example/away': stub('https://elsewhere.example/'),
+    'https://site.example/loop': stub('/loop2'),
+    'https://site.example/loop2': stub('/loop'),
+  };
+  const fetched: string[] = [];
+
+  beforeEach(() => {
+    fetched.length = 0;
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        fetched.push(String(input));
+        return new Response(pages[String(input)] ?? 'missing', { headers: { 'content-type': 'text/html' } });
+      },
+      { preconnect: realFetchForRoutes.preconnect },
+    );
+  });
+  afterEach(() => {
+    globalThis.fetch = realFetchForRoutes;
+  });
+
+  test('a slashless path lands on the page its stub points at', async () => {
+    const page = await fetchPage({ url: 'https://site.example/about', env });
+    expect(page.finalUrl).toBe('https://site.example/about/');
+    expect(page.stream && (await read(page.stream))).toContain('About us');
+  });
+
+  test('a stub pointing at another host is left alone', async () => {
+    const page = await fetchPage({ url: 'https://site.example/away', env });
+    expect(page.finalUrl).toBe('https://site.example/away');
+    expect(fetched).toEqual(['https://site.example/away']);
+  });
+
+  test('a refresh loop stops instead of spinning', async () => {
+    await fetchPage({ url: 'https://site.example/loop', env });
+    expect(fetched.length).toBe(4);
+  });
+});
+
+describe('redirectGuard — a page leaving the frame goes through the viewer', () => {
+  const selfOrigin = 'https://feedback.example';
+  /** Runs the emitted script against a fake Navigation API, returning what it posted and what it cancelled. */
+  function navigate(destination: string, extra: Record<string, unknown> = {}) {
+    const posted: unknown[] = [];
+    const handlers: Array<(e: unknown) => void> = [];
+    let cancelled = false;
+    const navigation = { addEventListener: (_: string, fn: (e: unknown) => void) => handlers.push(fn) };
+    const parent = { postMessage: (msg: unknown) => posted.push(msg) };
+    const body = redirectGuard({ selfOrigin, origin: 'https://site.example' }).replace(/<\/?script>/g, '');
+    new Function('window', 'navigation', body)({ navigation, parent }, navigation);
+    handlers[0]?.({
+      cancelable: true,
+      hashChange: false,
+      formData: null,
+      downloadRequest: null,
+      navigationType: 'replace',
+      destination: { url: destination, sameDocument: false },
+      preventDefault: () => (cancelled = true),
+      ...extra,
+    });
+    return { posted, cancelled };
+  }
+
+  test('a root-relative location.replace lands on the target site, not ours', () => {
+    // The stub's script resolves against our origin, so this is the URL the frame was about to load.
+    const { posted, cancelled } = navigate(`${selfOrigin}/about/`);
+    expect(cancelled).toBe(true);
+    expect(posted).toEqual([{ type: 'ml-navigate', url: 'https://site.example/about/', redirect: true }]);
+  });
+
+  test('a stub pointing at another host is handed over as it is', () => {
+    expect(navigate('https://elsewhere.example/new/').posted).toEqual([
+      { type: 'ml-navigate', url: 'https://elsewhere.example/new/', redirect: true },
+    ]);
+  });
+
+  test("the viewer's own frame routes and reloads are left alone", () => {
+    expect(navigate(`${selfOrigin}/proxy?url=x`).cancelled).toBe(false);
+    expect(navigate(`${selfOrigin}/px/site.example/form`).cancelled).toBe(false);
+    expect(navigate(`${selfOrigin}/about/`, { navigationType: 'reload' }).cancelled).toBe(false);
+    expect(navigate(`${selfOrigin}/about/`, { destination: { url: '', sameDocument: true } }).cancelled).toBe(false);
   });
 });

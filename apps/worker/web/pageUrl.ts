@@ -19,7 +19,13 @@ const TRACKING_PARAMS = new Set([
   'srsltid',
 ]);
 
-/** A page's address without its tracking tags or fragment: the form two links to one page share. */
+/**
+ * A page's address without its tracking tags or fragment — the address to load.
+ *
+ * The trailing slash is kept: on the Astro sites served from Cloud Storage,
+ * `/about` is a redirect stub and only `/about/` is the page. Stripping it sent
+ * every nav click to the stub.
+ */
 export function cleanPageUrl(raw: string): string {
   try {
     const url = new URL(raw);
@@ -27,10 +33,20 @@ export function cleanPageUrl(raw: string): string {
       if (TRACKING_PARAMS.has(key) || key.startsWith('utm_')) url.searchParams.delete(key);
     }
     url.hash = '';
-    // `/about` and `/about/` are one page on every site anyone reviews.
-    if (url.pathname.length > 1 && url.pathname.endsWith('/')) url.pathname = url.pathname.slice(0, -1);
     return url.toString();
   } catch {
     return raw;
+  }
+}
+
+/** What two links to one page share: `/about` and `/about/` are one page on every site anyone reviews. */
+export function pageKey(raw: string): string {
+  const clean = cleanPageUrl(raw);
+  try {
+    const url = new URL(clean);
+    if (url.pathname.length > 1 && url.pathname.endsWith('/')) url.pathname = url.pathname.slice(0, -1);
+    return url.toString();
+  } catch {
+    return clean;
   }
 }
