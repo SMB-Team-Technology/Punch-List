@@ -7,6 +7,9 @@ const AGENCY = { '@type': 'Organization', name: AGENCY_NAME, url: AGENCY_URL } a
 
 // Google's Rich Results Test rejects a bare day as a DateTime and asks for a zone.
 // Content only records the day, so it is pinned to UTC midnight.
+/** The homepage's WebApplication node. Other pages point at it rather than repeat it. */
+export const APP_ID = `${ORIGIN}/#app`;
+
 const dateTime = (day: string) => (/^\d{4}-\d{2}-\d{2}$/.test(day) ? `${day}T00:00:00Z` : day);
 
 export function articleSchema(p: {
@@ -15,10 +18,13 @@ export function articleSchema(p: {
   path: string;
   published: string;
   modified: string;
+  /** Set on pages whose subject is MarkLayer itself. */
+  aboutApp?: boolean;
 }): object {
   return {
     '@context': 'https://schema.org',
     '@type': 'Article',
+    ...(p.aboutApp ? { about: { '@id': APP_ID } } : {}),
     headline: p.h1,
     description: p.description,
     datePublished: dateTime(p.published),

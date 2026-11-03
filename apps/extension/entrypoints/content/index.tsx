@@ -26,6 +26,9 @@ export default defineContentScript({
       }
     });
 
+    let zoomWatch: MutationObserver | undefined;
+    let zoomFrame = 0;
+
     const ui = await createShadowRootUi(ctx, {
       name: 'mark-layer',
       // Both of WXT's styling conveniences are declined: `applyPosition` sets
@@ -61,6 +64,25 @@ export default defineContentScript({
             // below still positions the overlay correctly either way.
           }
         }
+        if (host instanceof HTMLElement) {
+          // A page `zoom` on <html> compounds into the host, drawing every layer
+          // at that multiple of its viewport-sized buffer. `zoom: 1` can't undo
+          // it (nested zooms multiply); the inverse does.
+          const unzoom = () => {
+            const z = Number.parseFloat(getComputedStyle(document.documentElement).zoom);
+            host.style.zoom = z > 0 ? String(1 / z) : '';
+          };
+          unzoom();
+          // One style read per frame: pages that churn <html> classes would force a recalc per batch.
+          zoomWatch = new MutationObserver(() => {
+            if (zoomFrame) return;
+            zoomFrame = requestAnimationFrame(() => {
+              zoomFrame = 0;
+              unzoom();
+            });
+          });
+          zoomWatch.observe(document.documentElement, { attributeFilter: ['style', 'class'] });
+        }
         // Named rather than matched by shape: style.css styles `.ml-root`, and
         // the container is the only element the app owns directly under the
         // shadow root. A `:host > :not(style)` rule would key the overlay's
@@ -71,6 +93,8 @@ export default defineContentScript({
         return container;
       },
       onRemove(container) {
+        zoomWatch?.disconnect();
+        cancelAnimationFrame(zoomFrame);
         portalContainer.value = null;
         if (container) render(null, container);
       },

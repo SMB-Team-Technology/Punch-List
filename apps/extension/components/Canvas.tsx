@@ -6,9 +6,11 @@ import { applyAnchorDelta } from '../lib/anchor';
 import {
   circleHitsRect,
   constrainEnd,
+  eraserDiameter,
   hexToRgba,
   redrawCanvas,
   renderOp,
+  shapeOp,
   simplify,
   strokeArrowHead,
 } from '../lib/renderer';
@@ -254,9 +256,7 @@ export function Canvas() {
       shiftHeld.current = e.shiftKey;
 
       if (tool === 'eraser') {
-        // Eraser visual diameter — keep in sync with onEraserMove cursor.
-        const eraserRadius = (Math.max(5, lineWidth.value * 1.5) * 2.5) / 2;
-        eraseTouchingDomOps(d.x, d.y, eraserRadius);
+        eraseTouchingDomOps(d.x, d.y, eraserDiameter(lineWidth.value) / 2);
       }
 
       if (FREEHAND.has(tool)) {
@@ -318,25 +318,9 @@ export function Canvas() {
             lineWidth: lineWidth.value,
             captureViewport: captureSize.current,
           };
-          if (tool === 'circle') {
-            const r = Math.hypot(d.x - s.x, d.y - s.y);
-            if (r > 0) pushOp({ ...base, tool: 'circle', centerX: s.x, centerY: s.y, radius: r });
-          } else if (tool === 'rectangle') {
-            if (s.x !== d.x && s.y !== d.y) {
-              pushOp({ ...base, tool: 'rectangle', startX: s.x, startY: s.y, endX: d.x, endY: d.y });
-            }
-          } else if (tool === 'line' || tool === 'arrow') {
-            if (s.x !== d.x || s.y !== d.y) {
-              pushOp({
-                ...base,
-                tool: 'line',
-                arrow: tool === 'arrow',
-                startX: s.x,
-                startY: s.y,
-                endX: d.x,
-                endY: d.y,
-              });
-            }
+          if (tool === 'circle' || tool === 'rectangle' || tool === 'line' || tool === 'arrow') {
+            const op = shapeOp({ tool, start: s, end: d, base });
+            if (op) pushOp(op);
           }
         }
       });
@@ -377,7 +361,7 @@ export function Canvas() {
         el.style.display = 'none';
         return;
       }
-      const size = Math.max(5, lineWidth.value * 1.5) * 2.5;
+      const size = eraserDiameter(lineWidth.value);
       el.style.display = 'block';
       el.style.left = `${e.clientX}px`;
       el.style.top = `${e.clientY}px`;
@@ -416,13 +400,23 @@ export function Canvas() {
     // mutation can never move a canvas pixel. Subscribing would make any page
     // with one comment repaint identical pixels on every DOM change.
     scrollTick.value;
-    // Subscribe to isDrawingActive so the redraw fires once on release —
-    // mid-stroke remote ops/undo would otherwise clobber the snapshot
-    // preview. The trailing redraw replays everything including the
-    // just-finished stroke and any peer ops that arrived during the drag.
-    if (isDrawingActive.value) return;
+    // Subscribe to isDrawingActive so a redraw fires on release too: it replays
+    // the just-finished stroke and any peer ops that arrived during the drag.
     const canvas = canvasRef.current;
-    if (canvas) redrawCanvas(canvas, ops);
+    if (!canvas) return;
+    if (!isDrawingActive.value) {
+      redrawCanvas(canvas, ops);
+      return;
+    }
+    // A scroll mid-stroke leaves the snapshot at the old offset: re-take it so the
+    // committed marks move with the page under the pen.
+    const ctx = getCtx();
+    if (!ctx || !snapshot.current) return;
+    redrawCanvas(canvas, ops);
+    snapshot.current = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    applyTool(ctx);
+    renderFreehandPreview();
+    renderShapePreview();
   });
 
   useSignalEffect(() => {

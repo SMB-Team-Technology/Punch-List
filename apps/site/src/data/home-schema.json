@@ -3,6 +3,7 @@
   "@graph": [
     {
       "@type": "WebApplication",
+      "@id": "https://feedback.smbteam.com/#app",
       "name": "Punch List",
       "alternateName": "Punch List by SMB Team",
       "description": "Website review for SMB Team clients. Open the link to your new site, click anywhere on the page and leave a note. Every note lands on the team's punch list, and you watch each one get checked off.",

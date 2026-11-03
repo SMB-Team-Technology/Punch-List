@@ -57,6 +57,32 @@ export function hexToRgba(hex: string, a = 1) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+/** The shape a drag from `start` to `end` draws; null when it is too small to mean anything. */
+export function shapeOp({
+  tool,
+  start,
+  end,
+  base,
+}: {
+  tool: 'circle' | 'rectangle' | 'line' | 'arrow';
+  start: Point;
+  end: Point;
+  base: { id: string; color: string; lineWidth: number; captureViewport?: { width: number; height: number } };
+}): DrawOp | null {
+  if (tool === 'circle') {
+    const radius = Math.hypot(end.x - start.x, end.y - start.y);
+    return radius > 0 ? { ...base, tool: 'circle', centerX: start.x, centerY: start.y, radius } : null;
+  }
+  if (tool === 'rectangle') {
+    return start.x !== end.x && start.y !== end.y
+      ? { ...base, tool: 'rectangle', startX: start.x, startY: start.y, endX: end.x, endY: end.y }
+      : null;
+  }
+  return start.x !== end.x || start.y !== end.y
+    ? { ...base, tool: 'line', arrow: tool === 'arrow', startX: start.x, startY: start.y, endX: end.x, endY: end.y }
+    : null;
+}
+
 export function simplify(pts: Point[], tol = 1): Point[] {
   if (pts.length <= 2) return pts;
   const sq = tol * tol;
@@ -194,6 +220,8 @@ export function renderOp(c: CanvasRenderingContext2D, op: DrawOp, ox: number, oy
   const sy = (n: number) => n * scale - oy;
   if (op.tool === 'text') {
     c.save();
+    // Text carries no composite op of its own; an eraser left on the context would erase it.
+    c.globalCompositeOperation = 'source-over';
     c.font = `${op.fontSize * scale}px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Geist", system-ui, sans-serif`;
     c.fillStyle = op.color;
     c.textBaseline = 'top';
@@ -270,6 +298,9 @@ export function renderOp(c: CanvasRenderingContext2D, op: DrawOp, ox: number, oy
   }
   c.restore();
 }
+
+/** On-screen eraser size: the cursor ring, and twice the hit radius for comments, areas and selections. */
+export const eraserDiameter = (lineWidth: number) => Math.max(5, lineWidth * 1.5) * 2.5;
 
 export function redrawCanvas(canvas: HTMLCanvasElement, ops: DrawOp[]) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true });

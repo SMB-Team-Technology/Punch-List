@@ -394,50 +394,113 @@ describe('fetchPage — leaving a host alone once it refuses the relay too', () 
   });
 });
 
-describe('fetchPage — following a static host’s redirect stub', () => {
-  // biome-ignore lint/suspicious/noExplicitAny: no relay bindings are read.
-  const env = {} as any;
-  // What the static host serves for a slashless path — the stub that walked the frame out to our 404.
-  const stub = (to: string) =>
-    `<!doctype html><html><head><meta http-equiv="refresh" content="0; url=${to}"><script>location.replace("${to}")</script></head></html>`;
-  const pages: Record<string, string> = {
-    'https://site.example/about': stub('/about/'),
-    'https://site.example/about/': '<html><head><title>About</title></head><body>About us</body></html>',
-    'https://site.example/away': stub('https://elsewhere.example/'),
-    'https://site.example/loop': stub('/loop2'),
-    'https://site.example/loop2': stub('/loop'),
-  };
-  const fetched: string[] = [];
-
-  beforeEach(() => {
-    fetched.length = 0;
-    globalThis.fetch = Object.assign(
-      async (input: RequestInfo | URL) => {
-        fetched.push(String(input));
-        return new Response(pages[String(input)] ?? 'missing', { headers: { 'content-type': 'text/html' } });
-      },
-      { preconnect: realFetchForRoutes.preconnect },
-    );
-  });
+describe('GET /proxy — entity-encoded attribute URLs (#4)', () => {
   afterEach(() => {
     globalThis.fetch = realFetchForRoutes;
   });
 
-  test('a slashless path lands on the page its stub points at', async () => {
-    const page = await fetchPage({ url: 'https://site.example/about', env });
-    expect(page.finalUrl).toBe('https://site.example/about/');
-    expect(page.stream && (await read(page.stream))).toContain('About us');
+  const rewrite = async (html: string) =>
+    (
+      await getProxy({
+        query: `url=${encodeURIComponent('https://example.com/')}`,
+        respond: () => new Response(html, { headers: { 'content-type': 'text/html' } }),
+      })
+    ).text();
+
+  test('srcset and src are decoded before rewriting, as the browser would read them', async () => {
+    // Twig's html_attr escaper output.
+    const body = await rewrite(
+      '<img src="https&#x3A;&#x2F;&#x2F;example.com&#x2F;a.webp" srcset="https&#x3A;&#x2F;&#x2F;example.com&#x2F;a.webp 683w, &#x2F;b.webp 1024w">',
+    );
+    expect(body).toContain('src="http://localhost/px/example.com/a.webp"');
+    expect(body).toContain(
+      'srcset="http://localhost/px/example.com/a.webp 683w, http://localhost/px/example.com/b.webp 1024w"',
+    );
   });
 
-  test('a stub pointing at another host is left alone', async () => {
-    const page = await fetchPage({ url: 'https://site.example/away', env });
-    expect(page.finalUrl).toBe('https://site.example/away');
-    expect(fetched).toEqual(['https://site.example/away']);
+  test('an ampersand in a rewritten query is re-escaped, so &copy= stays a parameter', async () => {
+    const body = await rewrite('<img src="/i.png?a=1&amp;copy=2">');
+    expect(body).toContain('src="http://localhost/px/example.com/i.png?a=1&amp;copy=2"');
+  });
+});
+
+describe('fetchPage — meta-refresh redirect stubs', () => {
+  // biome-ignore lint/suspicious/noExplicitAny: no relay bindings, so a challenge is returned as-is.
+  const env = {} as any;
+  const page = '<html><head><title>About</title></head><body>the real page</body></html>';
+  let fetched: string[] = [];
+
+  const serve = (pages: Record<string, string>) => {
+    fetched = [];
+    globalThis.fetch = Object.assign(
+      async (input: RequestInfo | URL) => {
+        const url = String(input);
+        fetched.push(url);
+        return new Response(pages[url] ?? page, { headers: { 'content-type': 'text/html' } });
+      },
+      { preconnect: realFetchForRoutes.preconnect },
+    );
+  };
+  const load = async (url: string) => {
+    const result = await fetchPage({ url, env });
+    return { ...result, body: result.stream ? await read(result.stream) : '' };
+  };
+
+  afterEach(() => {
+    globalThis.fetch = realFetchForRoutes;
   });
 
-  test('a refresh loop stops instead of spinning', async () => {
-    await fetchPage({ url: 'https://site.example/loop', env });
-    expect(fetched.length).toBe(4);
+  test("Astro's head-less stub is followed to the page it points at", async () => {
+    serve({
+      'https://site.example/about':
+        '<!doctype html><title>Redirecting to: /about/</title><meta http-equiv="refresh" content="0;url=/about/"><meta name="robots" content="noindex"><body><a href="/about/">Redirecting</a></body>',
+    });
+    const result = await load('https://site.example/about');
+    expect(result.finalUrl).toBe('https://site.example/about/');
+    expect(result.body).toContain('the real page');
+  });
+
+  test('a stub with a head and its own redirect script is followed too', async () => {
+    serve({
+      'https://site.example/about':
+        "<html><head><META HTTP-EQUIV='Refresh' CONTENT=\"0; URL='/about/'\"><script>location.replace('/about/')</script></head></html>",
+    });
+    const result = await load('https://site.example/about');
+    expect(result.finalUrl).toBe('https://site.example/about/');
+    expect(result.body).toContain('the real page');
+  });
+
+  test('a delayed refresh is the page, not a stub', async () => {
+    serve({ 'https://site.example/a': '<html><head><meta http-equiv="refresh" content="5;url=/b"></head></html>' });
+    expect((await load('https://site.example/a')).finalUrl).toBe('https://site.example/a');
+    expect(fetched).toEqual(['https://site.example/a']);
+  });
+
+  test('a refresh to another host is left for the frame', async () => {
+    serve({ 'https://site.example/a': '<meta http-equiv="refresh" content="0;url=https://other.example/">' });
+    expect((await load('https://site.example/a')).finalUrl).toBe('https://site.example/a');
+    expect(fetched).toEqual(['https://site.example/a']);
+  });
+
+  test('a refresh loop stops after three hops', async () => {
+    serve({
+      'https://site.example/a': '<meta http-equiv="refresh" content="0;url=/b">',
+      'https://site.example/b': '<meta http-equiv="refresh" content="0;url=/a">',
+    });
+    await load('https://site.example/a');
+    expect(fetched).toHaveLength(4);
+  });
+
+  test("a challenge's refresh to its CAPTCHA is still reported as a challenge", async () => {
+    serve({
+      'https://site.example/':
+        '<html><head><meta http-equiv="refresh" content="0;/.well-known/sgcaptcha/?r=%2F"></head></html>',
+    });
+    const result = await load('https://site.example/');
+    expect(result.challenged).toBe(true);
+    expect(result.firewall).toBe('siteground');
+    expect(result.finalUrl).toBe('https://site.example/');
+    expect(fetched).toEqual(['https://site.example/']);
   });
 });
 

@@ -14,7 +14,7 @@ import {
 import { signal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { opBody, opLabel } from './annotationItems';
-import { currentPageIdx, type ProjectPage, projectPages, refreshSitePages, switchToPage } from './projects';
+import { currentPageIdx, type ProjectPage, projectPages, refreshSitePages, switchPage } from './projects';
 
 /** What the comments panel lists: the page on screen, or every page of the site. */
 export const panelScope = signal<'page' | 'site'>('page');
@@ -93,7 +93,7 @@ export function SiteComments() {
     .filter((g) => g.threads.length > 0);
 
   const go = (i: number, op: AnnotationOp) => {
-    switchToPage(i);
+    switchPage(i);
     panelScope.value = 'page';
     focusedAnnotationId.value = op.id;
   };
