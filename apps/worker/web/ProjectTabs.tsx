@@ -5,7 +5,8 @@ import { operations, toast } from '@ext/lib/state';
 import { cn, countOpen } from '@marklayer/types';
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-preact';
 import { useState } from 'preact/hooks';
-import { navigateTo, switchToPage } from './projects';
+import { capture } from './analytics';
+import { addProjectPage, switchPage } from './projects';
 import { isClient } from './role';
 import {
   currentPageIdx,
@@ -81,9 +82,11 @@ export function ProjectTabs() {
   const siteOpen = pages.reduce((n, _, i) => n + openOn(i), 0);
 
   const go = (i: number) => {
-    switchToPage(i);
     setOpen(false);
     setQuery('');
+    if (i === idx) return;
+    switchPage(i);
+    capture('project_tab_switched', { pages: pages.length });
   };
 
   const deletePage = async (i: number) => {
@@ -114,16 +117,23 @@ export function ProjectTabs() {
       next.map((p) => p.id),
     );
     projectLoading.value = false;
-    toast(ok ? 'Page removed' : 'Failed to remove page', { type: ok ? 'success' : 'error' });
+    if (!ok) {
+      toast('Failed to remove page', { type: 'error' });
+      return;
+    }
+    capture('project_page_removed', { pages: next.length });
+    toast('Page removed', { type: 'success' });
   };
 
-  // The same path a link click takes, so a page the site already has is switched to rather than added twice.
+  // A page the site already has is switched to rather than added twice.
   const submitAdd = async (e: Event) => {
     e.preventDefault();
     const typed = newUrl.trim();
     if (!typed) return;
     setOpen(false);
-    await navigateTo({ url: withScheme(typed), source: 'add_page' });
+    const added = await addProjectPage(withScheme(typed));
+    if (!added) return;
+    if (added === 'added') capture('project_page_added', { pages: projectPages.value.length });
     setNewUrl('');
   };
 
@@ -139,7 +149,7 @@ export function ProjectTabs() {
         class={ICON_BTN}
         aria-label="Previous page"
         disabled={idx === 0}
-        onClick={() => switchToPage(idx - 1)}
+        onClick={() => go(idx - 1)}
       >
         <ChevronLeft size={15} aria-hidden="true" />
       </button>
@@ -255,7 +265,7 @@ export function ProjectTabs() {
         class={ICON_BTN}
         aria-label="Next page"
         disabled={idx >= pages.length - 1}
-        onClick={() => switchToPage(idx + 1)}
+        onClick={() => go(idx + 1)}
       >
         <ChevronRight size={15} aria-hidden="true" />
       </button>

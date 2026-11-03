@@ -15,7 +15,7 @@ import { cors } from 'hono/cors';
 import { userFromCookieHeader } from './auth';
 import { ownedStore } from './auth/store';
 import { mayStartBoards, requestMayStartBoards, TEAM_ONLY } from './auth/team';
-import { dayCached, once } from './http';
+import { dayCached, once, overRateLimit } from './http';
 import type { Env } from './index';
 import {
   deliverOne,
@@ -134,6 +134,12 @@ const LOCKED_RESPONSES = {
   401: jsonRes(ErrorResponse, 'Password-protected link: send `Authorization: Bearer <password>`'),
   429: jsonRes(ErrorResponse, 'Too many wrong passwords for this link from this client'),
 };
+
+const RATE_LIMITED = 'Too many requests';
+const RATE_LIMITED_RESPONSE = { 429: jsonRes(ErrorResponse, 'Too many writes from this client; retry in a minute') };
+
+/** Anonymous writes share one per-client budget with MCP calls and socket opens. */
+const overWriteLimit = (c: Context<Env>) => overRateLimit({ limiter: c.env.ROOM_LIMITER, req: c.req });
 
 // Seconds-from-now → absolute unix expiry, or null when unset / non-positive.
 function expiresAtFrom(expiresIn: number | undefined): number | null {
@@ -309,6 +315,7 @@ const storeAnnotation = createRoute({
   },
   responses: {
     ...LOCKED_RESPONSES,
+    429: jsonRes(ErrorResponse, 'Too many wrong passwords for this link, or too many writes, from this client'),
     200: jsonRes(OkResponse, 'Stored'),
     400: jsonRes(ErrorResponse, 'Invalid operations data'),
     403: jsonRes(ErrorResponse, 'Link is view-only, or a new link from someone outside the team'),
@@ -316,6 +323,7 @@ const storeAnnotation = createRoute({
 });
 
 api.openapi(storeAnnotation, async (c) => {
+  if (await overWriteLimit(c)) return c.json({ error: RATE_LIMITED }, 429);
   const { id } = c.req.valid('param');
   // Writes too: replacing a protected room's ops is as much a breach as reading them.
   const locked = await refuseLocked({ c, id });
@@ -493,10 +501,12 @@ const createPreview = createRoute({
     400: jsonRes(ErrorResponse, 'Invalid preview'),
     403: jsonRes(ErrorResponse, 'Starting a room is limited to the team'),
     409: jsonRes(ErrorResponse, 'Id already taken'),
+    ...RATE_LIMITED_RESPONSE,
   },
 });
 
 api.openapi(createPreview, async (c) => {
+  if (await overWriteLimit(c)) return c.json({ error: RATE_LIMITED }, 429);
   const { id } = c.req.valid('param');
   if (!(await requestMayStartBoards({ env: c.env, cookie: c.req.header('cookie') }))) {
     return c.json({ error: TEAM_ONLY }, 403);
@@ -843,10 +853,12 @@ const storeProject = createRoute({
     200: jsonRes(OkResponse, 'Stored'),
     400: jsonRes(ErrorResponse, 'Invalid pageIds'),
     403: jsonRes(ErrorResponse, 'A new project, from outside the team, naming a page that does not exist'),
+    ...RATE_LIMITED_RESPONSE,
   },
 });
 
 api.openapi(storeProject, async (c) => {
+  if (await overWriteLimit(c)) return c.json({ error: RATE_LIMITED }, 429);
   const { id } = c.req.valid('param');
   const body = c.req.valid('json');
   const pageIds = body.pageIds.filter((x) => x.length > 0);

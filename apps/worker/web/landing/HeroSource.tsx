@@ -7,6 +7,7 @@ import { capture } from '../analytics';
 import { navigateTo, withScheme } from '../signals';
 import { useHeroPin } from './useHeroPin';
 import { type UploadKind, useLandingUpload } from './useLandingUpload';
+import { useTypedPlaceholder } from './useTypedPlaceholder';
 
 type Source = 'website' | UploadKind;
 
@@ -63,6 +64,7 @@ export function HeroSource() {
   const { fileInputRef, uploading, dragging, dragKind, uploadFile } = useLandingUpload();
   const source = useSignal<Source>('website');
   const urlReady = useSignal(false);
+  const placeholder = useTypedPlaceholder();
   useHeroPin(fieldRef);
 
   const dragged = dragKind.value === 'link' ? 'website' : dragKind.value;
@@ -84,14 +86,14 @@ export function HeroSource() {
       <Tabs.List
         activateOnFocus
         aria-label="What to annotate"
-        className="lp-fade-up relative mt-10 grid grid-cols-3 rounded-full bg-ml-fg/5 p-1"
+        className="lp-fade-up relative mt-10 grid grid-cols-3 rounded-full bg-white/85 p-1 shadow-(--ds-shadow-border-small) backdrop-blur-sm"
         style={{ animationDelay: '0.15s' }}
       >
         {SOURCES.map(({ id, label }) => (
           <Tabs.Tab
             key={id}
             value={id}
-            className="relative z-1 h-8 w-24 cursor-pointer rounded-full border-none bg-transparent font-ui text-ui-lg font-medium tracking-ui text-ml-fg/60 transition-colors duration-200 hover:text-ml-fg data-active:text-ml-fg"
+            className="relative z-1 h-8 w-24 cursor-pointer rounded-full border-none bg-transparent font-ui text-ui-lg font-medium tracking-ui text-ml-fg/70 transition-colors duration-200 hover:text-ml-fg data-active:text-ml-fg"
           >
             {label}
           </Tabs.Tab>
@@ -121,8 +123,9 @@ export function HeroSource() {
                 type="text"
                 inputMode="url"
                 aria-label="Page URL to annotate"
-                placeholder={dragKind.value === 'link' ? 'Release to open this link…' : 'Paste any URL to annotate…'}
+                placeholder={dragKind.value === 'link' ? 'Release to open this link…' : placeholder.text.value}
                 autocomplete="url"
+                onFocus={placeholder.stop}
                 class="h-11 flex-1 bg-transparent border-none text-ml-fg text-base sm:text-body placeholder:text-ml-fg/60 outline-none"
                 onInput={(e) => {
                   const v = e.currentTarget.value.trim();

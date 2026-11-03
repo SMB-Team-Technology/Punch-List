@@ -19,12 +19,19 @@ import { Loader2 } from 'lucide-preact';
 import { nanoid } from 'nanoid';
 import { classifyProxyError } from '../src/proxy-errors';
 import { AnnotationPanel, AnnotationSheet, DockedAnnotationPanel } from './AnnotationPanel';
+import { capture } from './analytics';
 import { CursorLayer } from './CursorLayer';
 import { DeviceOverview } from './DeviceOverview';
 import { audioConstraint } from './devicePrefs';
 import { frameSrc, isUploadPath, liveRoomUrl, stillFrame } from './docSource';
 import { shootFrame } from './frameShot';
-import { captureAnchors, frameViewport, sameOriginWindow, useFrameRectTracker } from './iframeOverlay';
+import {
+  captureAnchors,
+  frameViewport,
+  sameOriginWindow,
+  useFrameMarkPointer,
+  useFrameRectTracker,
+} from './iframeOverlay';
 import { signedIn } from './role';
 import { homeLinkProps, Logo, TextInputOverlay } from './shared';
 import {
@@ -147,7 +154,10 @@ function OwnerFix({ ip }: { ip: string }) {
       {advice && (
         <button
           type="button"
-          onClick={() => copy(advice.request({ ip, host }))}
+          onClick={() => {
+            copy(advice.request({ ip, host }));
+            capture('owner_fix_copied', { firewall });
+          }}
           class="px-3 py-1.5 rounded-lg border border-ml-fg/15 bg-transparent text-meta text-ml-fg cursor-pointer hover:bg-ml-fg/5 transition-colors"
         >
           {copied.value ? 'Copied' : 'Copy support request'}
@@ -278,6 +288,7 @@ function ProxiedPage() {
 /** Anchored annotations that render as DOM rather than into the canvas. */
 function AnchoredOps({ frameDoc }: { frameDoc: Document | null | undefined }) {
   const scrollY = iframeScrollY.value;
+  useFrameMarkPointer(useViewerFrame().meta.frameRef);
   return (
     <>
       <div class="absolute inset-0 pointer-events-none overflow-hidden">

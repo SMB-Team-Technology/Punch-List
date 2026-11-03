@@ -148,16 +148,18 @@
   --color-ml-btn-fg: #003a59;
   --color-ml-card: oklch(1 0 0 / 0.3);
   --color-ml-card-border: oklch(0.1 0 0 / 0.06);
-  /* Landing surfaces. The page is white and everything that matters sits on
-     it as a white card drawn by its hairline ring, the way Inflight lays its
-     product out: the card is the object, its inner stage is a half-step of
-     warm grey, and the artifact on the stage is white again. */
+  /* Landing surfaces. The page is white; the demo window is a white object on it. */
   --color-ml-board: #fff;
   /* The stage inside a card, and a hovered link card. Warm, not the UI-kit
      cool grey, so it sits on the ink ramp's temperature. */
   --color-ml-board-raised: #f1f6f9;
   /* Hairline rules: the FAQ rows, the stage's own edge. */
   --color-ml-rule: #003a5914;
+  /* The edge of the demo's browser frame. */
+  --color-ml-card-edge: #e6e6e6;
+  /* The marker band behind the headline's channel word: a grey highlighter,
+     the word stays in ink. */
+  --color-ml-hl: #e8e8e8;
   --color-ml-input: oklch(1 0 0 / 0.85);
   --color-ml-input-border: oklch(0 0 0 / 0.12);
   /* Glass overlay surfaces (toolbar, panels, popovers) */
@@ -604,6 +606,35 @@
   }
 }
 
+/* Cursor-chat caret. Steps, not a fade: a real caret blinks hard. */
+@keyframes mlCaret {
+  50% {
+    opacity: 0;
+  }
+}
+.ml-caret {
+  width: 1.5px;
+  height: 1em;
+  margin-left: 1px;
+  border-radius: 1px;
+  background: currentColor;
+  animation: mlCaret 1s steps(1) infinite;
+}
+
+/* Each typed character lands rather than blinks into place. No fill-mode, so a
+   character whose animation never runs is simply there. */
+@keyframes mlCharIn {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+    transform: translateY(3px);
+  }
+}
+.ml-char-in {
+  display: inline-block;
+  animation: mlCharIn 220ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Same shape as `.ml-live` in apps/site's global.css, on this app's own tokens:
    one class pair driven by a data attribute, so the on/off states are not also
    written out as ternaries at the only call site. */
@@ -753,12 +784,9 @@
 }
 
 /* ── The landing surface system ──
-   Three tones and one card. The page is the grey floor, `.lp-card` is a white
-   object on it, `.lp-card-art` is the grey stage inside the card where a piece
-   of the product is shown, and `.lp-panel` is the product itself, white again.
-   Depth is a hairline ring plus a 2px contact shadow, never a bloom: the same
-   token the toolbar and its tooltip use, so an object on the page and an
-   object in the product are lit identically. */
+   Two tones. The page is `.lp-board`, white, and `.lp-panel` is a piece of the
+   product resting on it. Depth is a hairline ring plus a 2px contact shadow,
+   never a bloom: the same token the toolbar and its tooltip use. */
 .lp-board {
   background: var(--color-ml-board);
 }
@@ -785,6 +813,97 @@
   font-weight: 400;
 }
 
+/* The hero's sky. Full-bleed from inside the page column (left 50%, 100vw,
+   pulled back half a viewport), tucked up under the sticky nav so it starts at
+   the page's top edge. The image's own pixels are masked, not overlaid: a long
+   eased fade with many stops, so there is no line where the sky stops and the
+   page starts. */
+.lp-sky {
+  /* The sky's own height, set by the width it spans; --lp-lift (below) only adds sky above it. */
+  --lp-sky-base: clamp(440px, 44vw, 640px);
+  --lp-sky-fade: linear-gradient(
+    to bottom,
+    rgb(0 0 0) 0%,
+    rgb(0 0 0) 58%,
+    rgb(0 0 0 / 96%) 63%,
+    rgb(0 0 0 / 89%) 68%,
+    rgb(0 0 0 / 78%) 73%,
+    rgb(0 0 0 / 65%) 78%,
+    rgb(0 0 0 / 50%) 83%,
+    rgb(0 0 0 / 35%) 87%,
+    rgb(0 0 0 / 21%) 91%,
+    rgb(0 0 0 / 10%) 95%,
+    rgb(0 0 0 / 3%) 98%,
+    transparent 100%
+  );
+  position: absolute;
+  top: -3.5rem;
+  left: 50%;
+  width: 100vw;
+  height: calc(var(--lp-sky-base) + var(--lp-lift));
+  translate: -50% 0;
+  pointer-events: none;
+  -webkit-mask-image: var(--lp-sky-fade);
+  mask-image: var(--lp-sky-fade);
+}
+/* Spare height on a tall screen is split around the copy: the copy drops by
+   --lp-lift and the sky grows upward by as much, so white type stays on the sky. */
+.lp-board {
+  --lp-lift: 0px;
+}
+@media (min-width: 1024px) {
+  .lp-board {
+    --lp-lift: max(0px, (100svh - 960px) / 2);
+  }
+  /* The fade keeps its base height at the bottom; a solid layer covers the lift. */
+  .lp-sky {
+    -webkit-mask:
+      linear-gradient(#000, #000) top / 100% calc(100% - var(--lp-sky-base) + 1px) no-repeat,
+      var(--lp-sky-fade) bottom / 100% var(--lp-sky-base) no-repeat;
+    mask:
+      linear-gradient(#000, #000) top / 100% calc(100% - var(--lp-sky-base) + 1px) no-repeat,
+      var(--lp-sky-fade) bottom / 100% var(--lp-sky-base) no-repeat;
+  }
+}
+/* A phone stacks the headline to four lines and the subline to three, so the sky
+   stays solid longer and only starts to dissolve under the subline. */
+@media (max-width: 639px) {
+  .lp-sky {
+    height: 600px;
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      rgb(0 0 0) 0%,
+      rgb(0 0 0) 68%,
+      rgb(0 0 0 / 92%) 73%,
+      rgb(0 0 0 / 78%) 79%,
+      rgb(0 0 0 / 58%) 85%,
+      rgb(0 0 0 / 36%) 90%,
+      rgb(0 0 0 / 16%) 95%,
+      rgb(0 0 0 / 4%) 98%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      rgb(0 0 0) 0%,
+      rgb(0 0 0) 68%,
+      rgb(0 0 0 / 92%) 73%,
+      rgb(0 0 0 / 78%) 79%,
+      rgb(0 0 0 / 58%) 85%,
+      rgb(0 0 0 / 36%) 90%,
+      rgb(0 0 0 / 16%) 95%,
+      rgb(0 0 0 / 4%) 98%,
+      transparent 100%
+    );
+  }
+}
+.lp-sky img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center bottom;
+}
+
 /* The primary call to action: one flat black surface. The hover is a value
    step; nothing lifts, sweeps or glows. */
 .lp-cta {
@@ -801,24 +920,6 @@
   background: #fff;
   box-shadow: var(--ds-shadow-border-small);
 }
-.lp-card {
-  background: #fff;
-  border-radius: 1.5rem;
-  box-shadow: var(--ds-shadow-border-small);
-}
-.lp-card-art {
-  background: var(--color-ml-board-raised);
-  border-radius: 1rem;
-  box-shadow: 0 0 0 1px var(--color-ml-rule);
-}
-/* A link card's hover is a tonal step, not a lift. */
-a.lp-card {
-  transition: background-color 160ms ease;
-}
-a.lp-card:hover {
-  background: var(--color-ml-board-raised);
-}
-
 /* ── The nav ──
    Glass over the page, and it steps out of the way while the demo holds the
    screen, as the toolbar does. */
@@ -831,7 +932,23 @@ a.lp-card:hover {
   box-shadow: inset 0 -1px 0 var(--color-ml-rule);
   transition:
     translate 320ms var(--ease-ml-spring),
+    background-color 220ms ease,
+    box-shadow 220ms ease,
     visibility 0s;
+}
+/* Over the sky the bar is nothing: no fill, no rule, white type on the dusk.
+   Landing flips `data-over-sky` off once the top of the hero has scrolled past,
+   and the glass comes back. A state attribute, not a scroll-driven animation:
+   the animated custom property painted a frame late in Chromium. */
+.lp-nav[data-over-sky] {
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.ml-force-light .lp-nav[data-over-sky],
+.ml-force-light .lp-nav[data-over-sky] * {
+  --color-ml-fg: #fff;
 }
 /* Hidden only once it has slid out, so its links leave the tab order too. */
 .lp-nav[data-away] {
@@ -841,28 +958,6 @@ a.lp-card:hover {
     translate 320ms var(--ease-ml-spring),
     visibility 0s 320ms;
 }
-/* The arrow on a comparison card leans out on hover. */
-.lp-compare-arrow {
-  transition:
-    translate 220ms var(--ease-ml-spring),
-    color 160ms ease;
-}
-.lp-card:hover .lp-compare-arrow {
-  translate: 2px -2px;
-  color: var(--color-ml-fg);
-}
-
-/* The FAQ toggle: a plus, turned to a cross when open. */
-.lp-faq-mark {
-  transition: rotate 260ms var(--ease-ml-spring);
-}
-details[open] .lp-faq-mark {
-  rotate: 45deg;
-}
-.lp-faq summary::-webkit-details-marker {
-  display: none;
-}
-
 /* ── The demo stage ──
    A wallpaper desk with the live viewer on it. The viewer carries its own chrome,
    so the window is just its edge: radius in container units so it scales with
@@ -884,14 +979,30 @@ details[open] .lp-faq-mark {
   position: relative;
   overflow: hidden;
   /* The card radius: the desk sits in the card column as one of them. */
-  border-radius: 1.5rem;
-  aspect-ratio: 16 / 10;
-  background-color: var(--color-ml-board-raised);
+  border-radius: 1rem;
+  /* Taller on a phone: at 16:10 the room inside was a strip the toolbar covered. */
+  aspect-ratio: 4 / 3;
+  /* The painting's own sky, so the desk is never white while the wallpaper loads. */
+  background-color: #2c4189;
   /* The resting width of the runway desk, as a ratio of the viewport it is laid
      out at: the page column inside its gutter (2.5rem a side), so its edges
      line up with the cards. CSS has no length-over-length division and `scale`
      takes a number, so tan(atan2(a, b)) does the division. */
   --lp-rest: tan(atan2(min(100vw, var(--container-page)) - 5rem, 100vw));
+}
+@media (min-width: 640px) {
+  .lp-desk {
+    aspect-ratio: 16 / 10;
+  }
+}
+/* The desk's wallpaper, blurred into the file rather than by `filter`: the desk scales on scroll, and a live blur would re-run every frame. */
+.lp-desk-art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 70%;
 }
 .lp-desk-pad {
   position: absolute;
@@ -905,10 +1016,20 @@ details[open] .lp-faq-mark {
   overflow: hidden;
   background: #fff;
   border-radius: clamp(8px, 1.15cqw, 14px);
-  box-shadow:
-    0 0 0 1px #00000014,
-    0 1px 2px #0000000f,
-    0 12px 32px -16px #00000038;
+  border: 1px solid var(--color-ml-card-edge);
+  box-shadow: 0 1px 2px #0000000a;
+}
+.lp-window-bar {
+  background: #f6f6f6;
+  border-bottom: 1px solid var(--color-ml-card-edge);
+}
+/* Each light carries the hairline ring macOS draws, so the yellow holds its edge on the grey bar. */
+.lp-window-light {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 0.5px rgb(0 0 0 / 0.12);
 }
 
 @media (min-width: 640px) and (prefers-reduced-motion: no-preference) {
@@ -939,11 +1060,17 @@ details[open] .lp-faq-mark {
   }
 }
 
+/* `scale` shrinks about the centre and the rest scale comes from the width, so a
+   wide screen left a band above the desk; the entry frame lifts it back under the head. */
 @keyframes lpDeskExpand {
-  0%,
+  0% {
+    scale: var(--lp-rest, 0.8);
+    translate: 0 calc((var(--lp-rest, 0.8) - 1) * 50%);
+    border-radius: 1rem;
+  }
   100% {
     scale: var(--lp-rest, 0.8);
-    border-radius: 1.25rem;
+    border-radius: 1rem;
   }
   35%,
   65% {
@@ -994,6 +1121,7 @@ button.lp-field:focus-visible {
   translate: var(--active-tab-left) 0;
   border-radius: 9999px;
   background: #fff;
+  /* The list is near-white now, so the thumb's edge has to be drawn, not inferred. */
   box-shadow: var(--ds-shadow-border-small);
   transition: translate 320ms cubic-bezier(0.32, 0.72, 0, 1);
 }
@@ -1010,6 +1138,12 @@ button.lp-field:focus-visible {
 .lp-voice :focus-visible {
   outline: 2px solid var(--ds-focus-color);
   outline-offset: 2px;
+  /* `transition-colors` on links includes outline-color, so the ring would fade in
+     from currentColor (white/60 on the nav). Entering focus must not animate it. */
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+}
+.lp-nav[data-over-sky] :focus-visible {
+  outline-color: #fff;
 }
 .lp-field:focus-within :focus-visible {
   outline: none;
@@ -1039,17 +1173,26 @@ button.lp-field:focus-visible {
   position: absolute;
   /* Slight side overshoot, as a real marker stroke has. The slot carries
      matching side margins (see ChannelCycle) so this eats neither word space. */
-  left: -0.05em;
-  right: -0.05em;
+  left: -0.08em;
+  right: -0.08em;
   top: 50%;
-  height: 0.86em;
-  transform: translateY(calc(-50% - 0.012em));
-  border-radius: 0.06em;
-  background: currentColor;
+  height: 0.56em;
+  transform: translateY(calc(-50% - 0.012em)) skewX(-6deg);
+  border-radius: 0.04em;
+  background: var(--color-ml-hl);
   z-index: -1;
   /* The wash holds its place while the word is mid-swap at zero opacity, so the
      headline reads as a highlight whose word is changing rather than as a hole. */
   transition: background-color 340ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+/* The same marker on the sky: frosted white instead of grey, so it still reads
+   as a band on a dark field, and the word in it takes the headline's white. */
+.lp-on-sky .lp-mark-hl {
+  background: rgb(255 255 255 / 0.24);
+}
+.ml-force-light .lp-on-sky,
+.ml-force-light .lp-on-sky * {
+  --color-ml-fg: #fff;
 }
 
 /* ── The footer signature wordmark ──

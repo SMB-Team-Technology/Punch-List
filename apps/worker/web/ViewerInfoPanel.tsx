@@ -7,6 +7,7 @@ import { cn, type DrawOp, deletionDeadline } from '@marklayer/types';
 import { ArrowUpRight, BookOpen, Bot, Check, Columns2, Copy, X } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { DOCK_GUTTER, DOCKED_ANNOTATION_WIDTH, DockedPanel, PANEL_SIDEBAR, PANEL_TRANSITION } from './AnnotationPanel';
+import { capture } from './analytics';
 import { compareHref } from './compare/url';
 import { isUploadPath } from './docSource';
 import { IntegrationsSection } from './IntegrationsSection';
@@ -65,7 +66,10 @@ function CommandField({ label, value }: { label: string; value: string }) {
   return (
     <button
       type="button"
-      onClick={() => copy(value)}
+      onClick={() => {
+        copy(value);
+        capture('mcp_command_copied', { command: label });
+      }}
       title="Click to copy"
       aria-label={`Copy ${label}`}
       class="group w-full flex items-start gap-1.5 text-left px-2 py-1.5 rounded-lg cursor-pointer
@@ -99,7 +103,10 @@ function InfoPanelHeader() {
       <h2 class="text-body font-semibold tracking-ui text-(--ds-gray-1000) m-0">Details</h2>
       <button
         type="button"
-        onClick={() => (showInfoPanel.value = false)}
+        onClick={() => {
+          showInfoPanel.value = false;
+          capture('panel_toggled', { panel: 'details', open: false });
+        }}
         title="Close panel"
         aria-label="Close panel"
         class={cn(geist.ctl, geist.ctlIdle)}
@@ -185,10 +192,10 @@ function AgentSection({ id }: { id: string }) {
         <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
           Your agent reads this page and resolves these annotations live. Run once in your project:
         </p>
-        <CommandField label="Claude Code command" value={claudeMcpCommand(id)} />
+        <CommandField label="Claude Code command" value={claudeMcpCommand({ roomId: id, origin: location.origin })} />
         <PanelSection label="Cursor, Codex, Windsurf…">
           <div class="flex flex-col gap-1.5">
-            <CommandField label="MCP server URL" value={mcpEndpoint(id)} />
+            <CommandField label="MCP server URL" value={mcpEndpoint({ roomId: id, origin: location.origin })} />
             <p class="text-meta text-(--ds-gray-900) leading-snug m-0">
               Add as an HTTP MCP server named "marklayer". Nothing to install: the link is the server.
             </p>

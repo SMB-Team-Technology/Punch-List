@@ -3,6 +3,7 @@ import type { Context } from 'hono';
 import { Hono } from 'hono/tiny';
 import { requestMayStartBoards } from './auth/team';
 import { errorRelayScript } from './error-relay';
+import { overRateLimit } from './http';
 import type { Env } from './index';
 import { captureBlockedSite, captureServer } from './posthog';
 import { PROXY_ERRORS } from './proxy-errors';
@@ -20,6 +21,39 @@ function escapeForScript(s: string): string {
 
 /** Compiled once — `rewriteUrl` runs per attribute while streaming the page. */
 const ABSOLUTE_SCHEME = /^[a-z][a-z0-9+.-]*:/i;
+
+/** The named references an escaper puts in a URL; anything rarer stays as written. */
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  quot: '"',
+  apos: "'",
+  lt: '<',
+  gt: '>',
+  colon: ':',
+  sol: '/',
+  quest: '?',
+  equals: '=',
+  num: '#',
+  percnt: '%',
+  comma: ',',
+  period: '.',
+};
+
+/**
+ * HTMLRewriter hands back attribute values raw, entities and all, and Twig's
+ * `html_attr` writes `https&#x3A;&#x2F;&#x2F;…`. Decode before reading a URL out of one.
+ */
+function decodeAttr(value: string): string {
+  if (!value.includes('&')) return value;
+  return value.replace(/&(?:#x([0-9a-f]+)|#(\d+)|([a-z]+));/gi, (match, hex, dec, name) => {
+    if (name) return NAMED_ENTITIES[name] ?? match;
+    const code = Number.parseInt(hex ?? dec, hex ? 16 : 10);
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : match;
+  });
+}
+
+/** `setAttribute` escapes only `"`, so a decoded `&copy=` would turn into `©=` on the way back out. */
+const encodeAttr = (value: string): string => value.replaceAll('&', '&amp;');
 
 /**
  * Host firewalls (SiteGround, Cloudflare, Imperva, Akamai) answer a server-side
@@ -241,11 +275,14 @@ async function relaySubResource({
   accept,
   env,
   ctx,
+  admit,
 }: {
   url: string;
   accept: string | undefined;
   env: RelaySettings;
   ctx: { waitUntil(promise: Promise<unknown>): void };
+  /** Asked on a cache miss only: a hit costs the relay nothing. */
+  admit: () => Promise<boolean>;
 }): Promise<Response | null> {
   // The off switch covers what the relay already fetched, not only new fetches.
   if (!relayConfig(env)) return null;
@@ -254,6 +291,7 @@ async function relaySubResource({
   const key = new Request(url);
   const hit = await cache?.match(key);
   if (hit) return hit;
+  if (!(await admit())) return null;
 
   // A refusal here never rests the host: a 404 page for one stray image looks
   // just like a challenge to `isRefusedSubResource`. Only `fetchPage` judges that.
@@ -315,40 +353,37 @@ async function describePage({
   const { head, stream } = await peekBody(resp.body);
   const challenged = isChallenged({ status: resp.status, head });
   const firewall = challenged ? identifyFirewall({ headers: resp.headers, head }) : null;
+  // A challenge's refresh points at its CAPTCHA; following it would hide the block from the viewer.
   const refreshTo = challenged ? null : instantRefreshTarget({ head, base: finalUrl });
   return { ...base, stream, challenged, firewall, refreshTo };
 }
 
 const META_TAG = /<meta\b[^>]*>/gi;
-const REFRESH_CONTENT = /^\s*0+(?:\.\d*)?\s*[;,]\s*(?:url\s*=\s*)?(['"]?)(.+?)\1\s*$/i;
+const REFRESH_CONTENT = /^\s*0+(?:\.0*)?(?:\s*[;,]\s*|\s+)(?:url\s*=\s*)?(['"]?)(.+?)\1\s*$/i;
 
 /** One attribute of a single tag, quoted or bare. */
 function attrOf({ tag, name }: { tag: string; name: string }): string | null {
   const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'));
-  return m ? (m[1] ?? m[2] ?? m[3] ?? '') : null;
+  return m ? decodeAttr(m[1] ?? m[2] ?? m[3] ?? '') : null;
 }
 
 /**
  * Where a zero-delay `<meta http-equiv="refresh">` sends the page, when that is
  * elsewhere on the same origin.
  *
- * Static hosts answer `/about` with a stub that bounces to `/about/` — a meta
- * refresh plus `location.replace("/about/")`. Served through the proxy, that
- * script resolves against our origin (the injected `replaceState` puts the
- * target's path on it), so the frame walks out to our own 404 and the viewer
- * reports a failure a second after the stub painted. Following it here, like
- * the HTTP redirect it stands in for, never lets the stub reach the frame.
- * Same-origin only: the host has already passed the gate, another one has not.
+ * Static hosts (Astro's redirect template) answer `/about` with a stub bouncing
+ * to `/about/`. In the frame it resolves after our `<base>` and `replaceState`
+ * land, so it either walks out to our own 404 or escapes to the raw target.
+ * Followed here like the HTTP redirect it stands in for, it never reaches the frame.
  */
 function instantRefreshTarget({ head, base }: { head: string; base: string }): string | null {
   for (const tag of head.match(META_TAG) ?? []) {
-    if (attrOf({ tag, name: 'http-equiv' })?.toLowerCase() !== 'refresh') continue;
+    if (attrOf({ tag, name: 'http-equiv' })?.trim().toLowerCase() !== 'refresh') continue;
     const target = attrOf({ tag, name: 'content' })?.match(REFRESH_CONTENT)?.[2];
-    if (!target) continue;
+    if (!target) return null;
     try {
       const next = new URL(target, base);
-      if (next.origin !== new URL(base).origin || next.href === base) return null;
-      return next.href;
+      return next.origin === new URL(base).origin && next.href !== base ? next.href : null;
     } catch {
       return null;
     }
@@ -402,6 +437,7 @@ export async function fetchPage({
 }: {
   url: string;
   env: Env['Bindings'];
+  /** Meta-refresh stubs already followed to reach `url`. */
   hops?: number;
 }): Promise<FetchedPage> {
   const origin = new URL(url).origin;
@@ -421,9 +457,10 @@ export async function fetchPage({
   });
 
   const direct = await describePage({ resp, finalUrl: resp.url || url, via: 'direct' });
-  if (direct.refreshTo && hops < MAX_REFRESH_HOPS) {
+  const next = direct.refreshTo && hops < MAX_REFRESH_HOPS ? parseFetchableUrl(direct.refreshTo) : null;
+  if (next?.ok) {
     void direct.stream?.cancel();
-    return fetchPage({ url: direct.refreshTo, env, hops: hops + 1 });
+    return fetchPage({ url: next.url.href, env, hops: hops + 1 });
   }
   if (!direct.challenged) return direct;
 
@@ -529,6 +566,8 @@ proxy.get('/proxy', async (c) => {
   const reqUrl = new URL(c.req.url);
   if (gate.url.hostname.toLowerCase() === reqUrl.hostname.toLowerCase()) return c.redirect('/#error=self');
   if (!(await mayProxy(c, gate.url.hostname))) return c.text(NO_BOARD_FOR_HOST, 403);
+
+  if (await overRateLimit({ limiter: c.env.FETCH_LIMITER, req: c.req })) return c.text('Too many requests', 429);
 
   const fetchStart = Date.now();
   try {
@@ -666,8 +705,8 @@ proxy.get('/proxy', async (c) => {
             if (isAnchor && attr === 'href') continue;
             const val = el.getAttribute(attr);
             if (!val) continue;
-            const rewritten = rewriteUrl(val);
-            if (rewritten) el.setAttribute(attr, rewritten);
+            const rewritten = rewriteUrl(decodeAttr(val));
+            if (rewritten) el.setAttribute(attr, encodeAttr(rewritten));
           }
           const style = el.getAttribute('style');
           if (style?.includes('url(')) {
@@ -677,8 +716,9 @@ proxy.get('/proxy', async (c) => {
       })
       .on('[srcset]', {
         element(el) {
-          const srcset = el.getAttribute('srcset');
-          if (!srcset) return;
+          const raw = el.getAttribute('srcset');
+          if (!raw) return;
+          const srcset = decodeAttr(raw);
           const rewritten = srcset
             .split(',')
             .map((entry) => {
@@ -689,7 +729,7 @@ proxy.get('/proxy', async (c) => {
               return (rewriteUrl(u) || u) + trimmed.slice(idx);
             })
             .join(', ');
-          if (rewritten !== srcset) el.setAttribute('srcset', rewritten);
+          if (rewritten !== srcset) el.setAttribute('srcset', encodeAttr(rewritten));
         },
       })
       // Strip SRI (fails on proxied resources) and nonce (blocks injected scripts)
@@ -841,6 +881,9 @@ proxy.all('/px/*', async (c) => {
         accept: c.req.header('Accept'),
         env: c.env,
         ctx: c.executionCtx,
+        // Limited here rather than per /px request: a page load bursts hundreds of
+        // assets, and a direct fetch spends nothing the Worker invocation has not.
+        admit: async () => !(await overRateLimit({ limiter: c.env.RELAY_LIMITER, req: c.req })),
       });
       if (relayed) {
         void direct.body?.cancel(); // the direct body lost; do not hold its connection open

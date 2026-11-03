@@ -59,6 +59,12 @@ export type Env = {
     UPLOAD_LIMITER?: RateLimit;
     /** Caps sign-in and invite mail per client IP. */
     EMAIL_LIMITER?: RateLimit;
+    /** Caps top-level page fetches and OG renders per client IP. */
+    FETCH_LIMITER?: RateLimit;
+    /** Caps anonymous share API writes, MCP calls and socket opens per client IP. */
+    ROOM_LIMITER?: RateLimit;
+    /** Caps relay fallbacks for `/px/*` sub-resources per client IP. */
+    RELAY_LIMITER?: RateLimit;
     TURN_KEY_ID?: string;
     TURN_KEY_TOKEN?: string;
     POSTHOG_KEY?: string;
@@ -191,23 +197,40 @@ app.get('/s/:id', async (c) => {
     }
   }
   const res = await c.env.ASSETS.fetch(new Request(new URL('/', reqUrl)));
-  let html = await res.text();
   const ogImage = `${reqUrl.origin}/og/${annotationId}.png?domain=${encodeURIComponent(domain)}`;
   const title = `Punch List \u00b7 Annotations on ${domain}`;
   const description = shareDescription({ domain, ops: ops ?? [] });
-  html = html
-    .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${reqUrl.href}">`)
+  return shareShell({ html: await res.text(), url: reqUrl.href, title, image: ogImage, description });
+});
+
+/** The `/` shell re-tagged for one share link; the home clip is stripped, a share card shows only its own still. */
+function shareShell({
+  html,
+  url,
+  title,
+  image,
+  description,
+}: {
+  html: string;
+  url: string;
+  title: string;
+  image: string;
+  description: string;
+}) {
+  const tagged = html
+    .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${url}">`)
     .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}">`)
-    .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${ogImage}">`)
+    .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${image}">`)
+    .replace(/<meta property="og:video[^>]*>/g, '')
     .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}">`)
     .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}">`)
     .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}">`)
-    .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${ogImage}">`)
-    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${reqUrl.href}" />`);
-  return new Response(html, {
+    .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${image}">`)
+    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${url}" />`);
+  return new Response(tagged, {
     headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': SHELL_CACHE },
   });
-});
+}
 
 // Shared project page (multi-page annotation bundle)
 app.get('/p/:id', async (c) => {
@@ -239,23 +262,11 @@ app.get('/p/:id', async (c) => {
     }
   }
   const res = await assetsPromise;
-  let html = await res.text();
   const ogImage = `${reqUrl.origin}/og/${projectId}.png?domain=${encodeURIComponent(domain)}`;
   const pagesLabel = pageCount > 0 ? ` (${pageCount} pages)` : '';
   const title = `Punch List · Annotations on ${domain}${pagesLabel}`;
   const description = shareDescription({ domain, ops: firstPageOps ?? [] });
-  html = html
-    .replace(/<meta property="og:url"[^>]*>/, `<meta property="og:url" content="${reqUrl.href}">`)
-    .replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}">`)
-    .replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${ogImage}">`)
-    .replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}">`)
-    .replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}">`)
-    .replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}">`)
-    .replace(/<meta name="twitter:image"[^>]*>/, `<meta name="twitter:image" content="${ogImage}">`)
-    .replace(/<link rel="canonical"[^>]*>/, `<link rel="canonical" href="${reqUrl.href}" />`);
-  return new Response(html, {
-    headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': SHELL_CACHE },
-  });
+  return shareShell({ html: await res.text(), url: reqUrl.href, title, image: ogImage, description });
 });
 
 /**
@@ -279,6 +290,8 @@ app.get('/og/page.png', async (c) => {
     key,
     ctx: c.executionCtx,
     render: () => generatePageOgImage({ heading, path }),
+    // The heading is caller-supplied, so varying it forces a fresh rasterize on every request.
+    admit: async () => !(await overRateLimit({ limiter: c.env.FETCH_LIMITER, req: c.req })),
   });
 });
 
