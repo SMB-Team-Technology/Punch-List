@@ -34,6 +34,7 @@ import {
   setListLayout,
   user,
 } from './session';
+import { backfillThumbnail } from './thumbnailBackfill';
 
 /** Where the expiry stops being background information and starts being news. */
 const SOON_DAYS = 7;
@@ -278,11 +279,21 @@ function LinkRow({ link }: { link: OwnedLink }) {
 }
 
 /**
- * The page as the owner last saw it, captured by their viewer. A list nobody has
- * opened since thumbnails shipped has none, and gets the site's name instead.
+ * The page as the owner last saw it, captured by their viewer. A list with none
+ * yet shows the site's name while the dashboard takes one itself.
  */
 function Thumbnail({ link }: { link: OwnedLink }) {
   const missing = useSignal(false);
+  const version = useSignal(0);
+  const onError = () => {
+    missing.value = true;
+    if (!link.url || version.value > 0) return;
+    void backfillThumbnail({ id: link.id, url: link.url }).then((saved) => {
+      if (!saved) return;
+      version.value += 1;
+      missing.value = false;
+    });
+  };
   if (missing.value) {
     return (
       <div class="flex size-full flex-col items-center justify-center gap-2 px-4 text-center text-(--ds-gray-900)">
@@ -293,14 +304,13 @@ function Thumbnail({ link }: { link: OwnedLink }) {
   }
   return (
     <img
-      src={`/auth/links/${encodeURIComponent(link.id)}/thumbnail`}
+      // `v` only busts the cached 404 once a backfilled picture lands; the route ignores it.
+      src={`/auth/links/${encodeURIComponent(link.id)}/thumbnail${version.value ? `?v=${version.value}` : ''}`}
       alt=""
       loading="lazy"
       decoding="async"
       class="size-full object-cover object-top"
-      onError={() => {
-        missing.value = true;
-      }}
+      onError={onError}
     />
   );
 }

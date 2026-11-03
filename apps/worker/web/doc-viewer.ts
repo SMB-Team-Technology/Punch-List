@@ -37,12 +37,11 @@ async function renderImage({ blob, root }: { blob: Blob; root: HTMLElement }): P
   try {
     await img.decode();
   } catch (error) {
-    throw new Error(`could not decode the image: ${describeError(error)}`);
-  } finally {
-    // The decoded bitmap outlives the URL, so releasing it here frees the blob
-    // on the success path too rather than keeping both for the page's lifetime.
     URL.revokeObjectURL(objectUrl);
+    throw new Error(`could not decode the image: ${describeError(error)}`);
   }
+  // Kept for the page's lifetime: a screenshot (dashboard thumbnail, PNG export)
+  // re-fetches every <img> src, and a revoked URL comes back blank.
 
   const scale = Math.min(1, document.documentElement.clientWidth / img.naturalWidth);
   const container = document.createElement('div');
