@@ -1,10 +1,6 @@
 {
   "_comment": "Every path this site serves outside `/`, the one place a new section is registered. scripts/emit-headers.mjs turns it into dist/_headers rules and apps/worker/vite.config.ts into the :5173 dev proxy; verify-build.mjs fails a built page that is missing here. `pages` are exact, `trees` cover `/x/*` (a hub at `/x` goes in `pages` too), `documents` map a file to its Content-Type, `uncached` is served with no Cache-Control on purpose.",
-  "pages": [
-    "/help",
-    "/mcp",
-    "/privacy"
-  ],
+  "pages": ["/help", "/mcp", "/privacy"],
   "trees": [],
   "documents": {
     "/help.md": "text/markdown; charset=utf-8",
