@@ -1,5 +1,4 @@
-import mcpPkg from '../../../mcp/package.json';
-import { ORIGIN } from './site';
+import { ORIGIN } from '@marklayer/brand';
 
 /**
  * The agent-facing well-known surface, in one place.
@@ -10,9 +9,6 @@ import { ORIGIN } from './site';
  * `content/agent/*` files, so the Worker copy can never advertise a different
  * spec, tool list or digest than the site does.
  */
-
-/** The tool contract's version, read from apps/mcp/package.json; this fork publishes nothing to npm. */
-export const MCP_VERSION: string = mcpPkg.version;
 
 export const SKILL_PATH = '/.well-known/agent-skills/marklayer-annotations/SKILL.md';
 
@@ -29,52 +25,6 @@ export const API_CATALOG = {
       status: [{ href: `${ORIGIN}/api/health` }],
     },
   ],
-};
-
-/** The install for one share link, with the id left for the reader to fill. */
-export const MCP_INSTALL = `claude mcp add --transport http marklayer ${ORIGIN}/s/<id>/mcp`;
-
-/**
- * MCP Server Card (SEP-1649). The endpoint is per room, so it goes in the
- * registry's `remotes` shape with the room as a URL variable; this fork ships no
- * stdio package. server-card.test.ts pins `tools`.
- */
-export const MCP_SERVER_CARD = {
-  serverInfo: { name: 'marklayer-mcp', title: 'Punch List by SMB Team', version: MCP_VERSION },
-  remotes: [
-    {
-      type: 'streamable-http',
-      url: `${ORIGIN}/s/{room}/mcp`,
-      install: `claude mcp add --transport http marklayer ${ORIGIN}/s/{room}/mcp`,
-      variables: {
-        room: {
-          description: `The id in a share link (${ORIGIN}/s/{room}). The endpoint serves that one room, so it has every tool but marklayer_connect_room.`,
-          isRequired: true,
-        },
-      },
-    },
-  ],
-  capabilities: { tools: true, resources: false, prompts: false },
-  tools: [
-    'marklayer_read_page',
-    'marklayer_connect_room',
-    'marklayer_room_info',
-    'marklayer_list_annotations',
-    'marklayer_get_annotation',
-    'marklayer_watch_annotations',
-    'marklayer_acknowledge',
-    'marklayer_resolve',
-    'marklayer_dismiss',
-    'marklayer_reply',
-    'marklayer_create_annotation',
-    'marklayer_suggest_edit',
-    'marklayer_share_preview',
-    'marklayer_set_next_steps',
-    'marklayer_complete_next_step',
-    'marklayer_ask',
-    'marklayer_get_feedback',
-  ],
-  documentation: `${ORIGIN}/mcp`,
 };
 
 /**

@@ -1,5 +1,5 @@
-import { USER_NAME_MAX } from '@marklayer/types';
 import { z } from 'zod/mini';
+import { USER_NAME_MAX } from '../shared/accounts';
 
 /**
  * What a socket carries as its attachment.
@@ -68,6 +68,3 @@ export function readPeerInfo(value: unknown): PeerInfo | null {
   const parsed = peerInfoSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
 }
-
-// Moved to packages/types so client code can use it without importing server-side src/.
-export { isAgentPeer } from '@marklayer/types';

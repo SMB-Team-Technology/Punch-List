@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import dates from '../data/page-dates.json';
-import { ORIGIN } from '../lib/site';
+import { ORIGIN } from '@marklayer/brand';
 
 type Entry = { path: string; lastmod: string; changefreq: string; priority: string };
 

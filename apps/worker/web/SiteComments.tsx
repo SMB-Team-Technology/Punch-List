@@ -1,20 +1,21 @@
 import { geist } from '@ext/lib/geist';
-import { focusedAnnotationId, operations } from '@ext/lib/state';
+import { operations } from '@ext/lib/ops';
 import { timeAgo } from '@ext/lib/time';
 import {
   type AnnotationOp,
-  cn,
   countOpen,
   type DrawOp,
   isAnnotationOp,
   isSettled,
   opAnchor,
   resolveOpStatus,
-} from '@marklayer/types';
+} from '@marklayer/types/ops';
+import { cn } from '@marklayer/ui/cn';
 import { signal } from '@preact/signals';
 import { useEffect } from 'preact/hooks';
 import { opBody, opLabel } from './annotationItems';
 import { currentPageIdx, type ProjectPage, projectPages, refreshSitePages, switchPage } from './projects';
+import { focusedAnnotationId } from './ui-state';
 
 /** What the comments panel lists: the page on screen, or every page of the site. */
 export const panelScope = signal<'page' | 'site'>('page');

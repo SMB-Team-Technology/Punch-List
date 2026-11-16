@@ -27,6 +27,26 @@
           "description": "MarkLayer room to join at startup: a share URL (https://marklayer.app/s/abc123) or a bare room id. Omit it and the agent calls marklayer_connect_room instead.",
           "isRequired": false,
           "format": "string"
+        },
+        {
+          "type": "named",
+          "name": "--api-base",
+          "description": "Override the MarkLayer worker base URL. Defaults to https://marklayer.app; useful against a local dev worker.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "type": "named",
+          "name": "--agent",
+          "description": "Name shown to the humans in the room for this agent. Defaults to claude-code.",
+          "isRequired": false,
+          "format": "string"
+        },
+        {
+          "type": "named",
+          "name": "--readonly",
+          "description": "Read and watch only: every tool that changes the room is refused, even on a link that allows edits.",
+          "isRequired": false
         }
       ],
       "environmentVariables": [
@@ -44,6 +64,17 @@
           "name": "MARKLAYER_AGENT",
           "description": "Name shown to the humans in the room for this agent. Defaults to claude-code.",
           "isRequired": false
+        },
+        {
+          "name": "MARKLAYER_READONLY",
+          "description": "Set to 1 for the same as --readonly.",
+          "isRequired": false
+        },
+        {
+          "name": "MARKLAYER_PASSWORD",
+          "description": "Password for a protected room. Environment only, so it stays out of the process list.",
+          "isRequired": false,
+          "isSecret": true
         }
       ]
     }

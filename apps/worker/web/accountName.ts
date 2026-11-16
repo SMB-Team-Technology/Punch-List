@@ -1,6 +1,7 @@
-import { isRandomUserName, localUser, setUserName } from '@ext/lib/state';
-import { sessionResponseSchema } from '@marklayer/types';
+import { isRandomUserName, localUser } from '@ext/lib/identity';
+import { setUserName } from '@ext/lib/rename';
 import { effect } from '@preact/signals';
+import { sessionResponseSchema } from '../shared/accounts';
 
 /** The name field applies as you type; save once the typing stops, not per keystroke. */
 const SAVE_SETTLE_MS = 800;

@@ -1,11 +1,12 @@
 import { Toasts } from '@ext/components/Toasts';
-import { cn, sessionResponseSchema } from '@marklayer/types';
+import { cn } from '@marklayer/ui/cn';
 import { useSignal } from '@preact/signals';
 import { ArrowUpRight, Check } from 'lucide-preact';
 import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
+import { sessionResponseSchema } from '../shared/accounts';
+import { navigateTo, withScheme } from './projects';
 import { Logo } from './shared';
-import { navigateTo, withScheme } from './signals';
 
 const CMS_URL = 'https://cms.smbteam.com';
 const UPSTREAM_URL = 'https://github.com/thevrus/MarkLayer';

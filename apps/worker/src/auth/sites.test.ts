@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import type { OwnedLink } from '@marklayer/types';
-import { asDb, fakeDb } from '../test-d1';
+import type { OwnedLink } from '../../shared/accounts';
+import { fakeDb } from '../test-d1';
 import { roomsActedOn, withSites } from './sites';
 
 const link = (id: string): OwnedLink => ({
@@ -45,7 +45,7 @@ describe('withSites', () => {
         ],
       ],
     });
-    const rows = await withSites({ db: asDb(db), links: [link('home'), link('about'), link('solo')] });
+    const rows = await withSites({ db: db, links: [link('home'), link('about'), link('solo')] });
     expect(rows.map((r) => r.id)).toEqual(['home', 'solo']);
     expect(rows[0]?.site).toEqual({ projectId: 'proj', pageCount: 2, openCount: 2 });
     expect(rows[1]?.site).toBeUndefined();
@@ -53,7 +53,7 @@ describe('withSites', () => {
 
   test('keeps a later page listed when its site is someone else’s', async () => {
     const db = fakeDb({ allQueue: [[{ id: 'proj', page_ids: '["theirs","mine"]', page: 'mine' }]] });
-    const rows = await withSites({ db: asDb(db), links: [link('mine')] });
+    const rows = await withSites({ db: db, links: [link('mine')] });
     expect(rows.map((r) => r.id)).toEqual(['mine']);
     expect(rows[0]?.site).toBeUndefined();
   });
@@ -67,12 +67,12 @@ describe('roomsActedOn', () => {
         [{ id: 'home' }, { id: 'about' }],
       ],
     });
-    expect(await roomsActedOn({ db: asDb(db), id: 'home', ownerId: 'u1' })).toEqual(['home', 'about']);
+    expect(await roomsActedOn({ db: db, id: 'home', ownerId: 'u1' })).toEqual(['home', 'about']);
   });
 
   test('a lone link, or a later page, is only itself', async () => {
-    expect(await roomsActedOn({ db: asDb(fakeDb()), id: 'solo', ownerId: 'u1' })).toEqual(['solo']);
+    expect(await roomsActedOn({ db: fakeDb(), id: 'solo', ownerId: 'u1' })).toEqual(['solo']);
     const db = fakeDb({ allQueue: [[{ id: 'proj', page_ids: '["home","about"]', page: 'about' }]] });
-    expect(await roomsActedOn({ db: asDb(db), id: 'about', ownerId: 'u1' })).toEqual(['about']);
+    expect(await roomsActedOn({ db: db, id: 'about', ownerId: 'u1' })).toEqual(['about']);
   });
 });

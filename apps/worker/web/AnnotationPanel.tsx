@@ -7,25 +7,24 @@ import { StatusDot } from '@ext/components/StatusDot';
 import { buildMarkdownExport, defaultExportFilename, downloadMarkdown } from '@ext/lib/export-text';
 import { geist } from '@ext/lib/geist';
 import {
-  annotationPanelOpen,
   areas,
-  commentFilter,
   copyOpenAnnotations,
-  copyText,
-  focusedAnnotationId,
-  getCommentStatus,
   getReplies,
+  inspects,
   openAnnotationTotal,
   operations,
   rootComments,
-  STATUS_LABELS,
   setOpStatus,
-  showAnnotationPanel,
-  toast,
-} from '@ext/lib/state';
+} from '@ext/lib/ops';
+import { fileUrl } from '@ext/lib/share';
+import { getCommentStatus, STATUS_LABELS } from '@ext/lib/status-ui';
 import { timeAgo } from '@ext/lib/time';
-import type { CommentOp, CommentStatus, DeviceMode, DrawOp } from '@ext/lib/types';
-import { cn, isSettled } from '@marklayer/types';
+import { copyText, toast } from '@ext/lib/toasts';
+import type { CommentOp, CommentStatus, DeviceMode } from '@ext/lib/types';
+import { isUploadPath } from '@marklayer/brand/links';
+import { isClosed } from '@marklayer/types/ops';
+import { cn } from '@marklayer/ui/cn';
+import { signal } from '@preact/signals';
 import {
   BoxSelect,
   Check,
@@ -36,33 +35,36 @@ import {
   Ellipsis,
   MessageSquare,
   Replace,
+  SquareDashedMousePointer,
   TextSelect,
   Type,
   X,
 } from 'lucide-preact';
-import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import { tinykeys } from 'tinykeys';
 import { AnnotationDetail } from './AnnotationDetail';
 import { capture } from './analytics';
-import { type AnnotationItem, itemAnchor, itemLabel } from './annotationItems';
+import { type AnnotationItem, itemAnchor, itemLabel, opBody, opLabel } from './annotationItems';
+import { DOCKED_ANNOTATION_WIDTH, DockedPanel, PANEL_SIDEBAR, PANEL_TRANSITION } from './DockedPanel';
+import { buildExportData } from './export-data';
 import { IntroComposerSlot, IntroVideo, introComposerOpen, intros } from './IntroVideo';
+import { pageUrl } from './projects';
 import { ReviewSection } from './ReviewPanel';
 import { isClient } from './role';
 import { panelScope, ScopeToggle, SiteComments } from './SiteComments';
 import { DEVICE_ICONS, DEVICE_LABELS, menuItem } from './shared';
-import { fileUrl, isReadonly, showBoard } from './signals';
+import { annotationPanelOpen, commentFilter, focusedAnnotationId, showAnnotationPanel } from './ui-state';
+import { setBoardOpen } from './viewer-actions';
+import { compactChrome, isReadonly, opMatchesDevice } from './viewer-state';
+import { useViewerFrame } from './viewerFrame';
+
+/** One export at a time: a long PDF takes seconds, and a second click would race the first. */
+const fileExporting = signal(false);
 
 /** What an export writes: the live page's ops, plus every other page when this is a project. */
-export interface ExportData {
-  ops: DrawOp[];
-  url?: string;
-  pages?: { url: string | null; ops: DrawOp[] }[];
-}
 
 interface BodyProps {
-  onScrollTo: (x: number, y: number) => void;
-  getExportData?: () => ExportData;
+  onScrollTo: (y: number) => void;
 }
 
 /** The row offers one action, not a menu; this is where it goes next. */
@@ -114,6 +116,9 @@ function DeviceBadge({ device }: { device?: DeviceMode }) {
  * A coarse pointer has no hover to find it with, so there it sits under the text.
  */
 function QuickAction({ label, onClick }: { label: string; onClick: () => void }) {
+  // Always on show under a finger, so a view-only session gets none at all:
+  // the room would refuse the write after the row had already shown it done.
+  if (isReadonly.value) return null;
   return (
     <button
       type="button"
@@ -139,7 +144,7 @@ const rowButton =
   'w-full text-left px-4 py-3 bg-transparent border-none cursor-pointer transition-colors duration-100 hover:bg-(--ds-gray-alpha-100)';
 
 /** A row that carries a `QuickAction`: room beneath the text for it on touch. */
-const actionRowButton = cn(rowButton, 'pointer-coarse:pb-10');
+const actionRow = () => cn(rowButton, !isReadonly.value && 'pointer-coarse:pb-10');
 
 function ReplyCount({ n }: { n: number }) {
   if (n === 0) return null;
@@ -160,15 +165,15 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
   const status = getCommentStatus(op);
   const replies = getReplies(op.id);
   const resolved = status === 'resolved';
-  const settled = isSettled(status);
+  const closed = isClosed(status);
 
   return (
     <div class="group relative border-b border-(--ds-gray-alpha-400)">
-      <button type="button" onClick={onOpen} class={actionRowButton}>
+      <button type="button" onClick={onOpen} class={actionRow()}>
         <div class="flex items-center gap-2 h-5 mb-1">
           <div
             class="w-5 h-5 rounded-full text-white text-mini font-medium tabular-nums grid place-items-center shrink-0"
-            style={{ background: settled ? 'var(--ds-gray-700)' : op.color }}
+            style={{ background: closed ? 'var(--ds-gray-700)' : op.color }}
           >
             {status === 'approved' ? (
               <CheckCheck size={11} strokeWidth={2} aria-hidden="true" />
@@ -190,7 +195,7 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
         </div>
         <p
           class="text-ui text-(--ds-gray-1000) leading-relaxed m-0 line-clamp-2"
-          style={{ textDecoration: settled ? 'line-through' : 'none', opacity: settled ? 0.5 : 1 }}
+          style={{ textDecoration: closed ? 'line-through' : 'none', opacity: closed ? 0.5 : 1 }}
         >
           <MentionText text={op.text} mentions={op.mentions} />
         </p>
@@ -198,6 +203,15 @@ function CommentRow({ op, onOpen }: { op: CommentOp; onOpen: () => void }) {
       <QuickAction label={STATUS_ACTIONS[status]} onClick={() => setOpStatus(op.id, STATUS_CYCLE[status])} />
     </div>
   );
+}
+
+const DESKTOP_LINE = 'Drawing and the other tools need a desktop. Open this link there to annotate.';
+
+/** The empty list's one line of help, true for whoever is reading it: a key on a desktop, a button on a phone, nothing when they cannot write. */
+function emptyHint(): string {
+  if (isReadonly.value) return 'This link is view-only.';
+  if (compactChrome.value) return `Tap Comment in the bar to add one. ${DESKTOP_LINE}`;
+  return 'Use the comment tool (C) to add one';
 }
 
 const STATUS_VALUES = ['open', 'in_progress', 'resolved', 'approved'] as const satisfies readonly CommentStatus[];
@@ -315,10 +329,13 @@ function PanelMenu({
   onCopyForAi,
   onCopy,
   onDownload,
+  onDownloadFile,
 }: {
   onCopyForAi: () => void;
   onCopy: () => void;
   onDownload: () => void;
+  /** Absent unless the link annotates an uploaded file. */
+  onDownloadFile?: () => void;
 }) {
   const noneOpen = openAnnotationTotal.value === 0;
   return (
@@ -338,21 +355,18 @@ function PanelMenu({
             <Menu.Item className={menuItem} onClick={onDownload}>
               Download Markdown
             </Menu.Item>
+            {onDownloadFile && (
+              <Menu.Item className={menuItem} onClick={onDownloadFile} disabled={fileExporting.value}>
+                {fileExporting.value ? 'Preparing annotated file…' : 'Download annotated file'}
+              </Menu.Item>
+            )}
             <Menu.Separator className={cn(geist.divider, 'my-1 -mx-1')} />
             {!isReadonly.value && (
               <Menu.Item className={menuItem} onClick={() => (introComposerOpen.value = true)}>
                 {intros.value.length ? 'Record a new intro version' : 'Pin an intro video'}
               </Menu.Item>
             )}
-            <Menu.Item
-              className={menuItem}
-              onClick={() => {
-                // The board is the same annotations in another arrangement, so it
-                // replaces the panel rather than stacking over it.
-                showAnnotationPanel.value = false;
-                showBoard.value = true;
-              }}
-            >
+            <Menu.Item className={menuItem} onClick={() => setBoardOpen({ open: true, via: 'panel' })}>
               Open board
               <kbd class="ml-auto font-sans text-meta text-(--ds-gray-900)">⌘B</kbd>
             </Menu.Item>
@@ -372,31 +386,50 @@ function AnnotationPanelBody(props: BodyProps) {
   );
 }
 
-function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
+function AnnotationPanelView({ onScrollTo }: BodyProps) {
+  const {
+    meta: { frameRef },
+  } = useViewerFrame();
   const buildExport = () => {
-    const data = getExportData?.() ?? { ops: operations.value };
+    const data = buildExportData();
     return buildMarkdownExport(data.ops, {
       url: data.url,
       pages: data.pages,
-      // `fileUrl` is origin-relative here, and a pasted export has no origin to resolve it against.
-      fileUrl: (id) => new URL(fileUrl(id), location.origin).href,
+      fileUrl,
     });
   };
   // No capture here: `copyText` counts every clipboard hand-off, success and failure alike.
   const handleCopy = () => copyText(buildExport(), 'Markdown copied');
 
   const handleCopyForAi = () => {
-    const data = getExportData?.() ?? { ops: operations.value };
+    const data = buildExportData();
     // A project panel exports every page; the prompt is for the page on screen.
     copyOpenAnnotations({ ops: operations.value, url: data.url });
   };
 
   const handleDownload = () => {
     const md = buildExport();
-    const data = getExportData?.() ?? { ops: operations.value };
+    const data = buildExportData();
     downloadMarkdown(md, defaultExportFilename(data.url));
     capture('export_completed', { format: 'markdown', ops: operations.value.length });
     toast('Markdown exported', { type: 'success' });
+  };
+
+  const handleDownloadFile = async () => {
+    if (fileExporting.peek()) return;
+    fileExporting.value = true;
+    const ops = operations.value.filter(opMatchesDevice);
+    try {
+      const { exportAnnotatedFile } = await import('./doc-export');
+      const { format } = await exportAnnotatedFile({ frame: frameRef.current, url: pageUrl.value, ops });
+      capture('export_completed', { format, ops: ops.length });
+      toast(format === 'pdf' ? 'Annotated PDF exported' : 'Annotated PNG exported', { type: 'success' });
+    } catch (error) {
+      capture('export_failed', { format: 'file', reason: error instanceof Error ? error.message : 'unknown' });
+      toast('Could not export the annotated file', { type: 'error' });
+    } finally {
+      fileExporting.value = false;
+    }
   };
 
   const allOps = operations.value;
@@ -429,6 +462,7 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
   }
   const areaList = areas.value;
   for (const op of areaList) items.push({ kind: 'area', op });
+  for (const op of inspects.value) items.push({ kind: 'inspect', op });
   items.sort((a, b) => itemAnchor(a).y - itemAnchor(b).y);
 
   // A focused annotation that was deleted, or filtered out from under the view,
@@ -440,14 +474,12 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
     if (focusIndex === -1 || items.length < 2) return;
     const next = items[(focusIndex + delta + items.length) % items.length];
     focusedAnnotationId.value = next.op.id;
-    const { x, y } = itemAnchor(next);
-    onScrollTo(x, y);
+    onScrollTo(itemAnchor(next).y);
   };
 
   const open = (item: AnnotationItem) => {
     focusedAnnotationId.value = item.op.id;
-    const { x, y } = itemAnchor(item);
-    onScrollTo(x, y);
+    onScrollTo(itemAnchor(item).y);
     capture('annotation_focused', { kind: item.kind });
   };
 
@@ -456,13 +488,10 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
   const stepRef = useRef(step);
   stepRef.current = step;
   useEffect(() => {
-    const editable = (target: EventTarget | null) =>
-      target instanceof HTMLElement &&
-      (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
     const move = (delta: number) => (e: KeyboardEvent) => {
       // Bare j/k would shadow a tool shortcut at rest, so they only bind while a
       // detail is actually open — which is also the only time stepping means anything.
-      if (!focusedAnnotationId.peek() || editable(e.target)) return;
+      if (!focusedAnnotationId.peek()) return;
       e.preventDefault();
       stepRef.current(delta);
     };
@@ -536,7 +565,12 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
           <div class="flex shrink-0 items-center gap-0.5">
             {/* Export and AI handoff are the team's tools, not the client's. */}
             {!isClient.value && (
-              <PanelMenu onCopyForAi={handleCopyForAi} onCopy={handleCopy} onDownload={handleDownload} />
+              <PanelMenu
+                onCopyForAi={handleCopyForAi}
+                onCopy={handleCopy}
+                onDownload={handleDownload}
+                onDownloadFile={isUploadPath(pageUrl.value) ? handleDownloadFile : undefined}
+              />
             )}
             <button
               type="button"
@@ -575,7 +609,7 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
               {filter === 'all' ? (
                 <>
                   <span class="text-ui font-medium text-(--ds-gray-1000)">No comments yet</span>
-                  <span class="text-meta text-(--ds-gray-900) leading-snug">Use the comment tool (C) to add one</span>
+                  <span class="text-meta text-(--ds-gray-900) leading-snug">{emptyHint()}</span>
                 </>
               ) : (
                 <>
@@ -603,10 +637,11 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
               const { op } = item;
               const w = Math.abs(op.endX - op.startX);
               const h = Math.abs(op.endY - op.startY);
-              const areaResolved = op.status === 'resolved';
+              const areaStatus = getCommentStatus(op);
+              const areaResolved = isClosed(areaStatus);
               return (
                 <div key={op.id} class="group relative border-b border-(--ds-gray-alpha-400)">
-                  <button type="button" class={actionRowButton} onClick={() => open(item)}>
+                  <button type="button" class={actionRow()} onClick={() => open(item)}>
                     <div class="flex items-center gap-2 h-5 mb-1">
                       <BoxSelect
                         size={12}
@@ -617,7 +652,7 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
                       <span class="text-meta text-(--ds-gray-900) font-medium flex-1">Area</span>
                       <span class={rowMeta}>
                         <DeviceBadge device={op.device} />
-                        {areaResolved && <StatusBadge status="resolved" />}
+                        {areaStatus !== 'open' && <StatusBadge status={areaStatus} />}
                       </span>
                     </div>
                     {op.comment ? (
@@ -645,15 +680,39 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
               );
             }
 
+            if (item.kind === 'inspect') {
+              const { op } = item;
+              const status = getCommentStatus(op);
+              return (
+                <div key={op.id} class="group relative border-b border-(--ds-gray-alpha-400)">
+                  <button type="button" class={actionRow()} onClick={() => open(item)}>
+                    <div class="flex items-center gap-2 h-5 mb-1">
+                      <SquareDashedMousePointer size={12} strokeWidth={1.5} color={op.color} aria-hidden="true" />
+                      <span class="text-meta text-(--ds-gray-900) font-medium flex-1">{opLabel(op)}</span>
+                      <span class={rowMeta}>
+                        <DeviceBadge device={op.device} />
+                        {status !== 'open' && <StatusBadge status={status} />}
+                      </span>
+                    </div>
+                    <p class="text-meta text-(--ds-gray-1000) m-0 line-clamp-2 leading-relaxed">{opBody(op)}</p>
+                  </button>
+                  <QuickAction
+                    label={STATUS_ACTIONS[status]}
+                    onClick={() => setOpStatus(op.id, STATUS_CYCLE[status])}
+                  />
+                </div>
+              );
+            }
+
             if (item.kind === 'selection') {
               const { op } = item;
               const selStatus = getCommentStatus(op);
-              const selResolved = selStatus === 'resolved' || selStatus === 'dismissed';
+              const selResolved = isClosed(selStatus);
               const selReplies = getReplies(op.id);
               const SelIcon = op.suggestion ? Replace : TextSelect;
               return (
                 <div key={op.id} class="group relative border-b border-(--ds-gray-alpha-400)">
-                  <button type="button" class={actionRowButton} onClick={() => open(item)}>
+                  <button type="button" class={actionRow()} onClick={() => open(item)}>
                     <div class="flex items-center gap-2 h-5 mb-1">
                       <SelIcon
                         size={12}
@@ -724,56 +783,14 @@ function AnnotationPanelView({ onScrollTo, getExportData }: BodyProps) {
               </button>
             );
           })}
+
+          {/* The phone draws nothing: say where the rest of the toolbar lives, once, under the list. */}
+          {items.length > 0 && compactChrome.value && !isReadonly.value && (
+            <p class="px-4 py-3 m-0 text-meta text-(--ds-gray-900) leading-snug">{DESKTOP_LINE}</p>
+          )}
         </div>
       )}
     </>
-  );
-}
-
-export const PANEL_BASE = cn(geist.surface, 'flex flex-col overflow-hidden');
-
-/**
- * The desktop panels as flush sidebars: square, hard against the window edge, and
- * separated from the frame by one inner hairline rather than an all-round shadow —
- * a panel welded to an edge has no side for a shadow to fall on. Layered above the
- * toolbar (z-2147483646) so a sidebar covers it instead of being covered by it.
- */
-export const PANEL_SIDEBAR = cn(
-  'absolute inset-y-0 z-2147483647 flex flex-col overflow-hidden bg-(--ds-background-100)',
-);
-export const PANEL_TRANSITION = 'transition-[opacity,translate] duration-300 ease-ml-spring';
-
-/** Width of the docked variant, and the `m-3` gutters around it. The viewer subtracts
- *  both when auto-fitting a device frame, since a docked panel takes real width from it. */
-export const DOCKED_ANNOTATION_WIDTH = 340;
-export const DOCK_GUTTER = 24;
-
-/**
- * A panel docked beside the device frame (rather than overlaid on it), shared
- * by the annotation panel and the viewer's info panel so the collapse trick —
- * width-to-0 with `!mx-0 !p-0 !border-0` to erase the gutter — lives once.
- */
-export function DockedPanel({
-  visible,
-  width,
-  children,
-}: {
-  visible: boolean;
-  width: number;
-  children: ComponentChildren;
-}) {
-  return (
-    <div
-      class={cn(
-        'shrink-0 m-3 rounded-xl',
-        PANEL_TRANSITION,
-        PANEL_BASE,
-        visible ? 'opacity-100' : 'opacity-0 !mx-0 !p-0 !border-0',
-      )}
-      style={{ width: visible ? width : 0 }}
-    >
-      {children}
-    </div>
   );
 }
 
@@ -800,10 +817,11 @@ export function AnnotationPanel(props: BodyProps) {
     <div
       class={cn(
         PANEL_SIDEBAR,
-        'right-0 w-[340px] border-l border-(--ds-gray-alpha-400)',
+        'right-0 border-l border-(--ds-gray-alpha-400)',
         PANEL_TRANSITION,
         visible ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none',
       )}
+      style={{ width: DOCKED_ANNOTATION_WIDTH }}
     >
       <AnnotationPanelBody {...props} />
     </div>

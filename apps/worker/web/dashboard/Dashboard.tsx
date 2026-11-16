@@ -2,12 +2,13 @@ import { Dialog } from '@base-ui/react/dialog';
 import { submitBtn } from '@ext/lib/buttons';
 import { geist } from '@ext/lib/geist';
 import { portalContainer } from '@ext/lib/portal';
-import { shareUrl } from '@ext/lib/share';
 import { useCopyToClipboard } from '@ext/lib/useCopy';
-import { cn, DAY_SECONDS, deletionDeadline, type OwnedLink } from '@marklayer/types';
+import { displayHost, shareUrl } from '@marklayer/brand/links';
+import { cn } from '@marklayer/ui/cn';
 import { type Signal, useSignal } from '@preact/signals';
 import { ChevronRight, Globe, LayoutGrid, Link2, List, Search, Settings2, Trash2 } from 'lucide-preact';
 import { Link } from 'wouter-preact';
+import { DAY_SECONDS, deletionDeadline, type OwnedLink } from '../../shared/accounts';
 import { CopyControl } from '../shared';
 import { APP_MEASURE } from './AppBar';
 import {
@@ -80,11 +81,7 @@ function whenText(seconds: number): string {
 
 function hostOf(url: string | null): string {
   if (!url) return 'Untitled';
-  try {
-    return new URL(url).host.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
+  return displayHost(url) ?? url;
 }
 
 /** The rest of the address. Two links into the same site are otherwise one row twice. */

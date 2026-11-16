@@ -1,4 +1,5 @@
-import { countOpen, type DrawOp, drawOpSchema, type OwnedLink } from '@marklayer/types';
+import { countOpen, type DrawOp, drawOpSchema } from '@marklayer/types/ops';
+import type { OwnedLink } from '../../shared/accounts';
 import { annotationStore, projectStore } from '../store';
 
 /** Every op that still parses; one malformed op must not zero a whole page's count. */

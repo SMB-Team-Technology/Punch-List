@@ -1,4 +1,5 @@
-import { AGENCY_NAME, AGENCY_URL, OG_IMAGE, ORIGIN } from './site';
+import { ORIGIN } from '@marklayer/brand';
+import { AGENCY_NAME, AGENCY_URL, OG_IMAGE } from './site';
 
 export type Crumb = { name: string; path?: string };
 export type QA = { q: string; a: string };

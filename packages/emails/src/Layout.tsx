@@ -1,3 +1,4 @@
+import { ORIGIN } from '@marklayer/brand';
 import { Body, Container, Head, Hr, Html, Img, Preview, Section, Text } from '@react-email/components';
 import type { ReactNode } from 'react';
 
@@ -28,7 +29,7 @@ export function Layout({ preview, children }: { preview: string; children: React
           {/* SMB Team's logo, served from this app's own origin. Where a client
               blocks remote images, the alt text stands in, set as a wordmark. */}
           <Img
-            src="https://feedback.smbteam.com/email-logo.png"
+            src={`${ORIGIN}/email-logo.png`}
             width="145"
             height="30"
             alt="SMB Team"
@@ -39,7 +40,7 @@ export function Layout({ preview, children }: { preview: string; children: React
           <Section>
             <Text className="m-0 text-[12px] leading-[18px] text-[#8f8f8f]">
               Punch List by SMB Team ·{' '}
-              <a href="https://feedback.smbteam.com" className="text-[#8f8f8f]">
+              <a href={ORIGIN} className="text-[#8f8f8f]">
                 feedback.smbteam.com
               </a>
             </Text>
