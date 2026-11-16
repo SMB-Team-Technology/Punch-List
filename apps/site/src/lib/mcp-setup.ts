@@ -1,4 +1,4 @@
-import { ORIGIN } from './site';
+import { ORIGIN } from '@marklayer/brand';
 
 /**
  * The MCP setup, one snippet per client. `/mcp` renders these as the install

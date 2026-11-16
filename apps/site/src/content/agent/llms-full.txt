@@ -38,7 +38,7 @@ Live cursors for everyone on a link, and peer-to-peer voice and video with nothi
 One link can hold up to 50 pages, switched through a tab strip.
 
 ### Export and integrations
-Copy or download every comment, reply and suggested edit as Markdown, or export the annotated page as a PNG. Comments can also be sent one way to Slack, Microsoft Teams, Discord, a JSON webhook, Linear, GitHub, Jira or Trello.
+Copy or download every comment, reply and suggested edit as Markdown. For an uploaded PDF or image, download an annotated copy: an image as a PNG at its native resolution, a PDF with the marks flattened onto its pages. Comments can also be sent one way to Slack, Microsoft Teams, Discord, a JSON webhook, Linear, GitHub, Jira or Trello.
 
 ### Retention
 A review link is deleted 90 days after it was last opened, and any view or comment resets that clock, so a review in use never expires. Links a team member has saved to their dashboard are kept until they delete them or set an expiry. Uploaded files follow the same 90-day clock.

@@ -1,12 +1,12 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../api';
 import { annotationStore } from '../store';
-import { asDb, fakeDb } from '../test-d1';
+import { fakeDb } from '../test-d1';
+import { FakeExecutionContext, fakeEnv } from '../test-env';
 import { mayStartBoards, teamDomains, teamGated } from './team';
 
 const GATED = { TEAM_EMAIL_DOMAINS: 'smbteam.com' };
 const ID = 'dsWPMrdw6EZ8jkkhxvFKS';
-const testCtx = { waitUntil: (p: Promise<unknown>) => void p, passThroughOnException: () => {} };
 const now = Math.floor(Date.now() / 1000);
 const session = (email: string) => ({ id: 'u1', email, last_seen_at: now, expires_at: now + 1000 });
 
@@ -28,10 +28,8 @@ function post({
       headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) },
       body: JSON.stringify(body),
     },
-    // biome-ignore lint/suspicious/noExplicitAny: a fake of only the bindings the route touches.
-    { DB: asDb(db), ...GATED } as any,
-    // biome-ignore lint/suspicious/noExplicitAny: ditto for the execution context.
-    testCtx as any,
+    fakeEnv({ DB: db, ...GATED }),
+    new FakeExecutionContext(),
   );
 }
 
@@ -65,8 +63,8 @@ describe('POST /{id} with the team gate on', () => {
   });
 
   test('lets a signed-in team member mint one', async () => {
-    // Lock read, access read (no row), then the session.
-    const db = fakeDb({ firstQueue: [null, null, session('pm@smbteam.com')] });
+    // The door (no row), then the session.
+    const db = fakeDb({ firstQueue: [null, session('pm@smbteam.com')] });
     const res = await post({
       path: `/${ID}`,
       body: { ops: [], url: 'https://example.com/' },
@@ -81,7 +79,7 @@ describe('POST /{id} with the team gate on', () => {
   });
 
   test('refuses someone signed in from outside the team', async () => {
-    const db = fakeDb({ firstQueue: [null, null, session('client@gmail.com')] });
+    const db = fakeDb({ firstQueue: [null, session('client@gmail.com')] });
     const res = await post({
       path: `/${ID}`,
       body: { ops: [], url: 'https://example.com/' },
@@ -93,8 +91,8 @@ describe('POST /{id} with the team gate on', () => {
   });
 
   test('lets a client add a page on the same site as the room they are in', async () => {
-    // Lock, access (no row), the source room's url, the source room's lock.
-    const db = fakeDb({ firstQueue: [null, null, { url: 'https://client.example/' }, null] });
+    // The door (no row), the source room's url, the source room's lock.
+    const db = fakeDb({ firstQueue: [null, { url: 'https://client.example/' }, null] });
     const res = await post({
       path: `/${ID}`,
       body: { ops: [], url: 'https://client.example/about', from: 'roomA' },
@@ -110,14 +108,17 @@ describe('POST /{id} with the team gate on', () => {
   });
 
   test('refuses a page on another site, even from inside a room', async () => {
-    const db = fakeDb({ firstQueue: [null, null, { url: 'https://client.example/' }, null] });
+    const db = fakeDb({ firstQueue: [null, { url: 'https://client.example/' }, null] });
     const res = await post({ path: `/${ID}`, body: { ops: [], url: 'https://elsewhere.example/', from: 'roomA' }, db });
     expect(res.status).toBe(403);
     expect(inserted(db)).toBe(false);
   });
 
   test('still takes writes to a room that already exists, from anyone', async () => {
-    const db = fakeDb({ firstQueue: [null, { access: 'edit', owner_id: null, owner_expires_at: null }] });
+    // The door finds the row, open and unprotected.
+    const db = fakeDb({
+      firstQueue: [{ password_hash: null, password_gen: 0, owner_id: null, expires_at: null, owner_expires_at: null }],
+    });
     const res = await post({ path: `/${ID}`, body: { ops: [] }, db });
     expect(res.status).toBe(200);
   });
@@ -153,11 +154,11 @@ describe('POST /p/{id} with the team gate on', () => {
 });
 
 describe('the realtime flush', () => {
-  test('never mints a room when told it may not', async () => {
+  test('never mints a room', async () => {
     // changes: 0 — no row to update, which is exactly the case the gate exists for.
     const db = fakeDb({ changes: 0 });
-    const wrote = await annotationStore(asDb(db)).putOps({ id: ID, ops: [], mayCreate: false });
-    expect(wrote).toBe(false);
+    const wrote = await annotationStore(db).putOps({ id: ID, ops: [] });
+    expect(wrote).toBe('gone');
     expect(inserted(db)).toBe(false);
   });
 });

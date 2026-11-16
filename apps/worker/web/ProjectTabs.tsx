@@ -1,22 +1,25 @@
 import { Popover } from '@base-ui/react/popover';
 import { glass } from '@ext/lib/glass';
+import { operations } from '@ext/lib/ops';
 import { portalContainer } from '@ext/lib/portal';
-import { operations, toast } from '@ext/lib/state';
-import { cn, countOpen } from '@marklayer/types';
+import { toast } from '@ext/lib/toasts';
+import { countOpen } from '@marklayer/types/ops';
+import { cn } from '@marklayer/ui/cn';
 import { ChevronDown, ChevronLeft, ChevronRight, Plus, Search, Trash2 } from 'lucide-preact';
 import { useState } from 'preact/hooks';
 import { capture } from './analytics';
-import { addProjectPage, switchPage } from './projects';
-import { isClient } from './role';
 import {
+  addProjectPage,
   currentPageIdx,
-  isReadonly,
   projectId,
   projectLoading,
   projectPages,
-  saveProject,
+  removeProjectPage,
+  switchPage,
   withScheme,
-} from './signals';
+} from './projects';
+import { isClient } from './role';
+import { isReadonly } from './viewer-state';
 
 function hostnameOf(url: string | null): string {
   if (!url) return '';
@@ -98,30 +101,11 @@ export function ProjectTabs() {
     if (!page) return;
     if (!window.confirm(`Remove "${pageLabel(page.url, i)}" from this list? Its marks and comments go with it.`))
       return;
-    projectLoading.value = true;
-    // Snapshot live ops back into the active page's cache before mutating the list
-    const snapshot = pages.map((p, j) => (j === idx ? { ...p, ops: [...operations.value] } : p));
-    const next = snapshot.filter((_, j) => j !== i);
-    projectPages.value = next;
-    // Stay on the same page, or step left if the active one went.
-    const nextIdx = i < idx ? idx - 1 : i === idx ? Math.min(idx, next.length - 1) : idx;
-    if (nextIdx !== currentPageIdx.value) {
-      currentPageIdx.value = nextIdx;
-      const navUrl = new URL(location.href);
-      if (nextIdx === 0) navUrl.searchParams.delete('page');
-      else navUrl.searchParams.set('page', String(nextIdx));
-      history.replaceState(null, '', navUrl);
-    }
-    const ok = await saveProject(
-      pid,
-      next.map((p) => p.id),
-    );
-    projectLoading.value = false;
-    if (!ok) {
+    if (!(await removeProjectPage(i))) {
       toast('Failed to remove page', { type: 'error' });
       return;
     }
-    capture('project_page_removed', { pages: next.length });
+    capture('project_page_removed', { pages: projectPages.value.length });
     toast('Page removed', { type: 'success' });
   };
 

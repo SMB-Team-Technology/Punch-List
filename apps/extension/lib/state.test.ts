@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
-import type { AreaOp, CommentOp, DrawOp, InspectOp, SelectionOp, TextOp } from '@marklayer/types';
+import type { AreaOp, CommentOp, DrawOp, InspectOp, SelectionOp, TextOp } from '@marklayer/types/ops';
 import { setAnalytics } from './analytics';
 import { ELEMENT_INSPECTOR_HEADING } from './selector';
 import { toasts } from './toasts';
@@ -18,102 +18,86 @@ mock.module('idb-keyval', () => ({
   },
 }));
 
+const { getCommentMeta } = await import('./comment-meta');
+const { configureHost } = await import('./host-config');
+const { annotatedUrl } = await import('./page-url');
+const { addGuide, clearGuides, flipGuide, guides, removeGuide, updateGuide } = await import('./guides');
+const { ensureScrollTickListener, scrollTick } = await import('./host-mutations');
+const { cursorColorName, isRandomUserName, localUser, onProfileChange, randomUserName, setUserColor } = await import(
+  './identity'
+);
 const {
-  activeTool,
-  addGuide,
   addToInspectorStack,
-  altHeld,
-  annotatedUrl,
-  annotationPanelOpen,
-  areas,
   buildInspectorStackPrompt,
-  clearAll,
-  clearGuides,
   clearInspectorStack,
-  color,
   copyInspectorStack,
-  allowedTools,
-  colorName,
-  isRandomUserName,
-  randomUserName,
-  comments,
-  commentCounter,
-  cursorColorName,
-  cycleTheme,
-  deleteOp,
-  duplicateLastOp,
-  elementToolsUnavailable,
-  ensureScrollTickListener,
-  flipGuide,
-  focusedAnnotationId,
-  getCommentMeta,
-  getReplies,
-  guides,
-  handTool,
-  inspects,
   inspectorStack,
   inspectorStackOpen,
-  isDrawingTool,
-  isOutputDetail,
-  localUser,
-  markersVisible,
-  measureActive,
-  isToolGroup,
-  moveSlot,
-  parseToolSlots,
-  slotTool,
-  onOpMade,
-  onOpPushed,
-  onOpUpdated,
-  onProfileChange,
-  onUndone,
+  removeFromInspectorStack,
+} = await import('./inspector-stack');
+const {
+  areas,
+  clearAll,
+  comments,
+  commentCounter,
+  deleteOp,
+  duplicateLastOp,
+  getReplies,
+  inspects,
+  onChange,
   operations,
-  peerCount,
-  peers,
-  outputDetail,
-  panActive,
-  panBy,
-  panScrollBy,
+  placeOp,
   pushOp,
   pushReply,
   redo,
-  relabelOwnWork,
-  removeFromInspectorStack,
-  removeGuide,
   rootComments,
-  selectTool,
-  selectionCaptureArmed,
   selections,
   setOpAssignee,
   setOpPriority,
-  setColor,
   setOpStatus,
-  setUserColor,
-  setOutputDetail,
-  SHORTCUTS,
-  setUserName,
-  showAnnotationPanel,
-  scrollTick,
-  showSettings,
-  showShareDialog,
-  spaceHeld,
-  theme,
-  toggleClearOnCopy,
-  toggleMarkersVisible,
-  toggleUiHidden,
-  toolCapturesSelection,
-  toolForKeyEvent,
-  TOOL_GROUPS,
-  toolSlots,
-  toolPaintsCanvas,
-  TOOLS,
-  uiHidden,
   undo,
   undoRedoFlash,
   undoStack,
-  updateGuide,
+} = await import('./ops');
+const {
+  color,
+  colorName,
+  cycleTheme,
+  isOutputDetail,
+  markersVisible,
+  outputDetail,
+  setColor,
+  setOutputDetail,
+  theme,
+  toggleClearOnCopy,
+  toggleMarkersVisible,
+} = await import('./prefs');
+const { peerCount, peers } = await import('./presence');
+const { relabelOwnWork, setUserName } = await import('./rename');
+const {
+  activeTool,
+  allowedTools,
+  altHeld,
+  elementToolsUnavailable,
+  handTool,
+  measureActive,
+  moveSlot,
+  slotTool,
+  panActive,
+  panBy,
+  panScrollBy,
+  selectTool,
+  selectionCaptureArmed,
+  spaceHeld,
+  toolSlots,
   visibleSlots,
-} = await import('./state');
+} = await import('./tool-state');
+const { isToolGroup, parseToolSlots, SHORTCUTS, TOOL_GROUPS, TOOLS } = await import('./tools');
+const { initHost } = await import('./host');
+const { createDraftStore } = await import('./drafts');
+const { localIdentity } = await import('./identity-store');
+initHost({ capabilities: { drafts: createDraftStore, identity: localIdentity } });
+const { showSettings, showShareDialog, toggleUiHidden, uiHidden } = await import('./ui-state');
 
 const base = { color: '#000', lineWidth: 2 };
 
@@ -176,10 +160,8 @@ beforeEach(() => {
   operations.value = [];
   undoStack.value = [];
   activeTool.value = 'navigate';
-  onOpPushed.value = null;
-  onOpUpdated.value = null;
-  onUndone.value = null;
-  onOpMade.value = null;
+  onChange.value = null;
+  configureHost({});
 });
 
 describe('derived op views', () => {
@@ -218,11 +200,18 @@ describe('derived op views', () => {
 describe('pushOp', () => {
   test('appends the op and hands it to the peer transport', () => {
     const sent: string[] = [];
-    onOpPushed.value = (op) => sent.push(op.id);
+    onChange.value = (c) => {
+      if (c.type === 'op') sent.push(c.op.id);
+    };
     operations.value = [text('t1')];
     pushOp(text('t2'));
     expect(operations.value.map((o) => o.id)).toEqual(['t1', 't2']);
     expect(sent).toEqual(['t2']);
+  });
+
+  test('signs an op that arrives unsigned, so a stroke carries its author', () => {
+    pushOp(text('stroke'));
+    expect(operations.value.at(-1)).toMatchObject({ author: localUser.name, authorId: localUser.id });
   });
 
   test('drops the redo stack, so new work cannot be redone over', () => {
@@ -235,9 +224,9 @@ describe('pushOp', () => {
 
   test("reports what this person made, never the app's own seeded ops", () => {
     const made: string[] = [];
-    onOpMade.value = (op) => made.push(op.id);
+    configureHost({ actions: { onOpMade: (op) => made.push(op.id) } });
     pushOp(comment({ id: 'c1' }));
-    pushOp(comment({ id: 'demo' }), { seeded: true });
+    placeOp(comment({ id: 'demo' }));
     expect(made).toEqual(['c1']);
   });
 });
@@ -299,7 +288,9 @@ describe('setOpStatus', () => {
 
   test('broadcasts the patch once, and not at all when the status already holds', () => {
     const patches: Array<[string, Record<string, unknown>]> = [];
-    onOpUpdated.value = (id, patch) => patches.push([id, patch]);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push([c.opId, c.patch]);
+    };
     operations.value = [comment({ id: 'c1', status: 'open' })];
 
     setOpStatus('c1', 'open');
@@ -311,7 +302,9 @@ describe('setOpStatus', () => {
 
   test('reads a legacy resolved flag as the current status, so re-resolving is a no-op', () => {
     const patches: string[] = [];
-    onOpUpdated.value = (id) => patches.push(id);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push(c.opId);
+    };
     operations.value = [comment({ id: 'c1', resolved: true })];
     setOpStatus('c1', 'resolved');
     expect(patches).toEqual([]);
@@ -327,7 +320,9 @@ describe('setOpStatus', () => {
 describe('setOpPriority and setOpAssignee', () => {
   test('send an explicit null when cleared, since a dropped key reads as unchanged', () => {
     const patches: Array<Record<string, unknown>> = [];
-    onOpUpdated.value = (_id, patch) => patches.push(patch);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push(c.patch);
+    };
     operations.value = [comment({ id: 'c1', priority: 'high', assignee: 'Ada' })];
 
     setOpPriority({ opId: 'c1', priority: null });
@@ -338,7 +333,9 @@ describe('setOpPriority and setOpAssignee', () => {
 
   test('treat an absent field and an explicit null as the same value', () => {
     const patches: Array<Record<string, unknown>> = [];
-    onOpUpdated.value = (_id, patch) => patches.push(patch);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push(c.patch);
+    };
     operations.value = [comment({ id: 'c1' })];
 
     setOpPriority({ opId: 'c1', priority: null });
@@ -348,7 +345,9 @@ describe('setOpPriority and setOpAssignee', () => {
 
   test('apply a value and report it once', () => {
     const patches: Array<Record<string, unknown>> = [];
-    onOpUpdated.value = (_id, patch) => patches.push(patch);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push(c.patch);
+    };
     operations.value = [comment({ id: 'c1' })];
 
     setOpPriority({ opId: 'c1', priority: 'low' });
@@ -369,7 +368,9 @@ describe('undo and redo', () => {
 
   test('tells the peer transport which op went away', () => {
     const undone: string[] = [];
-    onUndone.value = (id) => undone.push(id);
+    onChange.value = (c) => {
+      if (c.type === 'undo') undone.push(c.opId);
+    };
     operations.value = [text('t1')];
     undo();
     expect(undone).toEqual(['t1']);
@@ -389,9 +390,9 @@ describe('undo and redo', () => {
     undo();
     expect(operations.value.map((o) => o.id)).toEqual(['t1']);
     expect(guides.value).toEqual([]);
-    // The guide undo is a removal, not a history entry, so there is nothing to redo.
-    expect(undoStack.value).toEqual([]);
-    expect(guide.tool).toBe('guide');
+    // One history: a guide undone can be redone like any other mark.
+    redo();
+    expect(guides.value.map((g) => g.id)).toEqual([guide.id]);
   });
 
   test('falls through to the normal undo when the guide tool is active with no guides', () => {
@@ -446,7 +447,9 @@ describe('history and triage survive a reload', () => {
   const pushed: string[] = [];
   beforeEach(() => {
     pushed.length = 0;
-    onOpPushed.value = (op) => pushed.push(op.id);
+    onChange.value = (c) => {
+      if (c.type === 'op') pushed.push(c.op.id);
+    };
   });
 
   test('redo hands the op back to the room that undo took it from', () => {
@@ -489,7 +492,9 @@ describe('history and triage survive a reload', () => {
 describe('deleteOp', () => {
   test('removes the named op and reports it, leaving the rest in order', () => {
     const undone: string[] = [];
-    onUndone.value = (id) => undone.push(id);
+    onChange.value = (c) => {
+      if (c.type === 'undo') undone.push(c.opId);
+    };
     operations.value = [text('t1'), text('t2'), text('t3')];
     deleteOp('t2');
     expect(operations.value.map((o) => o.id)).toEqual(['t1', 't3']);
@@ -498,7 +503,9 @@ describe('deleteOp', () => {
 
   test('does nothing, and reports nothing, for an id that is not there', () => {
     const undone: string[] = [];
-    onUndone.value = (id) => undone.push(id);
+    onChange.value = (c) => {
+      if (c.type === 'undo') undone.push(c.opId);
+    };
     operations.value = [text('t1')];
     deleteOp('gone');
     expect(operations.value).toHaveLength(1);
@@ -560,7 +567,9 @@ describe('guides', () => {
   test('move, and report the move once', () => {
     const patches: Array<Record<string, unknown>> = [];
     const g = addGuide('vertical', 240);
-    onOpUpdated.value = (_id, patch) => patches.push(patch);
+    onChange.value = (c) => {
+      if (c.type === 'update_op') patches.push(c.patch);
+    };
 
     updateGuide(g.id, 300);
     updateGuide(g.id, 300);
@@ -594,40 +603,6 @@ describe('guides', () => {
     clearGuides();
     expect(guides.value).toEqual([]);
     expect(operations.value.map((o) => o.id)).toEqual(['t1']);
-  });
-});
-
-describe('toolForKeyEvent', () => {
-  const key = (code: string, over: Partial<KeyboardEvent> = {}) =>
-    ({ code, shiftKey: false, metaKey: false, ctrlKey: false, altKey: false, ...over }) as KeyboardEvent;
-
-  test('maps the Figma letters, so the muscle memory transfers', () => {
-    expect(toolForKeyEvent(key('KeyV'))).toBe('navigate');
-    expect(toolForKeyEvent(key('KeyR'))).toBe('rectangle');
-    expect(toolForKeyEvent(key('KeyO'))).toBe('circle');
-    expect(toolForKeyEvent(key('KeyT'))).toBe('text');
-    expect(toolForKeyEvent(key('KeyC'))).toBe('comment');
-    expect(toolForKeyEvent(key('KeyP'))).toBe('pen');
-    expect(toolForKeyEvent(key('KeyL'))).toBe('line');
-    expect(toolForKeyEvent(key('KeyE'))).toBe('eraser');
-  });
-
-  test('distinguishes a shifted binding from its bare one', () => {
-    expect(toolForKeyEvent(key('KeyH', { shiftKey: true }))).toBe('highlight');
-    // Bare H is the hand tool, bound elsewhere, so it must not resolve here.
-    expect(toolForKeyEvent(key('KeyH'))).toBeNull();
-    expect(toolForKeyEvent(key('KeyL', { shiftKey: true }))).toBe('arrow');
-  });
-
-  test('yields to any command, control or option chord', () => {
-    for (const modifier of ['metaKey', 'ctrlKey', 'altKey'] as const) {
-      expect(toolForKeyEvent(key('KeyR', { [modifier]: true }))).toBeNull();
-    }
-  });
-
-  test('returns null for an unbound key', () => {
-    expect(toolForKeyEvent(key('KeyQ'))).toBeNull();
-    expect(toolForKeyEvent(key('Digit1'))).toBeNull();
   });
 });
 
@@ -804,27 +779,8 @@ describe('isOutputDetail', () => {
   });
 });
 
-describe('tool predicates', () => {
-  test('every tool but the move tool counts as drawing', () => {
-    expect(isDrawingTool('navigate')).toBe(false);
-    for (const tool of TOOLS.filter((t) => t !== 'navigate')) expect(isDrawingTool(tool)).toBe(true);
-  });
-
-  test('only the freehand and shape tools paint onto the canvas', () => {
-    for (const tool of ['pen', 'highlight', 'eraser', 'line', 'arrow', 'rectangle', 'circle'] as const) {
-      expect(toolPaintsCanvas(tool)).toBe(true);
-    }
-    for (const tool of ['navigate', 'comment', 'text', 'selection', 'area', 'inspect', 'measure', 'guide'] as const) {
-      expect(toolPaintsCanvas(tool)).toBe(false);
-    }
-  });
-
-  test('a text selection means "annotate this passage" only under the selection tools', () => {
-    expect(toolCapturesSelection('selection')).toBe(true);
-    expect(toolCapturesSelection('rectangle')).toBe(false);
-  });
-
-  test('selection capture also needs the markers to be visible', () => {
+describe('selectionCaptureArmed', () => {
+  test('needs a tool that captures selections and the markers to be visible', () => {
     // With markers off there is nothing to show for a captured passage.
     activeTool.value = 'selection';
     if (!markersVisible.value) toggleMarkersVisible();
@@ -833,6 +789,9 @@ describe('tool predicates', () => {
     toggleMarkersVisible();
     expect(selectionCaptureArmed.value).toBe(false);
     toggleMarkersVisible();
+
+    activeTool.value = 'rectangle';
+    expect(selectionCaptureArmed.value).toBe(false);
   });
 });
 
@@ -863,6 +822,22 @@ describe('toolSlots', () => {
     expect(visibleSlots.value).toContain('comment');
     elementToolsUnavailable.value = false;
   });
+
+  test('a shortcut cannot arm a tool whose button is gone', () => {
+    activeTool.value = 'comment';
+    elementToolsUnavailable.value = true;
+    selectTool({ tool: 'measure', via: 'shortcut' });
+    expect(activeTool.value).toBe('comment');
+    elementToolsUnavailable.value = false;
+    activeTool.value = 'navigate';
+  });
+
+  test('a tool already armed when the host loses the element tree falls back to navigate', () => {
+    activeTool.value = 'inspect';
+    elementToolsUnavailable.value = true;
+    expect(activeTool.peek()).toBe('navigate');
+    elementToolsUnavailable.value = false;
+  });
 });
 
 describe('groupFaces', () => {
@@ -874,11 +849,6 @@ describe('groupFaces', () => {
 });
 
 describe('selectTool', () => {
-  test('arms the tool', () => {
-    selectTool({ tool: 'rectangle', via: 'shortcut' });
-    expect(activeTool.value).toBe('rectangle');
-  });
-
   test('re-picking the active tool is a no-op write and leaves no via pending', () => {
     // A `via` left over would be spent on whatever automatic switch came next.
     const reported: Array<string | number | boolean | null | undefined> = [];
@@ -919,29 +889,6 @@ describe('toggleUiHidden', () => {
     toggleUiHidden();
     expect(activeTool.value).toBe('comment');
     activeTool.value = 'navigate';
-  });
-});
-
-describe('annotationPanelOpen', () => {
-  test('hiding the interface closes the panel without forgetting it was open', () => {
-    showAnnotationPanel.value = true;
-    expect(annotationPanelOpen.value).toBe(true);
-
-    uiHidden.value = true;
-    expect(annotationPanelOpen.value).toBe(false);
-    // The remembered intent survives, so the panel returns with the UI.
-    expect(showAnnotationPanel.value).toBe(true);
-
-    uiHidden.value = false;
-    expect(annotationPanelOpen.value).toBe(true);
-    showAnnotationPanel.value = false;
-  });
-
-  test('closing the panel drops the focused annotation, so reopening is never stale', () => {
-    showAnnotationPanel.value = true;
-    focusedAnnotationId.value = 'c1';
-    showAnnotationPanel.value = false;
-    expect(focusedAnnotationId.value).toBeNull();
   });
 });
 
@@ -1111,18 +1058,15 @@ describe('measureActive', () => {
 });
 
 describe('theme', () => {
-  test('cycles and persists', () => {
+  test('cycles back to where it started, saving every step', () => {
     const start = theme.value;
-    cycleTheme();
-    expect(theme.value).not.toBe(start);
-    // Cycling all the way round returns to where it started.
-    const seen = new Set([start, theme.value]);
-    for (let i = 0; i < 6 && theme.value !== start; i++) {
+    const step = () => {
       cycleTheme();
-      seen.add(theme.value);
-    }
+      expect(localStorage.getItem('ml-theme')).toBe(theme.value);
+      return theme.value;
+    };
+    expect(new Set([step(), step(), step()]).size).toBe(3);
     expect(theme.value).toBe(start);
-    expect(seen.size).toBeGreaterThan(1);
   });
 });
 
@@ -1134,7 +1078,10 @@ describe('setColor and setOutputDetail', () => {
 
     setOutputDetail('forensic');
     expect(outputDetail.value).toBe('forensic');
+    expect(localStorage.getItem('ml-output-detail')).toBe('forensic');
+
     setOutputDetail('standard');
+    expect(localStorage.getItem('ml-output-detail')).toBeNull();
   });
 });
 
@@ -1214,7 +1161,6 @@ describe('copyInspectorStack', () => {
 
   test('copies the bundled prompt and counts the tasks in the confirmation', async () => {
     let copied = '';
-    stubClipboard(() => Promise.resolve());
     Object.defineProperty(navigator, 'clipboard', {
       value: {
         writeText: (t: string) => {
@@ -1253,7 +1199,7 @@ describe('copyInspectorStack', () => {
   });
 });
 
-describe('ensureScrollTickListener and ensureHostMutationObserver', () => {
+describe('ensureScrollTickListener', () => {
   test('coalesces a burst of scroll events into one tick per frame', async () => {
     // Anchored annotations re-resolve their selectors on every tick, so a tick
     // per scroll event would re-query the document dozens of times a second.

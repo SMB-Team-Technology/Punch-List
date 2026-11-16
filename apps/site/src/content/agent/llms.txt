@@ -25,7 +25,7 @@ Punch List is built on MarkLayer (https://github.com/thevrus/MarkLayer), open so
 - PDFs and images can be reviewed the same way as a page
 - Live cursors, plus voice and video between the people on a link
 - Multi-page projects: one link can hold up to 50 pages
-- Export every comment as Markdown, or the annotated page as a PNG
+- Export every comment as Markdown; for an uploaded PDF or image, download the file with the comments and marks flattened onto it
 
 ## For AI coding agents (MCP)
 

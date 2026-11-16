@@ -3,6 +3,7 @@ import geminiSvg from '@lobehub/icons-static-svg/icons/gemini.svg?raw';
 import grokSvg from '@lobehub/icons-static-svg/icons/grok.svg?raw';
 import openaiSvg from '@lobehub/icons-static-svg/icons/openai.svg?raw';
 import perplexitySvg from '@lobehub/icons-static-svg/icons/perplexity.svg?raw';
+import { HOW_IT_WORKS_PATH } from '@marklayer/brand/mark';
 import { CMS_URL, REPO_URL } from './site';
 
 /**
@@ -31,15 +32,12 @@ export interface FooterColumn {
   links: FooterLink[];
 }
 
-/** Mirrors `HOW_IT_WORKS_PATH` in apps/extension/lib/share.ts, which apps/site cannot import. */
-const HELP = '/help';
-
 export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     heading: 'Punch List',
     links: [
       { href: '/', label: 'Home' },
-      { href: HELP, label: 'Help' },
+      { href: HOW_IT_WORKS_PATH, label: 'Help' },
       { href: '/mcp', label: 'MCP for AI agents' },
     ],
   },

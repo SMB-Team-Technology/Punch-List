@@ -2,11 +2,12 @@
 /**
  * The Punch List mark: a green check in a navy tile.
  *
- * The same artwork the app's own `Logo` draws from apps/worker/src/brand.ts,
- * which this file cannot import (separate build, no dependency on that
- * workspace), so it is copied here; change one and change the other. The two
- * colours are the site's own `--color-brand-navy` / `--color-brand-green`.
+ * The geometry is packages/brand's (`mark.ts`), the same the app and the OG
+ * cards draw; the colours are the site's own `--color-brand-navy` /
+ * `--color-brand-green`.
  */
+import { MARK_CHECK, MARK_CHECK_WIDTH, MARK_TILE_RADIUS } from '@marklayer/brand/mark';
+
 interface Props {
   /** Rendered box in px; the artwork is square. */
   size?: number;
@@ -18,10 +19,10 @@ const { size = 34, class: className } = Astro.props;
 
 <svg width={size} height={size} viewBox="0 0 512 512" fill="none" aria-hidden="true" class={className}>
   {/* `style`, not a `fill` attribute: `var()` resolves in a CSS declaration and is ignored in a presentation attribute. */}
-  <rect width="512" height="512" rx="112" style="fill: var(--color-brand-navy)"></rect>
+  <rect width="512" height="512" rx={MARK_TILE_RADIUS} style="fill: var(--color-brand-navy)"></rect>
   <path
-    d="M144 266 L222 344 L370 178"
-    stroke-width="60"
+    d={MARK_CHECK}
+    stroke-width={MARK_CHECK_WIDTH}
     stroke-linecap="round"
     stroke-linejoin="round"
     style="stroke: var(--color-brand-green)"></path>

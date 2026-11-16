@@ -1,7 +1,7 @@
+import { ORIGIN } from '@marklayer/brand';
 import type { APIRoute } from 'astro';
 import { AGENT_TOOL_GROUPS } from '../lib/agent-tools';
 import { MCP_CLIENTS, MCP_HABIT, MCP_PROMPTS, ROOM_MCP_URL } from '../lib/mcp-setup';
-import { ORIGIN } from '../lib/site';
 
 /**
  * The MCP setup as plain text, for an agent to read and act on. Prerendered to

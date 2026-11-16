@@ -1,4 +1,4 @@
-import { BRAND, MARK_CHECK, MARK_CHECK_WIDTH, MARK_TILE_RADIUS } from './brand';
+import { BRAND, MARK_CHECK, MARK_CHECK_WIDTH, MARK_TILE_RADIUS } from '@marklayer/brand/mark';
 
 export function escapeXml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');

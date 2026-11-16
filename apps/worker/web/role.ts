@@ -1,7 +1,7 @@
-import { allowedTools } from '@ext/lib/state';
-import { sessionResponseSchema } from '@marklayer/types';
+import { allowedTools } from '@ext/lib/tool-state';
 import { computed, signal } from '@preact/signals';
-import { PHONE_TOOLS } from './signals';
+import { sessionResponseSchema } from '../shared/accounts';
+import { PHONE_TOOLS } from './viewer-state';
 
 /** A client moves around and comments — the same two tools a phone gets. */
 const CLIENT_TOOLS = PHONE_TOOLS.map((t) => t.tool);

@@ -1,12 +1,13 @@
 // @ts-check
 
 import { unified } from '@astrojs/markdown-remark';
+import { ORIGIN } from '@marklayer/brand';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'astro/config';
 import rehypeExternalLinks from 'rehype-external-links';
 import { rehypeCodeBlocks } from './src/lib/rehype-code-blocks.mjs';
 import { rehypeScrollTables } from './src/lib/rehype-scroll-tables.mjs';
-import { ORIGIN, WORKER_DEV } from './src/lib/site';
+import { WORKER_DEV } from './src/lib/site';
 
 export default defineConfig({
   site: ORIGIN,
